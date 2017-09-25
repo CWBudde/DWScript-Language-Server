@@ -70,15 +70,38 @@
 			}]
 		},
 		"strings": {
-			"name": "string.quoted.double.dwscript",
-			"begin": "\"",
-			"end": "\"",
-			"patterns": [
-				{
-					"name": "constant.character.escape.dwscript",
-					"match": "\"\""
-				}
-			]
+			"patterns": [{
+  			"name": "string.quoted.double.dwscript",
+  			"begin": "\"",
+  			"end": "\"",
+				"captures": {
+					"0": {
+						"name": "string.quoted.double.dwscript"
+					}
+				},
+  			"patterns": [
+  				{
+  					"name": "constant.character.escape.quote.dwscript",
+  					"match": "\"\""
+  				}
+  			]
+      },
+      {
+  			"name": "string.quoted.single.dwscript",
+  			"begin": "'",
+  			"end": "(?i:('|\\n))",
+				"captures": {
+					"0": {
+						"name": "string.quoted.single.dwscript"
+					}
+				},
+  			"patterns": [
+  				{
+  					"name": "constant.character.escape.apostrophe.dwscript",
+  					"match": "''"
+  				}
+  			]
+      }]
 		},
 		"types": {
 			"patterns": [{
