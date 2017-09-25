@@ -1,0 +1,48 @@
+{
+	"name": "dws-vscode",
+	"displayName": "dws-vscode",
+	"description": "DWScript Language Server",
+	"author": "Christian-W. Budde",
+	"license": "GPL v3",
+	"version": "0.0.1",
+	"publisher": "Unpublished",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/CWBudde/DWScript-Language-Server"
+	},
+	"engines": {
+		"vscode": "^1.16.0"
+	},
+	"categories": [
+		 "Languages"
+	],
+	"activationEvents": [
+		"onLanguage:dwscript"
+	],
+	"main": "./out/src/extension",
+	"contributes": {
+		"configuration": {
+			"type": "object",
+			"title": "DWScript configuration",
+            "properties": {
+                "dwsls.path": {
+                    "type": "string",
+                    "default": "dwsls",
+                    "description": "The path to dwsls executable"
+                }
+			}
+		}
+	},
+	"scripts": {
+		"vscode:prepublish": "tsc -p ./",
+		"compile": "tsc -p ./",
+		"watch": "tsc -w -p ./",
+		"update-vscode": "node ./node_modules/vscode/bin/install",
+		"postinstall": "node ./node_modules/vscode/bin/install"
+	},
+	"dependencies": {
+		"vscode": "^1.1.5",
+		"vscode-languageclient": "^3.4.2",
+        "vscode-languageserver": "^3.4.2"
+	}
+}
