@@ -1,0 +1,92 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "DWScript",
+	"fileTypes": [
+		"dws"
+	],
+	"patterns": [{
+			"include": "#comments"
+		},
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#numeric"
+		},
+		{
+			"include": "#strings"
+		},
+		{
+			"include": "#types"
+		}
+	],
+	"repository": {
+		"comments": {
+			"patterns": [
+				{
+					"name": "comment.line.character.dwscript",
+					"match": "(\/{2})(.*)$"
+				},
+				{
+					"name": "comment.block.dwscript",
+					"begin": "\\(\\*",
+					"beginCaptures": {
+						"0": {
+							"name": "punctuation.definition.comment.dwscript"
+						}
+					},
+					"end": "\\*\\)",
+					"endCaptures": {
+						"0": {
+							"name": "punctuation.definition.comment.dwscript"
+						}
+					}
+				}
+			]
+		},
+		"keywords": {
+			"patterns": [{
+					"name": "keyword.dwscript",
+					"match": "\\b(?i:(CLASS|FOR|IF|INTERFACE|OBJECT|UNTIL|WHILE|WITH))\\b"
+				},
+				{
+					"name": "keyword.dwscript",
+					"match": "\\b(?<!\\.)(?i:(ABSOLUTE|ABSTRACT|div|mod|not|and|or|xor|shl|shr|is|as|ARRAY|ASM|BEGIN|CASE|CONST|DEFAULT|DISPID|DO|DOWNTO|ELSE|END|EXCEPT|EXPORTS|EXTERNAL|FINALLY|FINALIZATION|FORWARD|HELPER|IF|IMPLEMENTATION|IMPLEMENTS|IN|INDEX|INHERITED|INITIALIZATION|INLINE|OF|ON|OPERATOR|OUT|OVERLOAD|OVERRIDE|PRIVATE|PROGRAM|PROPERTY|PROTECTED|PUBLIC|PUBLISHED|READ|RECORD|REINTRODUCE|REPEAT|RESOURCESTRING|SET|STATIC|STRICT|THEN|TO|TRY|TYPE|UNIT|USES|VAR|VIRTUAL|WRITE))\\b(?![\\<\\\/(])"
+				},
+				{
+					"name": "keyword.control.dwscript",
+					"match": "\\b(?<!\\.)(?i:(exit|continue|break))\\b"
+				},
+				{
+					"name": "keyword.operator.dwscript",
+					"match": "\\b(?i:(\\=|\\>|\\<|\\!|\\~|\\?|\\:|\\+|\\-|\\*|\\/|\\&\\^|\\@|\\:\\=))\\b"
+				}
+			]
+		},
+		"numeric": {
+			"patterns": [{
+				"name": "constant.numeric.dwscript",
+				"match": "\\b((0(x|X)[0-9a-fA-F]*)|(([0-9]+\\.?[0-9]*)|(\\.[0-9]+))((e|E)(\\+|-)?[0-9]+)?)(L|l|UL|ul|u|U|F|f|ll|LL|ull|ULL)?\\b"
+			}]
+		},
+		"strings": {
+			"name": "string.quoted.double.dwscript",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [
+				{
+					"name": "constant.character.escape.dwscript",
+					"match": "\"\""
+				}
+			]
+		},
+		"types": {
+			"patterns": [{
+				"name": "storage.type.dwscript",
+				"match": "\\b(?i:(string|boolean|float|integer))\\b"
+			}]
+		}
+	},
+	"scopeName": "source.dwscript",
+	"uuid": "0F537175-89D7-42E7-AA90-57CF949C599D"
+}
