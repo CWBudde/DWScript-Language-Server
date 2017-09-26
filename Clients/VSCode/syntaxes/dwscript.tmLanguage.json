@@ -11,6 +11,9 @@
 			"include": "#comments"
 		},
 		{
+			"include": "#functions"
+		},
+		{
 			"include": "#keywords"
 		},
 		{
@@ -24,6 +27,12 @@
 		}
 	],
 	"repository": {
+		"boolean": {
+			"patterns": [{
+				"name": "constant.boolean.dwscript",
+				"match": "\\b(?i:(TRUE|FALSE))\\b"
+			}]
+		},
 		"comments": {
 			"patterns": [
 				{
@@ -47,6 +56,25 @@
 				}
 			]
 		},
+		"functions": {
+			"patterns": [
+				{
+					"name": "entity.name.function",
+					"begin": "\\b(?i:(CONSTRUCTOR|DESTRUCTOR|FUNCTION|METHOD|PROCEDURE))\\b",
+					"beginCaptures": {
+						"0": {
+							"name": "storage.type.function.dwscript"
+						}
+					},
+					"end": ";",
+					"endCaptures": {
+						"0": {
+							"name": "punctuation.terminator.statement.dwscript"
+						}
+					}
+				}
+			]
+    },
 		"keywords": {
 			"patterns": [{
 					"name": "keyword.control.flow.dwscript",
@@ -55,10 +83,6 @@
 				{
 					"name": "keyword.control.flow.dwscript",
 					"match": "\\b(?i:(BREAK|CONTINUE|EXIT))\\b"
-				},
-				{
-					"name": "keyword.control.flow.dwscript",
-					"match": "\\b(?i:(CONSTRUCTOR|DESTRUCTOR|FUNCTION|METHOD|PROCEDURE))\\b"
 				},
 				{
 					"name": "keyword.dwscript",
@@ -105,11 +129,13 @@
 				"match": "((\\$([A-Fa-f0-9]*))|(\\b(([0-9]+\\.?[0-9]*))|(\\b(\\.[0-9]+))((e|E)(\\+|-)?[0-9]+)?))\\b"
 			}]                 
 		},
-		"boolean": {
-			"patterns": [{
-				"name": "constant.boolean.dwscript",
-				"match": "\\b(?i:(TRUE|FALSE))\\b"
-			}]
+		"punctuation-comma": {
+			"name": "punctuation.separator.comma.dwscript",
+			"match": ","
+		},
+		"punctuation-semicolon": {
+			"name": "punctuation.terminator.statement.dwscript",
+			"match": ";"
 		},
 		"strings": {
 			"patterns": [{
