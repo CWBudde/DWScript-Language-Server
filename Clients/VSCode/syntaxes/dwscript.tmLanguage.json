@@ -5,6 +5,9 @@
 		"dws"
 	],
 	"patterns": [{
+			"include": "#boolean"
+		},
+		{
 			"include": "#comments"
 		},
 		{
@@ -46,27 +49,62 @@
 		},
 		"keywords": {
 			"patterns": [{
-					"name": "keyword.dwscript",
-					"match": "\\b(?i:(CLASS|FOR|IF|INTERFACE|OBJECT|UNTIL|WHILE|WITH))\\b"
+					"name": "keyword.control.flow.dwscript",
+					"match": "\\b(?i:(CASE|DO|DOWNTO|ELSE|EXCEPT|FINALLY|FOR|IF|REPEAT|SWITCH|THEN|TO|TRY|UNTIL|WHILE))\\b"
+				},
+				{
+					"name": "keyword.control.flow.dwscript",
+					"match": "\\b(?i:(BREAK|CONTINUE|EXIT))\\b"
 				},
 				{
 					"name": "keyword.dwscript",
-					"match": "\\b(?<!\\.)(?i:(ABSOLUTE|ABSTRACT|div|mod|not|and|or|xor|shl|shr|is|as|ARRAY|ASM|BEGIN|CASE|CONST|DEFAULT|DISPID|DO|DOWNTO|ELSE|END|EXCEPT|EXPORTS|EXTERNAL|FINALLY|FINALIZATION|FORWARD|HELPER|IF|IMPLEMENTATION|IMPLEMENTS|IN|INDEX|INHERITED|INITIALIZATION|INLINE|OF|ON|OPERATOR|OUT|OVERLOAD|OVERRIDE|PRIVATE|PROGRAM|PROPERTY|PROTECTED|PUBLIC|PUBLISHED|READ|RECORD|REINTRODUCE|REPEAT|RESOURCESTRING|SET|STATIC|STRICT|THEN|TO|TRY|TYPE|UNIT|USES|VAR|VIRTUAL|WRITE))\\b(?![\\<\\\/(])"
+					"match": "\\b(?i:(CLASS|INTERFACE|OBJECT|HELPER))\\b"
 				},
 				{
-					"name": "keyword.control.dwscript",
-					"match": "\\b(?<!\\.)(?i:(exit|continue|break))\\b"
+					"name": "keyword.groupung.dwscript",
+					"match": "\\b(?i:(EMPTY|FINALIZATION|INITIALIZATION|INTERFACE|IMPLEMENTATION|PROGRAM|LIBRARY|RESOURCESTRING|UNIT))\\b"
+				},
+				{
+					"name": "keyword.structure.dwscript",
+					"match": "\\b(?<!\\.)(?i:(ABSTRACT|DEFAULT|FINAL|INDEX|OVERLOAD|OVERRIDE|PARTIAL|PRIVATE|PROPERTY|PROTECTED|PUBLIC|PUBLISHED|READ|REINTRODUCE|SEALED|VIRTUAL|WRITE))\\b(?![\\<\\\/(])"
+				},
+				{
+					"name": "keyword.dwscript",
+					"match": "\\b(?<!\\.)(?i:(ARRAY|ASM|CONST|DEPRECATED|ENSURE|ENUM|EXPORT|EXTERNAL|FLAGS|FORWARD|IMPLEMENTS|IMPLICIT|IMPLIES|INHERITED|INLINE|INVARIANTS|LAMBDA|LAZY|NAMESPACE|NEW|NIL|OF|OLD|ON|OPERATOR|RAISE|RECORD|REQUIRE|SET|STATIC|STRICT|TYPE|USES|VAR))\\b(?![\\<\\\/(])"
+				},
+				{
+					"name": "keyword.dwscript",
+					"match": "\\b(?i:(BEGIN|END))\\b"
 				},
 				{
 					"name": "keyword.operator.dwscript",
-					"match": "\\b(?i:(\\=|\\>|\\<|\\!|\\~|\\?|\\:|\\+|\\-|\\*|\\/|\\&\\^|\\@|\\:\\=))\\b"
+					"match": "\\b(?i:(AS|DIV|MOD|SAR|SHL|SHR))\\b"
+				},
+				{
+					"name": "keyword.operator.logical.dwscript",
+					"comment": "keyword operators that evaluate to True or False",
+					"match": "\\b(?i:(AND|IN|IS|NOT|OR|XOR))\\b"
+				},
+				{
+					"name": "keyword.operator.assignment.dwscript",
+					"match": "\\:\\=|\\^\\=|\\\/\\=|\\-\\=|\\%\\=|\\+\\=|\\~\\=|\\*\\="
+				},
+				{
+					"name": "keyword.operator.dwscript",
+					"match": "\\&|\\&\\&|\\@|\\@\\=|\\^|\\:|\\\/|\\=|\\=\\>|\\!|\\>|\\>\\=|\\>\\>|\\<|\\<\\=|\\<\\<|\\-|\\<\\>|\\%|\\||\\|\\||\\+|\\?|\\?\\.|\\?\\?|\\~|\\*"
 				}
 			]
 		},
 		"numeric": {
 			"patterns": [{
 				"name": "constant.numeric.dwscript",
-				"match": "\\b((0(x|X)[0-9a-fA-F]*)|(([0-9]+\\.?[0-9]*)|(\\.[0-9]+))((e|E)(\\+|-)?[0-9]+)?)(L|l|UL|ul|u|U|F|f|ll|LL|ull|ULL)?\\b"
+				"match": "((\\$([A-Fa-f0-9]*))|(\\b(([0-9]+\\.?[0-9]*))|(\\b(\\.[0-9]+))((e|E)(\\+|-)?[0-9]+)?))\\b"
+			}]                 
+		},
+		"boolean": {
+			"patterns": [{
+				"name": "constant.boolean.dwscript",
+				"match": "\\b(?i:(TRUE|FALSE))\\b"
 			}]
 		},
 		"strings": {
