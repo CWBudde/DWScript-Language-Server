@@ -57,6 +57,10 @@
 					"match": "\\b(?i:(BREAK|CONTINUE|EXIT))\\b"
 				},
 				{
+					"name": "keyword.control.flow.dwscript",
+					"match": "\\b(?i:(CONSTRUCTOR|DESTRUCTOR|FUNCTION|METHOD|PROCEDURE))\\b"
+				},
+				{
 					"name": "keyword.dwscript",
 					"match": "\\b(?i:(CLASS|INTERFACE|OBJECT|HELPER))\\b"
 				},
