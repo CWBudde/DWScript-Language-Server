@@ -15,6 +15,7 @@
 	},
 	"categories": [
 		"Languages",
+		"Snippets",
 		"Linters",
 		"Other"
 	],
@@ -37,7 +38,7 @@
 				"extensions": [
 					".dws"
 				],
-				"configuration": "./language-configuration.json"
+				"configuration": "./dwscript-configuration.json"
 			}
 		],
 		"grammars": [
@@ -45,6 +46,12 @@
 				"language": "dwscript",
 				"scopeName": "source.dwscript",
 				"path": "./syntaxes/dwscript.tmLanguage.json"
+			}
+		],
+		"snippets": [
+			{
+				"language": "dwscript",
+				"path": "./snippets/dwscript.json"
 			}
 		],
 		"configuration": {
