@@ -1,37 +1,167 @@
 {
 	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
 	"name": "DWScript",
+	"scopeName": "source.dwscript",
+	"uuid": "0F537175-89D7-42E7-AA90-57CF949C599D",
 	"fileTypes": [
 		"dws"
 	],
 	"patterns": [{
-			"include": "#boolean"
-		},
-		{
-			"include": "#comments"
-		},
-		{
-			"include": "#functions"
-		},
-		{
-			"include": "#keywords"
-		},
-		{
-			"include": "#numeric"
-		},
-		{
-			"include": "#strings"
-		},
-		{
-			"include": "#types"
-		}
+			    "include": "#directive"
+		    },
+		    {
+			    "include": "#comments"
+		    },        
+        {
+			    "include": "#program"
+		    },
+        {
+			    "include": "#library"
+		    },
+        {
+			    "include": "#unit"
+		    },
+        {
+			    "include": "#statement"
+		    }
 	],
 	"repository": {
+
+		"unit": {
+			"patterns": [{
+				"name": "meta.unit.dwscript",
+				"begin": "\\b(?i:UNIT)\\b",
+				"beginCaptures": {
+					"0": {
+						"name": "keyword.grouping.dwscript"
+					}
+				},
+				"end": "(?<=end)\\.",
+				"endCaptures": {
+					"0": {
+						"name": "punctuation.terminator.unit.dwscript"
+					}
+				},
+        "patterns": [{
+			    "include": "#statement"
+		    }]
+			}]
+		},
+
+		"program": {
+			"patterns": [{
+				"name": "meta.program.dwscript",
+				"begin": "\\b(?i:PROGRAM)\\b",
+				"beginCaptures": {
+					"0": {
+						"name": "keyword.grouping.dwscript"
+					}
+				},
+				"end": ";",
+				"endCaptures": {
+					"0": {
+						"name": "punctuation.terminator.statement.dwscript"
+					}
+				},
+        "patterns": [{
+			    "include": "#statement"
+		    }]
+			}]
+		},
+
+		"library": {
+			"patterns": [{
+				"name": "meta.library.dwscript",
+				"begin": "\\b(?i:LIBRARY)\\b",
+				"beginCaptures": {
+					"0": {
+						"name": "keyword.grouping.dwscript"
+					}
+				},
+				"end": ";",
+				"endCaptures": {
+					"0": {
+						"name": "punctuation.terminator.statement.dwscript"
+					}
+				},
+        "patterns": [{
+			    "include": "#statement"
+		    }]
+			}]
+		},
+
+		"uses": {
+			"patterns": [{
+				"name": "meta.uses.dwscript",
+				"begin": "\\b(?i:USES)\\b",
+				"beginCaptures": {
+					"0": {
+						"name": "keyword.grouping.dwscript"
+					}
+				},
+				"end": ";",
+				"endCaptures": {
+					"0": {
+						"name": "punctuation.terminator.statement.dwscript"
+					}
+				}
+			}]
+		},
+
+		"statement": {
+			"patterns": [{
+			    "include": "#boolean"
+		    },
+        {
+			    "include": "#directive"
+		    },
+      	{
+      		"include": "#comments"
+      	},
+      	{
+      		"include": "#functions"
+      	},
+      	{
+      		"include": "#keywords"
+      	},
+      	{
+      		"include": "#numeric"
+      	},
+      	{
+      		"include": "#strings"
+      	},
+      	{
+      		"include": "#types"
+      	},
+        {
+			    "include": "#uses"
+		    }
+      ]
+		},
+
 		"boolean": {
 			"patterns": [{
 				"name": "constant.boolean.dwscript",
 				"match": "\\b(?i:(TRUE|FALSE))\\b"
 			}]
+		},
+		"directive": {
+			"patterns": [{
+					"name": "comment.line.directive.dwscript",
+					"begin": "\\{\\$",
+					"beginCaptures": {
+						"0": {
+							"name": "punctuation.definition.comment.dwscript"
+						}
+					},
+					"end": "\\}",
+					"endCaptures": {
+						"0": {
+							"name": "punctuation.definition.comment.dwscript"
+						}
+					}
+				}
+			]
 		},
 		"comments": {
 			"patterns": [
@@ -48,6 +178,21 @@
 						}
 					},
 					"end": "\\*\\)",
+					"endCaptures": {
+						"0": {
+							"name": "punctuation.definition.comment.dwscript"
+						}
+					}
+				},
+				{
+					"name": "comment.block.dwscript",
+					"begin": "\\{",
+					"beginCaptures": {
+						"0": {
+							"name": "punctuation.definition.comment.dwscript"
+						}
+					},
+					"end": "\\}",
 					"endCaptures": {
 						"0": {
 							"name": "punctuation.definition.comment.dwscript"
@@ -89,8 +234,8 @@
 					"match": "\\b(?i:(CLASS|INTERFACE|OBJECT|HELPER))\\b"
 				},
 				{
-					"name": "keyword.groupung.dwscript",
-					"match": "\\b(?i:(EMPTY|FINALIZATION|INITIALIZATION|INTERFACE|IMPLEMENTATION|PROGRAM|LIBRARY|RESOURCESTRING|UNIT))\\b"
+					"name": "keyword.grouping.dwscript",
+					"match": "\\b(?i:(EMPTY|FINALIZATION|INITIALIZATION|INTERFACE|IMPLEMENTATION|RESOURCESTRING))\\b"
 				},
 				{
 					"name": "keyword.structure.dwscript",
@@ -98,7 +243,7 @@
 				},
 				{
 					"name": "keyword.dwscript",
-					"match": "\\b(?<!\\.)(?i:(ARRAY|ASM|CONST|DEPRECATED|ENSURE|ENUM|EXPORT|EXTERNAL|FLAGS|FORWARD|IMPLEMENTS|IMPLICIT|IMPLIES|INHERITED|INLINE|INVARIANTS|LAMBDA|LAZY|NAMESPACE|NEW|NIL|OF|OLD|ON|OPERATOR|RAISE|RECORD|REQUIRE|SET|STATIC|STRICT|TYPE|USES|VAR))\\b(?![\\<\\\/(])"
+					"match": "\\b(?<!\\.)(?i:(ARRAY|ASM|CONST|DEPRECATED|ENSURE|ENUM|EXPORT|EXTERNAL|FLAGS|FORWARD|IMPLEMENTS|IMPLICIT|IMPLIES|INHERITED|INLINE|INVARIANTS|LAMBDA|LAZY|NAMESPACE|NEW|NIL|OF|OLD|ON|OPERATOR|RAISE|RECORD|REQUIRE|SET|STATIC|STRICT|TYPE|VAR))\\b(?![\\<\\\/(])"
 				},
 				{
 					"name": "keyword.dwscript",
@@ -177,7 +322,5 @@
 				"match": "\\b(?i:(string|boolean|float|integer))\\b"
 			}]
 		}
-	},
-	"scopeName": "source.dwscript",
-	"uuid": "0F537175-89D7-42E7-AA90-57CF949C599D"
+	}
 }
