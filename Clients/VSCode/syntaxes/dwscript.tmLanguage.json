@@ -7,33 +7,39 @@
 		"dws"
 	],
 	"patterns": [{
-			    "include": "#directive"
-		    },
-		    {
-			    "include": "#comments"
-		    },        
-        {
-			    "include": "#program"
-		    },
-        {
-			    "include": "#library"
-		    },
-        {
-			    "include": "#unit"
-		    },
-        {
-			    "include": "#statement"
-		    }
+					"include": "#directive"
+				},
+				{
+					"include": "#comments"
+				},				
+				{
+					"include": "#program"
+				},
+				{
+					"include": "#library"
+				},
+				{
+					"include": "#unit"
+				},
+				{
+					"include": "#statement"
+				}
 	],
 	"repository": {
 
 		"unit": {
 			"patterns": [{
 				"name": "meta.unit.dwscript",
-				"begin": "\\b(?i:UNIT)\\b",
+				"begin": "\\b((?i:UNIT))\\s*([&[:alpha:]][_\\.[:alnum:]]*)(;)",
 				"beginCaptures": {
-					"0": {
-						"name": "keyword.grouping.dwscript"
+					"1": {
+						"name": "keyword.filetype.dwscript"
+					},
+					"2": {
+						"name": "entity.name.unit.dwscript"
+					},
+					"3": {
+						"name": "punctuation.terminator.unit.dwscript"
 					}
 				},
 				"end": "(?<=end)\\.",
@@ -42,9 +48,9 @@
 						"name": "punctuation.terminator.unit.dwscript"
 					}
 				},
-        "patterns": [{
-			    "include": "#statement"
-		    }]
+				"patterns": [{
+					"include": "#statement"
+				}]
 			}]
 		},
 
@@ -54,7 +60,7 @@
 				"begin": "\\b(?i:PROGRAM)\\b",
 				"beginCaptures": {
 					"0": {
-						"name": "keyword.grouping.dwscript"
+						"name": "keyword.filetype.dwscript"
 					}
 				},
 				"end": ";",
@@ -63,9 +69,9 @@
 						"name": "punctuation.terminator.statement.dwscript"
 					}
 				},
-        "patterns": [{
-			    "include": "#statement"
-		    }]
+				"patterns": [{
+					"include": "#statement"
+				}]
 			}]
 		},
 
@@ -75,7 +81,7 @@
 				"begin": "\\b(?i:LIBRARY)\\b",
 				"beginCaptures": {
 					"0": {
-						"name": "keyword.grouping.dwscript"
+						"name": "keyword.filetype.dwscript"
 					}
 				},
 				"end": ";",
@@ -84,16 +90,16 @@
 						"name": "punctuation.terminator.statement.dwscript"
 					}
 				},
-        "patterns": [{
-			    "include": "#statement"
-		    }]
+				"patterns": [{
+					"include": "#statement"
+				}]
 			}]
 		},
 
 		"uses": {
 			"patterns": [{
 				"name": "meta.uses.dwscript",
-				"begin": "\\b(?i:USES)\\b",
+				"begin": "\\b(?i:USES)",
 				"beginCaptures": {
 					"0": {
 						"name": "keyword.grouping.dwscript"
@@ -102,41 +108,60 @@
 				"end": ";",
 				"endCaptures": {
 					"0": {
-						"name": "punctuation.terminator.statement.dwscript"
+						"name": "punctuation.terminator.uses.dwscript"
 					}
-				}
+				},
+				"patterns": [{
+					"include": "#directive"
+				},
+        {
+					"include": "#comments"
+				},
+        {
+					"include": "#unitname"
+				},
+        {
+					"include": "#punctuation-comma"
+				}]
+			}]
+		},
+
+		"unitname": {
+			"patterns": [{
+				"name": "entity.name.unit.dwscript",
+				"match": "([&[:alpha:]][_\\.[:alnum:]]*)"
 			}]
 		},
 
 		"statement": {
 			"patterns": [{
-			    "include": "#boolean"
-		    },
-        {
-			    "include": "#directive"
-		    },
-      	{
-      		"include": "#comments"
-      	},
-      	{
-      		"include": "#functions"
-      	},
-      	{
-      		"include": "#keywords"
-      	},
-      	{
-      		"include": "#numeric"
-      	},
-      	{
-      		"include": "#strings"
-      	},
-      	{
-      		"include": "#types"
-      	},
-        {
-			    "include": "#uses"
-		    }
-      ]
+					"include": "#boolean"
+				},
+				{
+					"include": "#directive"
+				},
+				{
+					"include": "#comments"
+				},
+				{
+					"include": "#functions"
+				},
+				{
+					"include": "#keywords"
+				},
+				{
+					"include": "#numeric"
+				},
+				{
+					"include": "#strings"
+				},
+				{
+					"include": "#types"
+				},
+				{
+					"include": "#uses"
+				}
+			]
 		},
 
 		"boolean": {
@@ -219,7 +244,7 @@
 					}
 				}
 			]
-    },
+		},
 		"keywords": {
 			"patterns": [{
 					"name": "keyword.control.flow.dwscript",
@@ -272,7 +297,7 @@
 			"patterns": [{
 				"name": "constant.numeric.dwscript",
 				"match": "((\\$([A-Fa-f0-9]*))|(\\b(([0-9]+\\.?[0-9]*))|(\\b(\\.[0-9]+))((e|E)(\\+|-)?[0-9]+)?))\\b"
-			}]                 
+			}]								 
 		},
 		"punctuation-comma": {
 			"name": "punctuation.separator.comma.dwscript",
@@ -284,37 +309,37 @@
 		},
 		"strings": {
 			"patterns": [{
-  			"name": "string.quoted.double.dwscript",
-  			"begin": "\"",
-  			"end": "\"",
+				"name": "string.quoted.double.dwscript",
+				"begin": "\"",
+				"end": "\"",
 				"captures": {
 					"0": {
 						"name": "string.quoted.double.dwscript"
 					}
 				},
-  			"patterns": [
-  				{
-  					"name": "constant.character.escape.quote.dwscript",
-  					"match": "\"\""
-  				}
-  			]
-      },
-      {
-  			"name": "string.quoted.single.dwscript",
-  			"begin": "'",
-  			"end": "(?i:('|\\n))",
+				"patterns": [
+					{
+						"name": "constant.character.escape.quote.dwscript",
+						"match": "\"\""
+					}
+				]
+			},
+			{
+				"name": "string.quoted.single.dwscript",
+				"begin": "'",
+				"end": "(?i:('|\\n))",
 				"captures": {
 					"0": {
 						"name": "string.quoted.single.dwscript"
 					}
 				},
-  			"patterns": [
-  				{
-  					"name": "constant.character.escape.apostrophe.dwscript",
-  					"match": "''"
-  				}
-  			]
-      }]
+				"patterns": [
+					{
+						"name": "constant.character.escape.apostrophe.dwscript",
+						"match": "''"
+					}
+				]
+			}]
 		},
 		"types": {
 			"patterns": [{
