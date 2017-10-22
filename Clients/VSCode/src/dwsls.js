@@ -7,30 +7,9 @@ const cp = require('child_process');
 const fs = require('fs');
 
 function activate(context) {
-    // The debug options for the server
-    const debugOptions = { execArgv: ["/debug"] };
-    const conf = vscode.workspace.getConfiguration('dwsls');
-    const executablePath = conf.get('path');
-    console.log('Executable Path', executablePath);
-
-    const serverOptions = () => new Promise((resolve, reject) => {
-        function spawnServer(...args) {
-            console.log('About to start');
-
-            // The server is implemented in PHP
-            args.unshift(context.asAbsolutePath(path.join('bin', 'DWScript.exe')));
-            const childProcess = cp.spawn(executablePath, args);
-            childProcess.stderr.on('data', (chunk) => {
-                console.error(chunk + '');
-            });
-            childProcess.stdout.on('data', (chunk) => {
-                console.log(chunk + '');
-            });
-            return childProcess;
-        }
-        resolve(spawnServer());
-    });
-
+    const executablePath = context.asAbsolutePath(path.join('bin', 'dwsls.exe'));
+    const serverOptions = {command: executablePath};    
+    
     // Options to control the language client
     let clientOptions = {
         // Register the server for plain text documents
