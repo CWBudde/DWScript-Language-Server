@@ -17,7 +17,9 @@ type
     {$ENDIF}
     function HandleInput(Text: AnsiString): Boolean;
     function HandleJsonRpc(JsonRpc: TdwsJSONObject): Boolean;
+    procedure ShowMessage(Text: AnsiString; Level: Integer = 3);
     procedure WriteOutput(Text: AnsiString);
+    procedure SendNotification(Method: string; Params: TdwsJSONObject = nil); overload;
     procedure SendResponse(Result: Variant; Error: TdwsJSONObject = nil); overload;
     procedure SendResponse(Result: TdwsJSONObject; Error: TdwsJSONObject = nil); overload;
     procedure HandleInitialize(Params: TdwsJSONObject);
@@ -25,6 +27,8 @@ type
     procedure HandleExit;
     procedure HandleInitialized;
     procedure HandleWorkspaceChangeConfiguration;
+    procedure HandleWorkspaceChangeWatchedFiles;
+    procedure RegisterCapability(Method, Id: string);
   public
     constructor Create;
     destructor Destroy; override;
@@ -69,6 +73,23 @@ begin
 end;
 {$ENDIF}
 
+procedure TDWScriptLanguageServer.ShowMessage(Text: AnsiString; Level: Integer = 3);
+var
+  Params: TdwsJSONObject;
+  Registrations: TdwsJSONArray;
+  Registration: TdwsJSONObject;
+  RegisterOptions: TdwsJSONObject;
+begin
+{$IFDEF DEBUG}
+  Log('ShowMessage: ' + Text);
+{$ENDIF}
+
+  Params := TdwsJSONObject.Create;
+  Params.AddValue('type', Level);
+  Params.AddValue('message', Text);
+  SendNotification('window/showMessage', Params);
+end;
+
 procedure TDWScriptLanguageServer.HandleInitialize(Params: TdwsJSONObject);
 var
   InitializeResult: TdwsJSONObject;
@@ -87,6 +108,7 @@ begin
   InitializeResult := TdwsJSONObject.Create;
   Capabilities := InitializeResult.AddObject('capabilities');
 
+{
   // text document sync options
   TextDocumentSyncOptions := Capabilities.AddObject('textDocumentSync');
   TextDocumentSyncOptions.AddValue('openClose', true);
@@ -95,9 +117,13 @@ begin
   TextDocumentSyncOptions.AddValue('willSaveWaitUntil', true);
   SaveOptions := TextDocumentSyncOptions.AddObject('save');
   SaveOptions.AddValue('includeText', true);
+}
 
+  Capabilities.AddValue('hoverProvider', true);
+
+{
   // completion options
-  CompletionOptions := Capabilities.AddObject('save');
+  CompletionOptions := Capabilities.AddObject('completionProvider');
   CompletionOptions.AddValue('resolveProvider', true);
   TriggerCharacters := CompletionOptions.AddArray('triggerCharacters');
   TriggerCharacters.Add('.');
@@ -106,7 +132,6 @@ begin
   SignatureHelpOptions := Capabilities.AddObject('signatureHelpProvider');
   TriggerCharacters := CompletionOptions.AddArray('triggerCharacters');
 
-  Capabilities.AddValue('hoverProvider', true);
   Capabilities.AddValue('definitionProvider', true);
   Capabilities.AddValue('referencesProvider', true);
   Capabilities.AddValue('documentHighlightProvider', true);
@@ -137,13 +162,31 @@ begin
 	ExecuteCommandOptions := Capabilities.AddObject('executeCommandProvider');
   Commands := ExecuteCommandOptions.AddArray('commands')
 *)
+}
 
   SendResponse(InitializeResult);
 end;
 
 procedure TDWScriptLanguageServer.HandleInitialized;
 begin
-  // nothing here so far
+  //ShowMessage('Initialized');
+end;
+
+procedure TDWScriptLanguageServer.RegisterCapability(Method, Id: string);
+var
+  Params: TdwsJSONObject;
+  Registrations: TdwsJSONArray;
+  Registration: TdwsJSONObject;
+  RegisterOptions: TdwsJSONObject;
+begin
+  Params := TdwsJSONObject.Create;
+  Registrations := Params.AddArray('registrations');
+  Registration := Registrations.AddObject;
+  Registration.AddValue('id', Id);
+  Registration.AddValue('method', Method);
+  RegisterOptions := Registration.AddObject('registerOptions');
+  RegisterOptions.AddArray('documentSelector').AddObject.AddValue('language', 'dws');
+  SendNotification('client/registerCapability', Params);
 end;
 
 procedure TDWScriptLanguageServer.HandleShutDown;
@@ -161,6 +204,11 @@ begin
   // yet to do
 end;
 
+procedure TDWScriptLanguageServer.HandleWorkspaceChangeWatchedFiles;
+begin
+  // yet to do
+end;
+
 function TDWScriptLanguageServer.HandleJsonRpc(JsonRpc: TdwsJSONObject): Boolean;
 var
   Method: string;
@@ -168,12 +216,8 @@ var
   Body: TdwsJSONObject;
 begin
   Result := False;
-  if not Assigned(JsonRpc['id']) then
-  begin
-    OutputDebugString('Incomplete JSON RPC - "id" is missing');
-    Exit;
-  end;
-  FCurrentId := JsonRpc['id'].AsInteger;
+  if Assigned(JsonRpc['id']) then
+    FCurrentId := JsonRpc['id'].AsInteger;
 
   if not Assigned(JsonRpc['method']) then
   begin
@@ -195,7 +239,10 @@ begin
   begin
     // workspace related messages
     if Method = 'workspace/didChangeConfiguration' then
-      HandleWorkspaceChangeConfiguration;
+      HandleWorkspaceChangeConfiguration
+    else
+    if Method = 'workspace/didChangeWatchedFiles' then
+      HandleWorkspaceChangeWatchedFiles;
   end
   else
   if Method = 'exit' then
@@ -248,10 +295,27 @@ begin
     Response.AddValue('result', VariantToInt64(Result))
   else
   if VarIsFloat(Result) then
-    Response.AddValue('result', VariantToFloat(Result));
+    Response.AddValue('result', VariantToFloat(Result))
+  else
+  if Result = Null then
+    Response.AddValue('result');
 
   if Assigned(Error) then
     Response.Add('error', Error);
+
+  WriteOutput(Response.ToString);
+end;
+
+procedure TDWScriptLanguageServer.SendNotification(Method: string;
+  Params: TdwsJSONObject);
+var
+  Response: TdwsJSONObject;
+begin
+  Response := TdwsJSONObject.Create;
+  Response.AddValue('jsonrpc', '2.0');
+  Response.AddValue('method', Method);
+  if Assigned(Params) then
+    Response.Add('params', Params);
   WriteOutput(Response.ToString);
 end;
 
@@ -270,6 +334,10 @@ end;
 
 procedure TDWScriptLanguageServer.WriteOutput(Text: AnsiString);
 begin
+{$IFDEF DEBUG}
+  Log('Output: ' + Text);
+{$ENDIF}
+
   Text := 'Content-Length: ' + IntToStr(Length(Text)) + #13#10#13#10 + Text;
 
   FOutputStream.Write(Text[1], Length(Text));

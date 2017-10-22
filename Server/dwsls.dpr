@@ -6,7 +6,7 @@ program dwsls;
 
 uses
   System.SysUtils,
-  dls.Main in 'dls.Main.pas';
+  dwsls.Main in 'dwsls.Main.pas';
 
 var
   LanguageServer: TDWScriptLanguageServer;

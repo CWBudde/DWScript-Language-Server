@@ -13,6 +13,12 @@
 	"engines": {
 		"vscode": "^1.16.0"
 	},
+	"keywords": [
+		"LSP",
+		"compiler",
+		"language",
+		"dwscript"
+	],
 	"categories": [
 		"Languages",
 		"Snippets",
@@ -62,9 +68,22 @@
 					"type": "string",
 					"default": "dwsls",
 					"description": "The path to dwsls executable"
+				},
+				"dwsls.trace.server": {
+					"type": "string",
+					"enum": [
+						"off",
+						"messages",
+						"verbose"
+					],
+					"default": "verbose",
+					"description": "Traces the communication between VSCode and the DWScript Language Server service."
 				}
 			}
 		}
+	},
+	"bin": {
+		"dwsls": "./bin/dwsls.exe"
 	},
 	"dependencies": {
 		"vscode": "^1.1.5",
