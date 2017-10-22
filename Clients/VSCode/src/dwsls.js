@@ -7,18 +7,29 @@ const cp = require('child_process');
 const fs = require('fs');
 
 function activate(context) {
-    // The server is implemented in node
-    let serverModule = context.asAbsolutePath(path.join('bin', 'DWScriptServer.exe'));
-
     // The debug options for the server
-    let debugOptions = { execArgv: ["/debug"] };
+    const debugOptions = { execArgv: ["/debug"] };
+    const conf = vscode.workspace.getConfiguration('dwsls');
+    const executablePath = conf.get('path');
+    console.log('Executable Path', executablePath);
 
-    // If the extension is launched in debug mode then the debug server options are used
-    // Otherwise the run options are used
-    let serverOptions = {
-        run: { module: serverModule, transport: vscodeLanguageClient.TransportKind.stdio },
-        debug: { module: serverModule, transport: vscodeLanguageClient.TransportKind.stdio, options: debugOptions }
-    };
+    const serverOptions = () => new Promise((resolve, reject) => {
+        function spawnServer(...args) {
+            console.log('About to start');
+
+            // The server is implemented in PHP
+            args.unshift(context.asAbsolutePath(path.join('bin', 'DWScript.exe')));
+            const childProcess = cp.spawn(executablePath, args);
+            childProcess.stderr.on('data', (chunk) => {
+                console.error(chunk + '');
+            });
+            childProcess.stdout.on('data', (chunk) => {
+                console.log(chunk + '');
+            });
+            return childProcess;
+        }
+        resolve(spawnServer());
+    });
 
     // Options to control the language client
     let clientOptions = {
