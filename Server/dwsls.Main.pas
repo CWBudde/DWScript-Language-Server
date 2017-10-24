@@ -6,6 +6,20 @@ uses
   Windows, Classes, Variants, dwsJson, dwsXPlatform, dwsUtils;
 
 type
+  TDiagnosticSeverity = (
+    dsError = 1,
+    dsWarning = 2,
+    dsInformation = 3,
+    dsHint = 4
+  );
+
+  TMessageType = (
+    msError = 1,
+    msWarning = 2,
+    msInfo = 3,
+    msLog = 4
+  );
+
   TDWScriptLanguageServer = class
   private
     FInputStream: THandleStream;
@@ -15,20 +29,54 @@ type
     FLog: TStringList;
     procedure Log(Text: string);
     {$ENDIF}
+    procedure LogMessage(Text: AnsiString; MessageType: TMessageType = msLog);
+    procedure RegisterCapability(Method, Id: string);
+    procedure UnregisterCapability(Method, Id: string);
+    procedure SendNotification(Method: string; Params: TdwsJSONObject = nil); overload;
+    procedure SendRequest(Method: string; Params: TdwsJSONObject = nil);
+    procedure SendResponse(Result: TdwsJSONObject; Error: TdwsJSONObject = nil); overload;
+    procedure SendResponse(Result: Variant; Error: TdwsJSONObject = nil); overload;
+    procedure ShowMessage(Text: AnsiString; MessageType: TMessageType = msInfo);
+    procedure ShowMessageRequest(Text: AnsiString; MessageType: TMessageType = msInfo);
+    procedure Telemetry(Params: TdwsJSONObject);
+    procedure WriteOutput(Text: AnsiString);
+
     function HandleInput(Text: AnsiString): Boolean;
     function HandleJsonRpc(JsonRpc: TdwsJSONObject): Boolean;
-    procedure ShowMessage(Text: AnsiString; Level: Integer = 3);
-    procedure WriteOutput(Text: AnsiString);
-    procedure SendNotification(Method: string; Params: TdwsJSONObject = nil); overload;
-    procedure SendResponse(Result: Variant; Error: TdwsJSONObject = nil); overload;
-    procedure SendResponse(Result: TdwsJSONObject; Error: TdwsJSONObject = nil); overload;
+
     procedure HandleInitialize(Params: TdwsJSONObject);
     procedure HandleShutDown;
     procedure HandleExit;
     procedure HandleInitialized;
+    procedure HandleCodeLensResolve;
+    procedure HandleCompletionItemResolve;
+    procedure HandleDocumentLinkResolve;
+    procedure HandleTextDocumentCodeAction;
+    procedure HandleTextDocumentCodeLens;
+    procedure HandleTextDocumentCompletion;
+    procedure HandleTextDocumentDefinition;
+    procedure HandleTextDocumentDidChange;
+    procedure HandleTextDocumentDidClose;
+    procedure HandleTextDocumentDidOpen;
+    procedure HandleTextDocumentDidSave;
+    procedure HandleTextDocumentFormatting;
+    procedure HandleTextDocumentHighlight;
+    procedure HandleTextDocumentHover;
+    procedure HandleTextDocumentLink;
+    procedure HandleTextDocumentOnTypeFormatting;
+    procedure HandleTextDocumentPublishDiagnostics;
+    procedure HandleTextDocumentRangeFormatting;
+    procedure HandleTextDocumentReferences;
+    procedure HandleTextDocumentRenameSymbol;
+    procedure HandleTextDocumentSignatureHelp;
+    procedure HandleTextDocumentSymbol;
+    procedure HandleTextDocumentWillSave;
+    procedure HandleTextDocumentWillSaveWaitUntil;
+    procedure HandleWorkspaceApplyEdit;
     procedure HandleWorkspaceChangeConfiguration;
     procedure HandleWorkspaceChangeWatchedFiles;
-    procedure RegisterCapability(Method, Id: string);
+    procedure HandleWorkspaceExecuteCommand;
+    procedure HandleWorkspaceSymbol;
   public
     constructor Create;
     destructor Destroy; override;
@@ -73,7 +121,21 @@ begin
 end;
 {$ENDIF}
 
-procedure TDWScriptLanguageServer.ShowMessage(Text: AnsiString; Level: Integer = 3);
+procedure TDWScriptLanguageServer.LogMessage(Text: AnsiString; MessageType: TMessageType = msLog);
+var
+  Params: TdwsJSONObject;
+  Registrations: TdwsJSONArray;
+  Registration: TdwsJSONObject;
+  RegisterOptions: TdwsJSONObject;
+begin
+  Params := TdwsJSONObject.Create;
+  Params.AddValue('type', Integer(MessageType));
+  Params.AddValue('message', Text);
+  SendNotification('window/logMessage', Params);
+end;
+
+procedure TDWScriptLanguageServer.ShowMessage(Text: AnsiString;
+  MessageType: TMessageType = msInfo);
 var
   Params: TdwsJSONObject;
   Registrations: TdwsJSONArray;
@@ -88,6 +150,46 @@ begin
   Params.AddValue('type', Level);
   Params.AddValue('message', Text);
   SendNotification('window/showMessage', Params);
+end;
+
+procedure TDWScriptLanguageServer.ShowMessageRequest(Text: AnsiString;
+  MessageType: TMessageType = msInfo);
+var
+  Params: TdwsJSONObject;
+  Registrations: TdwsJSONArray;
+  Registration: TdwsJSONObject;
+  RegisterOptions: TdwsJSONObject;
+begin
+{$IFDEF DEBUG}
+  Log('ShowMessage: ' + Text);
+{$ENDIF}
+
+  Params := TdwsJSONObject.Create;
+  Params.AddValue('type', Level);
+  Params.AddValue('message', Text);
+  SendRequest('window/showMessageRequest', Params);
+end;
+
+procedure TDWScriptLanguageServer.Telemetry(Params: TdwsJSONObject);
+begin
+  SendNotification('telemetry/event', Params);
+end;
+
+procedure TDWScriptLanguageServer.UnregisterCapability(Method, Id: string);
+var
+  Params: TdwsJSONObject;
+  Registrations: TdwsJSONArray;
+  Registration: TdwsJSONObject;
+  RegisterOptions: TdwsJSONObject;
+begin
+  Params := TdwsJSONObject.Create;
+  Registrations := Params.AddArray('registrations');
+  Registration := Registrations.AddObject;
+  Registration.AddValue('id', Id);
+  Registration.AddValue('method', Method);
+  RegisterOptions := Registration.AddObject('registerOptions');
+  RegisterOptions.AddArray('documentSelector').AddObject.AddValue('language', 'dws');
+  SendNotification('client/unregisterCapability', Params);
 end;
 
 procedure TDWScriptLanguageServer.HandleInitialize(Params: TdwsJSONObject);
@@ -194,9 +296,134 @@ begin
   SendResponse(null);
 end;
 
+procedure TDWScriptLanguageServer.HandleCodeLensResolve;
+begin
+  // not yet implemented
+end;
+
+procedure TDWScriptLanguageServer.HandleCompletionItemResolve;
+begin
+  // not yet implemented
+end;
+
+procedure TDWScriptLanguageServer.HandleDocumentLinkResolve;
+begin
+  // not yet implemented
+end;
+
+procedure TDWScriptLanguageServer.HandleTextDocumentCodeAction;
+begin
+  // not yet implemented
+end;
+
+procedure TDWScriptLanguageServer.HandleTextDocumentCodeLens;
+begin
+  // not yet implemented
+end;
+
+procedure TDWScriptLanguageServer.HandleTextDocumentCompletion;
+begin
+  // not yet implemented
+end;
+
+procedure TDWScriptLanguageServer.HandleTextDocumentDefinition;
+begin
+  // not yet implemented
+end;
+
+procedure TDWScriptLanguageServer.HandleTextDocumentDidChange;
+begin
+  // not yet implemented
+end;
+
+procedure TDWScriptLanguageServer.HandleTextDocumentDidClose;
+begin
+  // not yet implemented
+end;
+
+procedure TDWScriptLanguageServer.HandleTextDocumentDidOpen;
+begin
+  // not yet implemented
+end;
+
+procedure TDWScriptLanguageServer.HandleTextDocumentDidSave;
+begin
+  // not yet implemented
+end;
+
+procedure TDWScriptLanguageServer.HandleTextDocumentFormatting;
+begin
+  // not yet implemented
+end;
+
+procedure TDWScriptLanguageServer.HandleTextDocumentHighlight;
+begin
+  // not yet implemented
+end;
+
+procedure TDWScriptLanguageServer.HandleTextDocumentHover;
+begin
+  // not yet implemented
+end;
+
+procedure TDWScriptLanguageServer.HandleTextDocumentLink;
+begin
+  // not yet implemented
+end;
+
+procedure TDWScriptLanguageServer.HandleTextDocumentOnTypeFormatting;
+begin
+  // not yet implemented
+end;
+
+procedure TDWScriptLanguageServer.HandleTextDocumentPublishDiagnostics;
+begin
+  // not yet implemented
+end;
+
+procedure TDWScriptLanguageServer.HandleTextDocumentRangeFormatting;
+begin
+  // not yet implemented
+end;
+
+procedure TDWScriptLanguageServer.HandleTextDocumentReferences;
+begin
+  // not yet implemented
+end;
+
+procedure TDWScriptLanguageServer.HandleTextDocumentRenameSymbol;
+begin
+  // not yet implemented
+end;
+
+procedure TDWScriptLanguageServer.HandleTextDocumentSignatureHelp;
+begin
+  // not yet implemented
+end;
+
+procedure TDWScriptLanguageServer.HandleTextDocumentSymbol;
+begin
+  // not yet implemented
+end;
+
+procedure TDWScriptLanguageServer.HandleTextDocumentWillSave;
+begin
+  // not yet implemented
+end;
+
+procedure TDWScriptLanguageServer.HandleTextDocumentWillSaveWaitUntil;
+begin
+  // not yet implemented
+end;
+
 procedure TDWScriptLanguageServer.HandleExit;
 begin
   // yet to do
+end;
+
+procedure TDWScriptLanguageServer.HandleWorkspaceApplyEdit;
+begin
+
 end;
 
 procedure TDWScriptLanguageServer.HandleWorkspaceChangeConfiguration;
@@ -207,6 +434,16 @@ end;
 procedure TDWScriptLanguageServer.HandleWorkspaceChangeWatchedFiles;
 begin
   // yet to do
+end;
+
+procedure TDWScriptLanguageServer.HandleWorkspaceExecuteCommand;
+begin
+
+end;
+
+procedure TDWScriptLanguageServer.HandleWorkspaceSymbol;
+begin
+
 end;
 
 function TDWScriptLanguageServer.HandleJsonRpc(JsonRpc: TdwsJSONObject): Boolean;
@@ -235,6 +472,12 @@ begin
   if Method = 'shutdown' then
     HandleShutDown
   else
+  if Method = 'exit' then
+  begin
+    HandleExit;
+    Result := True;
+  end
+  else
   if Pos('workspace', Method) = 1 then
   begin
     // workspace related messages
@@ -242,13 +485,107 @@ begin
       HandleWorkspaceChangeConfiguration
     else
     if Method = 'workspace/didChangeWatchedFiles' then
-      HandleWorkspaceChangeWatchedFiles;
+      HandleWorkspaceChangeWatchedFiles
+    else
+    if Method = 'workspace/symbol' then
+      HandleWorkspaceSymbol
+    else
+    if Method = 'workspace/executeCommand' then
+      HandleWorkspaceExecuteCommand
+    else
+    if Method = 'workspace/applyEdit' then
+      HandleWorkspaceApplyEdit;
   end
   else
-  if Method = 'exit' then
+  if Pos('textDocument', Method) = 1 then
   begin
-    HandleExit;
-    Result := True;
+    // workspace related messages
+    if Method = 'textDocument/didOpen' then
+      HandleTextDocumentDidOpen
+    else
+    if Method = 'textDocument/didChange' then
+      HandleTextDocumentDidChange
+    else
+    if Method = 'textDocument/willSave' then
+      HandleTextDocumentWillSave
+    else
+    if Method = 'textDocument/willSaveWaitUntil' then
+      HandleTextDocumentWillSaveWaitUntil
+    else
+    if Method = 'textDocument/didSave' then
+      HandleTextDocumentDidSave
+    else
+    if Method = 'textDocument/didClose' then
+      HandleTextDocumentDidClose
+    else
+    if Method = 'textDocument/publishDiagnostics' then
+      HandleTextDocumentPublishDiagnostics
+    else
+    if Method = 'textDocument/completion' then
+      HandleTextDocumentCompletion
+    else
+    if Method = 'textDocument/hover' then
+      HandleTextDocumentHover
+    else
+    if Method = 'textDocument/signatureHelp' then
+      HandleTextDocumentSignatureHelp
+    else
+    if Method = 'textDocument/definition' then
+      HandleTextDocumentDefinition
+    else
+    if Method = 'textDocument/references' then
+      HandleTextDocumentReferences
+    else
+    if Method = 'textDocument/documentHighlight' then
+      HandleTextDocumentHighlight
+    else
+    if Method = 'textDocument/documentSymbol' then
+      HandleTextDocumentSymbol
+    else
+    if Method = 'textDocument/codeAction' then
+      HandleTextDocumentCodeAction
+    else
+    if Method = 'textDocument/codeLense' then
+      HandleTextDocumentCodeLens
+    else
+    if Method = 'textDocument/documentLink' then
+      HandleTextDocumentLink
+    else
+    if Method = 'textDocument/formatting' then
+      HandleTextDocumentFormatting
+    else
+    if Method = 'textDocument/rangeFormatting' then
+      HandleTextDocumentRangeFormatting
+    else
+    if Method = 'textDocument/onTypeFormatting' then
+      HandleTextDocumentOnTypeFormatting
+    else
+    if Method = 'textDocument/rename' then
+      HandleTextDocumentRenameSymbol;
+  end
+  else
+  if Pos('completionItem', Method) = 1 then
+  begin
+    // workspace related messages
+    if Method = 'completionItem/resolve' then
+      HandleCompletionItemResolve
+    else
+  end
+  else
+  if Pos('codeLens', Method) = 1 then
+  begin
+    // workspace related messages
+    if Method = 'codeLens/resolve' then
+      HandleCodeLensResolve
+    else
+  end
+  else
+  if Pos('documentLink', Method) = 1 then
+  begin
+    // workspace related messages
+    if Method = 'documentLink/resolve' then
+      HandleDocumentLinkResolve
+    else
   end
 {$IFDEF DEBUG}
   else
@@ -307,6 +644,19 @@ begin
 end;
 
 procedure TDWScriptLanguageServer.SendNotification(Method: string;
+  Params: TdwsJSONObject);
+var
+  Response: TdwsJSONObject;
+begin
+  Response := TdwsJSONObject.Create;
+  Response.AddValue('jsonrpc', '2.0');
+  Response.AddValue('method', Method);
+  if Assigned(Params) then
+    Response.Add('params', Params);
+  WriteOutput(Response.ToString);
+end;
+
+procedure TDWScriptLanguageServer.SendRequest(Method: string;
   Params: TdwsJSONObject);
 var
   Response: TdwsJSONObject;
