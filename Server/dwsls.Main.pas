@@ -351,6 +351,148 @@ type
     property RenameProvider: Boolean read FRenameProvider write FRenameProvider;
   end;
 
+  TFileEvent = class(TJsonClass)
+  type
+    TFileChangeType = (fcCreated, fcChanged, fcDeleted);
+  private
+    FType: TFileChangeType;
+    FUri: string;
+  protected
+    procedure ReadFromJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONValue); override;
+  public
+    property Uri: string read FUri write FUri;
+    property &Type: TFileChangeType read FType write FType;
+  end;
+
+  // WORKSPACE
+
+  TDidChangeWatchedFilesParams = class(TJsonClass)
+  type
+    TFileEvents = TObjectList<TFileEvent>;
+  private
+    FFileEvents: TFileEvents;
+  protected
+    procedure ReadFromJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONValue); override;
+  public
+    constructor Create;
+
+    property FileEvents: TFileEvents read FFileEvents;
+  end;
+
+  TWorkspaceSymbolParams = class(TJsonClass)
+  private
+    FQuery: string;
+  protected
+    procedure ReadFromJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONValue); override;
+  public
+    property Query: string read FQuery write FQuery;
+  end;
+
+  TExecuteCommandParams = class(TJsonClass)
+  private
+    FCommand: string;
+    FArguments: TStringList;
+  protected
+    procedure ReadFromJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONValue); override;
+  public
+    constructor Create;
+
+    property Command: string read FCommand write FCommand;
+  end;
+
+  TApplyWorkspaceEditParams = class(TJsonClass)
+  private
+    FEdit: TWorkspaceEdit;
+  protected
+    procedure ReadFromJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONValue); override;
+  public
+    constructor Create;
+
+    property WorkspaceEdit: TWorkspaceEdit read FEdit;
+  end;
+
+  // DOCUMENT
+
+  TPublishDiagnosticsParams = class(TJsonClass)
+  type
+    TDiagnostics = TObjectList<TDiagnostic>;
+  private
+    FDiagnostics: TDiagnostics;
+    FUri: string;
+  protected
+    procedure ReadFromJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONValue); override;
+  public
+    constructor Create;
+
+    property Uri: string read FUri write FUri;
+    property Diagnostics: TDiagnostics read FDiagnostics write FDiagnostics;
+  end;
+
+  TDidOpenTextDocumentParams = class(TJsonClass)
+  private
+    FTextDocument: TTextDocumentIdentifier;
+  protected
+    procedure ReadFromJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONValue); override;
+  public
+    constructor Create;
+
+    property TextDocument: TTextDocumentIdentifier read FTextDocument;
+  end;
+
+  TTextDocumentContentChangeEvent = class(TJsonClass)
+  private
+    FText: string;
+    FRangeLength: Integer;
+    FRange: TRange;
+  protected
+    procedure ReadFromJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONValue); override;
+  public
+    constructor Create;
+
+    property Range: TRange read FRange;
+    property RangeLength: Integer read FRangeLength write FRangeLength;
+    property Text: string read FText write FText;
+  end;
+
+  TDidChangeTextDocumentParams = class(TJsonClass)
+  type
+    TTextDocumentContentChangeEvents = TObjectList<TTextDocumentContentChangeEvent>;
+  private
+    FTextDocument: TVersionedTextDocumentIdentifier;
+    FContentChanges: TTextDocumentContentChangeEvents;
+  protected
+    procedure ReadFromJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONValue); override;
+  public
+    constructor Create;
+
+    property TextDocument: TVersionedTextDocumentIdentifier read FTextDocument;
+  end;
+
+  TWillSaveTextDocumentParams = class(TJsonClass)
+  type
+    TSaveReason = (srManual, srAfterDelay, srFocusOut);
+  private
+    FTextDocument: TTextDocumentIdentifier;
+    FReason: TSaveReason;
+  protected
+    procedure ReadFromJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONValue); override;
+  public
+    constructor Create;
+
+    property TextDocument: TTextDocumentIdentifier read FTextDocument;
+    property Reason: TSaveReason read FReason write FReason;
+  end;
+
   TDidSaveTextDocumentParams = class(TJsonClass)
   private
     FTextDocument: TTextDocumentIdentifier;
@@ -377,48 +519,86 @@ type
     property TextDocument: TTextDocumentIdentifier read FTextDocument;
   end;
 
-  TFileEvent = class(TJsonClass)
-  type
-    TFileChangeType = (fcCreated, fcChanged, fcDeleted);
+
+
+
+  TReferenceContext = class(TJsonClass)
   private
-    FType: TFileChangeType;
-    FUri: string;
+    FIncludeDeclaration: Boolean;
   protected
     procedure ReadFromJson(Value: TdwsJSONValue); override;
     procedure WriteToJson(Value: TdwsJSONValue); override;
   public
-    property Uri: string read FUri write FUri;
-    property &Type: TFileChangeType read FType write FType;
+    property IncludeDeclaration: Boolean read FIncludeDeclaration write FIncludeDeclaration;
   end;
 
-  TDidChangeWatchedFilesParams = class(TJsonClass)
-  type
-    TFileEvents = TObjectList<TFileEvent>;
+  TReferenceParams = class(TJsonClass)
   private
-    FFileEvents: TFileEvents;
+    FContext: TReferenceContext;
+  protected
+    procedure ReadFromJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONValue); override;
+  public
+    property Context: TReferenceContext read FContext;
+  end;
+
+  TDocumentSymbolParams = class(TJsonClass)
+  private
+    FTextDocument: TTextDocumentIdentifier;
   protected
     procedure ReadFromJson(Value: TdwsJSONValue); override;
     procedure WriteToJson(Value: TdwsJSONValue); override;
   public
     constructor Create;
 
-    property FileEvents: TFileEvents read FFileEvents;
+    property TextDocument: TTextDocumentIdentifier read FTextDocument;
   end;
 
-  TPublishDiagnosticsParams = class(TJsonClass)
-  type
-    TDiagnostics = TObjectList<TDiagnostic>;
+  TFormattingOptions = class(TJsonClass)
   private
-    FDiagnostics: TDiagnostics;
-    FUri: string;
+    FTabSize: Integer;
+    FInsertSpaces: Boolean;
+//    [key: string]: Boolean | number | string;
+  protected
+    procedure ReadFromJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONValue); override;
+  public
+    property TabSize: Integer read FTabSize write FTabSize;
+    property InsertSpaces: Boolean read FInsertSpaces write FInsertSpaces;
+  end;
+
+  TDocumentOnTypeFormattingParams = class(TJsonClass)
+  private
+    FTextDocument: TTextDocumentIdentifier;
+    FPosition: TPosition;
+    FCharacter: string;
+    FOptions: TFormattingOptions;
   protected
     procedure ReadFromJson(Value: TdwsJSONValue); override;
     procedure WriteToJson(Value: TdwsJSONValue); override;
   public
     constructor Create;
 
-    property Uri: string read FUri write FUri;
-    property Diagnostics: TDiagnostics read FDiagnostics write FDiagnostics;
+    property TextDocument: TTextDocumentIdentifier read FTextDocument;
+    property Position: TPosition read FPosition;
+    property Character: string read FCharacter write FCharacter;
+    property Options: TFormattingOptions read FOptions;
+  end;
+
+  TRenameParams = class(TJsonClass)
+  private
+    FTextDocument: TTextDocumentIdentifier;
+    FPosition: TPosition;
+    FNewName: string;
+  protected
+    procedure ReadFromJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONValue); override;
+  public
+    constructor Create;
+
+    property TextDocument: TTextDocumentIdentifier read FTextDocument;
+    property Position: TPosition read FPosition;
+    property NewName: string read FNewName write FNewName;
   end;
 
   TDWScriptLanguageServer = class
@@ -462,29 +642,29 @@ type
     procedure HandleTextDocumentCodeAction;
     procedure HandleTextDocumentCodeLens;
     procedure HandleTextDocumentCompletion(Params: TdwsJSONObject);
-    procedure HandleTextDocumentDefinition;
+    procedure HandleTextDocumentDefinition(Params: TdwsJSONObject);
     procedure HandleTextDocumentDidChange(Params: TdwsJSONObject);
     procedure HandleTextDocumentDidClose(Params: TdwsJSONObject);
     procedure HandleTextDocumentDidOpen(Params: TdwsJSONObject);
     procedure HandleTextDocumentDidSave(Params: TdwsJSONObject);
     procedure HandleTextDocumentFormatting;
-    procedure HandleTextDocumentHighlight;
+    procedure HandleTextDocumentHighlight(Params: TdwsJSONObject);
     procedure HandleTextDocumentHover(Params: TdwsJSONObject);
     procedure HandleTextDocumentLink;
     procedure HandleTextDocumentOnTypeFormatting;
     procedure HandleTextDocumentPublishDiagnostics(Params: TdwsJSONObject);
     procedure HandleTextDocumentRangeFormatting;
-    procedure HandleTextDocumentReferences;
-    procedure HandleTextDocumentRenameSymbol;
+    procedure HandleTextDocumentReferences(Params: TdwsJSONObject);
+    procedure HandleTextDocumentRenameSymbol(Params: TdwsJSONObject);
     procedure HandleTextDocumentSignatureHelp(Params: TdwsJSONObject);
-    procedure HandleTextDocumentSymbol;
+    procedure HandleTextDocumentSymbol(Params: TdwsJSONObject);
     procedure HandleTextDocumentWillSave(Params: TdwsJSONObject);
     procedure HandleTextDocumentWillSaveWaitUntil(Params: TdwsJSONObject);
-    procedure HandleWorkspaceApplyEdit;
+    procedure HandleWorkspaceApplyEdit(Params: TdwsJSONObject);
     procedure HandleWorkspaceChangeConfiguration;
     procedure HandleWorkspaceChangeWatchedFiles(Params: TdwsJSONObject);
-    procedure HandleWorkspaceExecuteCommand;
-    procedure HandleWorkspaceSymbol;
+    procedure HandleWorkspaceExecuteCommand(Params: TdwsJSONObject);
+    procedure HandleWorkspaceSymbol(Params: TdwsJSONObject);
   public
     constructor Create;
     destructor Destroy; override;
@@ -721,7 +901,6 @@ end;
 
 procedure TTextDocumentEdit.WriteToJson(Value: TdwsJSONValue);
 var
-  TextEdit: TTextEdit;
   EditsArray: TdwsJSONArray;
   EditItem: TdwsJSONObject;
   Index: Integer;
@@ -881,13 +1060,111 @@ end;
 procedure TPublishDiagnosticsParams.WriteToJson(Value: TdwsJSONValue);
 var
   DiagnosticArray: TdwsJSONArray;
-  Diagnostic: TDiagnostic;
   Index: Integer;
 begin
   Value['uri'].AsString := FUri;
   DiagnosticArray := TdwsJSONObject(Value).AddArray('diagnostics');
   for Index := 0 to FDiagnostics.Count - 1 do
     FDiagnostics[Index].WriteToJson(DiagnosticArray.AddValue);
+end;
+
+
+{ TDidOpenTextDocumentParams }
+
+constructor TDidOpenTextDocumentParams.Create;
+begin
+  FTextDocument := TTextDocumentIdentifier.Create;
+end;
+
+procedure TDidOpenTextDocumentParams.ReadFromJson(Value: TdwsJSONValue);
+begin
+  FTextDocument.ReadFromJson(Value['textDocument']);
+end;
+
+procedure TDidOpenTextDocumentParams.WriteToJson(Value: TdwsJSONValue);
+begin
+  FTextDocument.WriteToJson(Value['textDocument']);
+end;
+
+
+{ TTextDocumentContentChangeEvent }
+
+constructor TTextDocumentContentChangeEvent.Create;
+begin
+  FRange := TRange.Create;
+end;
+
+procedure TTextDocumentContentChangeEvent.ReadFromJson(Value: TdwsJSONValue);
+begin
+  FRange.ReadFromJson(Value['range']);
+  FRangeLength := Value['rangeLength'].AsInteger;
+  FText := Value['text'].AsString;
+end;
+
+procedure TTextDocumentContentChangeEvent.WriteToJson(Value: TdwsJSONValue);
+begin
+  FRange.WriteToJson(Value['range']);
+  Value['rangeLength'].AsInteger := FRangeLength;
+  Value['text'].AsString := FText;
+end;
+
+
+{ TDidChangeTextDocumentParams }
+
+constructor TDidChangeTextDocumentParams.Create;
+begin
+  FTextDocument := TVersionedTextDocumentIdentifier.Create;
+  FContentChanges := TTextDocumentContentChangeEvents.Create;
+end;
+
+procedure TDidChangeTextDocumentParams.ReadFromJson(Value: TdwsJSONValue);
+var
+  Changes: TdwsJSONArray;
+  ChangeEvent: TTextDocumentContentChangeEvent;
+  Index: Integer;
+begin
+  FTextDocument.ReadFromJson(Value['textDocument']);
+
+  Changes := TdwsJSONArray(Value['contentChanges']);
+  for Index := 0 to Changes.ElementCount - 1 do
+  begin
+    ChangeEvent := TTextDocumentContentChangeEvent.Create;
+    ChangeEvent.ReadFromJson(Changes.Elements[Index]);
+  end;
+end;
+
+procedure TDidChangeTextDocumentParams.WriteToJson(Value: TdwsJSONValue);
+var
+  Changes: TdwsJSONArray;
+  Index: Integer;
+begin
+  FTextDocument.WriteToJson(Value['textDocument']);
+
+  Changes := TdwsJSONObject(Value).AddArray('contentChanges');
+  for Index := 0 to FContentChanges.Count - 1 do
+    FContentChanges[Index].WriteToJson(Changes.AddObject);
+end;
+
+
+{ TWillSaveTextDocumentParams }
+
+constructor TWillSaveTextDocumentParams.Create;
+begin
+  FTextDocument := TTextDocumentIdentifier.Create;
+end;
+
+procedure TWillSaveTextDocumentParams.ReadFromJson(Value: TdwsJSONValue);
+begin
+  FTextDocument.ReadFromJson(Value['textDocument']);
+
+  FReason := TSaveReason(Value['reason'].AsInteger);
+end;
+
+procedure TWillSaveTextDocumentParams.WriteToJson(Value: TdwsJSONValue);
+begin
+  FTextDocument.WriteToJson(Value['textDocument']);
+
+  Value['reason'].AsInteger := Integer(FReason);
 end;
 
 
@@ -926,6 +1203,58 @@ end;
 procedure TDidCloseTextDocumentParams.WriteToJson(Value: TdwsJSONValue);
 begin
   FTextDocument.WriteToJson(Value['textDocument']);
+end;
+
+
+{ TExecuteCommandParams }
+
+constructor TExecuteCommandParams.Create;
+begin
+  FArguments := TStringList.Create;
+end;
+
+procedure TExecuteCommandParams.ReadFromJson(Value: TdwsJSONValue);
+var
+  ArgumentArray: TdwsJSONArray;
+  Index: Integer;
+begin
+  FCommand := Value['edit'].AsString;
+  FArguments.Clear;
+
+  // read arguments
+  ArgumentArray := TdwsJSONArray(Value['arguments']);
+  for Index := 0 to ArgumentArray.ElementCount - 1 do
+    FArguments.Add(ArgumentArray.Elements[Index].AsString);
+end;
+
+procedure TExecuteCommandParams.WriteToJson(Value: TdwsJSONValue);
+var
+  ArgumentArray: TdwsJSONArray;
+  Index: Integer;
+begin
+  Value['edit'].AsString := FCommand;
+
+  ArgumentArray := TdwsJSONObject(Value).AddArray('arguments');
+  for Index := 0 to FArguments.Count - 1 do
+    ArgumentArray.AddValue.AsString := FArguments[Index];
+end;
+
+
+{ TApplyWorkspaceEditParams }
+
+constructor TApplyWorkspaceEditParams.Create;
+begin
+  FEdit := TWorkspaceEdit.Create;
+end;
+
+procedure TApplyWorkspaceEditParams.ReadFromJson(Value: TdwsJSONValue);
+begin
+  FEdit.ReadFromJson(Value['edit']);
+end;
+
+procedure TApplyWorkspaceEditParams.WriteToJson(Value: TdwsJSONValue);
+begin
+  FEdit.WriteToJson(Value['edit']);
 end;
 
 
@@ -969,12 +1298,123 @@ end;
 procedure TDidChangeWatchedFilesParams.WriteToJson(Value: TdwsJSONValue);
 var
   FileEventArray: TdwsJSONArray;
-  FileEvent: TFileEvent;
   Index: Integer;
 begin
   FileEventArray := TdwsJSONObject(Value).AddArray('changes');
   for Index := 0 to FFileEvents.Count - 1 do
     FFileEvents[Index].WriteToJson(FileEventArray.AddValue);
+end;
+
+
+{ TWorkspaceSymbolParams }
+
+procedure TWorkspaceSymbolParams.ReadFromJson(Value: TdwsJSONValue);
+begin
+  FQuery := Value['query'].AsString;
+end;
+
+procedure TWorkspaceSymbolParams.WriteToJson(Value: TdwsJSONValue);
+begin
+  Value['query'].AsString := FQuery;
+end;
+
+
+{ TReferenceContext }
+
+procedure TReferenceContext.ReadFromJson(Value: TdwsJSONValue);
+begin
+  FIncludeDeclaration := Value['includeDeclaration'].AsBoolean;
+end;
+
+procedure TReferenceContext.WriteToJson(Value: TdwsJSONValue);
+begin
+  Value['includeDeclaration'].AsBoolean := FIncludeDeclaration;
+end;
+
+
+{ TReferenceParams }
+
+procedure TReferenceParams.ReadFromJson(Value: TdwsJSONValue);
+begin
+  FContext.ReadFromJson(Value['context']);
+end;
+
+procedure TReferenceParams.WriteToJson(Value: TdwsJSONValue);
+begin
+  FContext.WriteToJson(Value['context']);
+end;
+
+
+{ TDocumentSymbolParams }
+
+constructor TDocumentSymbolParams.Create;
+begin
+  FTextDocument := TTextDocumentIdentifier.Create;
+end;
+
+procedure TDocumentSymbolParams.ReadFromJson(Value: TdwsJSONValue);
+begin
+  FTextDocument.ReadFromJson(Value['textDocument']);
+end;
+
+procedure TDocumentSymbolParams.WriteToJson(Value: TdwsJSONValue);
+begin
+  FTextDocument.WriteToJson(Value['textDocument']);
+end;
+
+
+{ TFormattingOptions }
+
+procedure TFormattingOptions.ReadFromJson(Value: TdwsJSONValue);
+begin
+  FTabSize := Value['tabSize'].AsInteger;
+  FInsertSpaces := Value['insertSpaces'].AsBoolean;
+end;
+
+procedure TFormattingOptions.WriteToJson(Value: TdwsJSONValue);
+begin
+  Value['tabSize'].AsInteger := FTabSize;
+  Value['insertSpaces'].AsBoolean := FInsertSpaces;
+end;
+
+
+{ TDocumentOnTypeFormattingParams }
+
+constructor TDocumentOnTypeFormattingParams.Create;
+begin
+  FTextDocument := TTextDocumentIdentifier.Create;
+  FOptions := TFormattingOptions.Create;
+end;
+
+procedure TDocumentOnTypeFormattingParams.ReadFromJson(Value: TdwsJSONValue);
+begin
+  FTextDocument.ReadFromJson(Value['textDocument']);
+end;
+
+procedure TDocumentOnTypeFormattingParams.WriteToJson(Value: TdwsJSONValue);
+begin
+  FTextDocument.WriteToJson(Value['textDocument']);
+end;
+
+
+{ TRenameParams }
+
+constructor TRenameParams.Create;
+begin
+  FTextDocument := TTextDocumentIdentifier.Create;
+  FPosition := TPosition.Create;
+end;
+
+procedure TRenameParams.ReadFromJson(Value: TdwsJSONValue);
+begin
+  FTextDocument.ReadFromJson(Value['textDocument']);
+  FPosition.ReadFromJson(Value['position']);
+end;
+
+procedure TRenameParams.WriteToJson(Value: TdwsJSONValue);
+begin
+  FTextDocument.WriteToJson(Value['textDocument']);
+  FPosition.WriteToJson(Value['position']);
 end;
 
 
@@ -1221,32 +1661,33 @@ begin
   TextDocumentPositionParams.ReadFromJson(Params);
 
   Result := TdwsJSONObject.Create;
+
   // not yet implemented
+
+  SendResponse(Result);
 end;
 
-procedure TDWScriptLanguageServer.HandleTextDocumentDefinition;
+procedure TDWScriptLanguageServer.HandleTextDocumentDefinition(Params: TdwsJSONObject);
+var
+  TextDocumentPositionParams: TTextDocumentPositionParams;
+  Result: TdwsJSONObject;
 begin
+  TextDocumentPositionParams := TTextDocumentPositionParams.Create;
+  TextDocumentPositionParams.ReadFromJson(Params);
+
+  Result := TdwsJSONObject.Create;
+
   // not yet implemented
+
+  SendResponse(Result);
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentDidChange(Params: TdwsJSONObject);
 var
-  Uri: string;
-  Version: Integer;
-  Changes: TdwsJSONArray;
-  ChangeElement: TdwsJSONValue;
-  Index: Integer;
+  DidChangeTextDocumentParams: TDidChangeTextDocumentParams;
 begin
-  Uri := Params.Items['textDocument'].Items['uri'].AsString;
-  Version := Params.Items['textDocument'].Items['version'].AsInteger;
-  Changes := TdwsJSONArray(Params.Items['contentChanges']);
-  for Index := 0 to Changes.ElementCount - 1 do
-  begin
-    ChangeElement := Changes.Elements[Index];
-    ChangeElement['range'];
-    ChangeElement['rangeLength'];
-    ChangeElement['text'];
-  end;
+  DidChangeTextDocumentParams := TDidChangeTextDocumentParams.Create;
+  DidChangeTextDocumentParams.ReadFromJson(Params);
 
   // not implemented much further
 end;
@@ -1262,7 +1703,12 @@ begin
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentDidOpen(Params: TdwsJSONObject);
+var
+  DidOpenTextDocumentParams: TDidOpenTextDocumentParams;
 begin
+  DidOpenTextDocumentParams := TDidOpenTextDocumentParams.Create;
+  DidOpenTextDocumentParams.ReadFromJson(Params);
+
   // not yet implemented
 end;
 
@@ -1281,9 +1727,19 @@ begin
   // not yet implemented
 end;
 
-procedure TDWScriptLanguageServer.HandleTextDocumentHighlight;
+procedure TDWScriptLanguageServer.HandleTextDocumentHighlight(Params: TdwsJSONObject);
+var
+  TextDocumentPositionParams: TTextDocumentPositionParams;
+  Result: TdwsJSONObject;
 begin
+  TextDocumentPositionParams := TTextDocumentPositionParams.Create;
+  TextDocumentPositionParams.ReadFromJson(Params);
+
+  Result := TdwsJSONObject.Create;
+
   // not yet implemented
+
+  SendResponse(Result);
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentHover(Params: TdwsJSONObject);
@@ -1333,12 +1789,12 @@ begin
   // not yet implemented
 end;
 
-procedure TDWScriptLanguageServer.HandleTextDocumentReferences;
+procedure TDWScriptLanguageServer.HandleTextDocumentReferences(Params: TdwsJSONObject);
 begin
   // not yet implemented
 end;
 
-procedure TDWScriptLanguageServer.HandleTextDocumentRenameSymbol;
+procedure TDWScriptLanguageServer.HandleTextDocumentRenameSymbol(Params: TdwsJSONObject);
 begin
   // not yet implemented
 end;
@@ -1354,25 +1810,42 @@ begin
   Result := TdwsJSONObject.Create;
 
   // not further implemented
+
+  SendResponse(Result);
 end;
 
-procedure TDWScriptLanguageServer.HandleTextDocumentSymbol;
+procedure TDWScriptLanguageServer.HandleTextDocumentSymbol(Params: TdwsJSONObject);
+var
+  DocumentSymbolParams: TDocumentSymbolParams;
+  Result: TdwsJSONObject;
 begin
-  // not yet implemented
+  DocumentSymbolParams := TDocumentSymbolParams.Create;
+  DocumentSymbolParams.ReadFromJson(Params);
+
+  // not further implemented
+
+  Result := TdwsJSONObject.Create;
+
+  SendResponse(Result);
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentWillSave(Params: TdwsJSONObject);
+var
+  WillSaveTextDocumentParams: TWillSaveTextDocumentParams;
 begin
+  WillSaveTextDocumentParams := TWillSaveTextDocumentParams.Create;
+  WillSaveTextDocumentParams.ReadFromJson(Params);
+
   // not yet implemented
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentWillSaveWaitUntil(Params: TdwsJSONObject);
 var
-  DidSaveTextDocumentParams: TDidSaveTextDocumentParams;
+  WillSaveTextDocumentParams: TWillSaveTextDocumentParams;
   Result: TdwsJSONObject;
 begin
-  DidSaveTextDocumentParams := TDidSaveTextDocumentParams.Create;
-  DidSaveTextDocumentParams.ReadFromJson(Params);
+  WillSaveTextDocumentParams := TWillSaveTextDocumentParams.Create;
+  WillSaveTextDocumentParams.ReadFromJson(Params);
 
   // not further implemented
 
@@ -1386,9 +1859,20 @@ begin
   // yet to do
 end;
 
-procedure TDWScriptLanguageServer.HandleWorkspaceApplyEdit;
+procedure TDWScriptLanguageServer.HandleWorkspaceApplyEdit(Params: TdwsJSONObject);
+var
+  ApplyWorkspaceEditParams: TApplyWorkspaceEditParams;
+  Result: TdwsJSONObject;
 begin
+  ApplyWorkspaceEditParams := TApplyWorkspaceEditParams.Create;
+  ApplyWorkspaceEditParams.ReadFromJson(Params);
 
+  // yet to do
+
+  Result := TdwsJSONObject.Create;
+  Result.AddValue('applied', False);
+
+  SendResponse(Result);
 end;
 
 procedure TDWScriptLanguageServer.HandleWorkspaceChangeConfiguration;
@@ -1399,6 +1883,7 @@ end;
 procedure TDWScriptLanguageServer.HandleWorkspaceChangeWatchedFiles(Params: TdwsJSONObject);
 var
   DidChangeWatchedFilesParams: TDidChangeWatchedFilesParams;
+  Result: TdwsJSONObject;
 begin
   DidChangeWatchedFilesParams := TDidChangeWatchedFilesParams.Create;
   DidChangeWatchedFilesParams.ReadFromJson(Params);
@@ -1410,14 +1895,34 @@ begin
   SendResponse(Result);
 end;
 
-procedure TDWScriptLanguageServer.HandleWorkspaceExecuteCommand;
+procedure TDWScriptLanguageServer.HandleWorkspaceExecuteCommand(Params: TdwsJSONObject);
+var
+  ExecuteCommandParams: TExecuteCommandParams;
+  Result: TdwsJSONObject;
 begin
+  ExecuteCommandParams := TExecuteCommandParams.Create;
+  ExecuteCommandParams.ReadFromJson(Params);
 
+  // yet to do
+
+  Result := TdwsJSONObject.Create;
+
+  SendResponse(Result);
 end;
 
-procedure TDWScriptLanguageServer.HandleWorkspaceSymbol;
+procedure TDWScriptLanguageServer.HandleWorkspaceSymbol(Params: TdwsJSONObject);
+var
+  WorkspaceSymbolParams: TWorkspaceSymbolParams;
+  Result: TdwsJSONObject;
 begin
+  WorkspaceSymbolParams := TWorkspaceSymbolParams.Create;
+  WorkspaceSymbolParams.ReadFromJson(Params);
 
+  // yet to do
+
+  Result := TdwsJSONObject.Create;
+
+  SendResponse(Result);
 end;
 
 function TDWScriptLanguageServer.HandleJsonRpc(JsonRpc: TdwsJSONObject): Boolean;
@@ -1460,13 +1965,13 @@ begin
       HandleWorkspaceChangeWatchedFiles(TdwsJsonObject(JsonRpc['params']))
     else
     if Method = 'workspace/symbol' then
-      HandleWorkspaceSymbol
+      HandleWorkspaceSymbol(TdwsJsonObject(JsonRpc['params']))
     else
     if Method = 'workspace/executeCommand' then
-      HandleWorkspaceExecuteCommand
+      HandleWorkspaceExecuteCommand(TdwsJsonObject(JsonRpc['params']))
     else
     if Method = 'workspace/applyEdit' then
-      HandleWorkspaceApplyEdit;
+      HandleWorkspaceApplyEdit(TdwsJsonObject(JsonRpc['params']));
   end
   else
   if Pos('textDocument', Method) = 1 then
@@ -1503,16 +2008,16 @@ begin
       HandleTextDocumentSignatureHelp(TdwsJsonObject(JsonRpc['params']))
     else
     if Method = 'textDocument/definition' then
-      HandleTextDocumentDefinition
+      HandleTextDocumentDefinition(TdwsJsonObject(JsonRpc['params']))
     else
     if Method = 'textDocument/references' then
-      HandleTextDocumentReferences
+      HandleTextDocumentReferences(TdwsJsonObject(JsonRpc['params']))
     else
     if Method = 'textDocument/documentHighlight' then
-      HandleTextDocumentHighlight
+      HandleTextDocumentHighlight(TdwsJsonObject(JsonRpc['params']))
     else
     if Method = 'textDocument/documentSymbol' then
-      HandleTextDocumentSymbol
+      HandleTextDocumentSymbol(TdwsJsonObject(JsonRpc['params']))
     else
     if Method = 'textDocument/codeAction' then
       HandleTextDocumentCodeAction
@@ -1533,7 +2038,7 @@ begin
       HandleTextDocumentOnTypeFormatting
     else
     if Method = 'textDocument/rename' then
-      HandleTextDocumentRenameSymbol;
+      HandleTextDocumentRenameSymbol(TdwsJsonObject(JsonRpc['params']));
   end
   else
   if Pos('completionItem', Method) = 1 then
