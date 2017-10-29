@@ -4,7 +4,8 @@ interface
 
 uses
   Windows, Classes, Variants, dwsJson, dwsXPlatform, dwsUtils,
-  dwsls.Classes;
+  dwsls.Classes.Capabilities, dwsls.Classes.Common, dwsls.Classes.Document,
+  dwsls.Classes.Workspace;
 
 type
   TDWScriptLanguageServer = class
