@@ -2,10 +2,16 @@ unit dwsls.Main;
 
 interface
 
+{$IFDEF DEBUG}
+  {$DEFINE _DEBUGLOG}
+{$ENDIF}
+
+
 uses
-  Windows, Classes, dwsJson, dwsXPlatform, dwsUtils,
-  dwsls.Classes.Capabilities, dwsls.Classes.Common, dwsls.Classes.Document,
-  dwsls.Classes.Workspace;
+  Windows, Classes, dwsComp, dwsCompiler, dwsExprs, dwsErrors, dwsFunctions,
+  dwsCodeGen, dwsUnitSymbols, dwsCompilerContext, dwsJson, dwsXPlatform,
+  dwsUtils, dwsls.Classes.Capabilities, dwsls.Classes.Common,
+  dwsls.Classes.Document, dwsls.Classes.Workspace;
 
 type
   TdwsTextDocumentItem = class
@@ -47,9 +53,11 @@ type
     FInitialized: Boolean;
 //    FWorkspace: TDWScriptWorkspace;
 
+    FDelphiWebScript: TDelphiWebScript;
+
     FTextDocumentItemList: TdwsTextDocumentItemList;
 
-    {$IFDEF DEBUG}
+    {$IFDEF DEBUGLOG}
     FLog: TStringList;
     procedure Log(Text: string);
     {$ENDIF}
@@ -60,7 +68,7 @@ type
     procedure SendNotification(Method: string; Params: TdwsJSONObject = nil); overload;
     procedure SendRequest(Method: string; Params: TdwsJSONObject = nil);
     procedure SendErrorResponse(ErrorCode: TErrorCodes; ErrorMessage: string);
-    procedure SendResponse(Result: TdwsJSONObject; Error: TdwsJSONObject = nil); overload;
+    procedure SendResponse(Result: TdwsJSONValue; Error: TdwsJSONObject = nil); overload;
     procedure SendResponse(Result: string; Error: TdwsJSONObject = nil); overload;
     procedure SendResponse(Result: Integer; Error: TdwsJSONObject = nil); overload;
     procedure SendResponse(Result: Boolean; Error: TdwsJSONObject = nil); overload;
@@ -70,6 +78,11 @@ type
     procedure Telemetry(Params: TdwsJSONObject);
     procedure UnregisterCapability(Method, Id: string);
     procedure WriteOutput(const Text: string);
+
+    procedure OnIncludeEventHandler(const ScriptName: string;
+      var ScriptSource: string);
+    function OnNeedUnitEventHandler(const UnitName: string;
+      var UnitSource: string) : IdwsUnit;
 
     function HandleInput(Text: string): Boolean;
     function HandleJsonRpc(JsonRpc: TdwsJSONObject): Boolean;
@@ -119,7 +132,7 @@ function DecodeJavaScriptString(const Input: string): string;
 implementation
 
 uses
-  SysUtils;
+  SysUtils, dwsStrings, dwsSymbols, dwsWebUtils;
 
 { TdwsTextDocumentItem }
 
@@ -171,7 +184,7 @@ end;
 constructor TdwsTextDocumentItem.Create(TextDocumentItem: TTextDocumentItem);
 begin
   Assert(TextDocumentItem.LanguageId = 'dwscript');
-  FUri := TextDocumentItem.Uri;
+  FUri := WebUtils.DecodeURLEncoded(TextDocumentItem.Uri, 1);
   FVersion := TextDocumentItem.Version;
   FText := DecodeJavaScriptString(TextDocumentItem.Text);
 end;
@@ -211,6 +224,8 @@ var
   HashCode: Cardinal;
   Index: Integer;
 begin
+  Result := nil;
+  if FCount = 0 then Exit;
   HashCode := SimpleStringHash(Uri);
   Index := HashCode and (FCapacity - 1);
   LinearFind(Result, Index);
@@ -249,9 +264,16 @@ constructor TDWScriptLanguageServer.Create;
 begin
   FInputStream := THandleStream.Create(GetStdHandle(STD_INPUT_HANDLE));
   FOutputStream := THandleStream.Create(GetStdHandle(STD_OUTPUT_HANDLE));
-{$IFDEF DEBUG}
+{$IFDEF DEBUGLOG}
   FLog := TStringList.Create;
 {$ENDIF}
+
+  // create DWS compiler
+  FDelphiWebScript := TDelphiWebScript.Create(nil);
+  FDelphiWebScript.Config.CompilerOptions := [coAssertions, coAllowClosures,
+    coSymbolDictionary, coContextMap];
+  FDelphiWebScript.OnNeedUnit := OnNeedUnitEventHandler;
+  FDelphiWebScript.OnInclude := OnIncludeEventHandler;
 
   FClientCapabilities := TClientCapabilities.Create;
   FServerCapabilities := TServerCapabilities.Create;
@@ -266,16 +288,18 @@ begin
   FServerCapabilities.Free;
   FClientCapabilities.Free;
 
+  FDelphiWebScript.Free;
+
   FInputStream.Free;
   FOutputStream.Free;
-{$IFDEF DEBUG}
+{$IFDEF DEBUGLOG}
   FLog.Free;
 {$ENDIF}
 
   inherited;
 end;
 
-{$IFDEF DEBUG}
+{$IFDEF DEBUGLOG}
 procedure TDWScriptLanguageServer.Log(Text: string);
 begin
   FLog.Add(Text);
@@ -293,12 +317,24 @@ begin
   SendNotification('window/logMessage', Params);
 end;
 
+procedure TDWScriptLanguageServer.OnIncludeEventHandler(
+  const ScriptName: string; var ScriptSource: string);
+begin
+  LogMessage('OnIncludeEventHandler: ' + ScriptName);
+end;
+
+function TDWScriptLanguageServer.OnNeedUnitEventHandler(const UnitName: string;
+  var UnitSource: string): IdwsUnit;
+begin
+  LogMessage('OnNeedUnitEventHandler: ' + UnitName);
+end;
+
 procedure TDWScriptLanguageServer.ShowMessage(Text: string;
   MessageType: TMessageType = msInfo);
 var
   Params: TdwsJSONObject;
 begin
-{$IFDEF DEBUG}
+{$IFDEF DEBUGLOG}
   Log('ShowMessage: ' + Text);
 {$ENDIF}
 
@@ -313,7 +349,7 @@ procedure TDWScriptLanguageServer.ShowMessageRequest(Text: string;
 var
   Params: TdwsJSONObject;
 begin
-{$IFDEF DEBUG}
+{$IFDEF DEBUGLOG}
   Log('ShowMessage: ' + Text);
 {$ENDIF}
 
@@ -359,7 +395,7 @@ end;
 procedure TDWScriptLanguageServer.HandleInitialized;
 begin
   FInitialized := True;
-  //ShowMessage('Initialized');
+//  ShowMessage('The DWScript language server is in an early alpha state');
 end;
 
 procedure TDWScriptLanguageServer.RegisterCapability(Method, Id: string);
@@ -504,9 +540,13 @@ var
   DidSaveTextDocumentParams: TDidSaveTextDocumentParams;
 begin
   DidSaveTextDocumentParams := TDidSaveTextDocumentParams.Create;
-  DidSaveTextDocumentParams.ReadFromJson(Params);
+  try
+    DidSaveTextDocumentParams.ReadFromJson(Params);
 
-  // not further implemented
+    // nothing in here so far
+  finally
+    DidSaveTextDocumentParams.Free;
+  end;
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentFormatting(Params: TdwsJSONObject);
@@ -542,21 +582,62 @@ end;
 procedure TDWScriptLanguageServer.HandleTextDocumentHover(Params: TdwsJSONObject);
 var
   TextDocumentPositionParams: TTextDocumentPositionParams;
+  TextDocumentItem: TdwsTextDocumentItem;
+  Uri, Text: string;
+  Index: Integer;
+  Prog: IdwsProgram;
+  Symbol: TSymbol;
   Range: TRange;
   Result: TdwsJSONObject;
 begin
+  Symbol := nil;
+  Prog := nil;
   TextDocumentPositionParams := TTextDocumentPositionParams.Create;
-  TextDocumentPositionParams.ReadFromJson(Params);
+  try
+    TextDocumentPositionParams.ReadFromJson(Params);
+
+    Uri := WebUtils.DecodeURLEncoded(TextDocumentPositionParams.TextDocument.Uri, 1);
+    TextDocumentItem := FTextDocumentItemList[Uri];
+    if Assigned(TextDocumentItem) then
+      Text := TextDocumentItem.Text
+    else
+      if StrBeginsWith(Uri, 'file:///') then
+      begin
+        Delete(Uri, 1, 8);
+        Text := LoadTextFromFile(Uri);
+      end;
+
+    if Text <> '' then
+      Prog := FDelphiWebScript.Compile(Text);
+
+    if Assigned(Prog) then
+    begin
+      if Prog.Msgs.HasErrors then
+        LogMessage('Program has errors: ' + Prog.Msgs.AsInfo);
+
+      Symbol := Prog.SymbolDictionary.FindSymbolAtPosition(
+        TextDocumentPositionParams.Position.Character + 1,
+        TextDocumentPositionParams.Position.Line + 1, SYS_MainModule);
+    end;
+  finally
+    TextDocumentPositionParams.Free;
+  end;
 
   Result := TdwsJSONObject.Create;
 
   // add contents here
-  Result.AddValue('contents', 'DWSLS TODO: add content here');
+  if Assigned(Symbol) then
+    Result.AddValue('contents', 'Symbol name: ' + Symbol.Name)
+  else
+    Result.AddValue('contents', 'Hello from dwsls');
 
+(*
+  // a range is not used at the moment
   Range := TRange.Create;
-  // set range here
 
+  // set range here
   Range.WriteToJson(Result.AddValue('range'));
+*)
 
   SendResponse(Result);
 end;
@@ -651,24 +732,39 @@ var
   WillSaveTextDocumentParams: TWillSaveTextDocumentParams;
 begin
   WillSaveTextDocumentParams := TWillSaveTextDocumentParams.Create;
-  WillSaveTextDocumentParams.ReadFromJson(Params);
+  try
+    WillSaveTextDocumentParams.ReadFromJson(Params);
 
-  // not yet implemented
+    // nothing here so far
+  finally
+    WillSaveTextDocumentParams.Free;
+  end;
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentWillSaveWaitUntil(Params: TdwsJSONObject);
 var
   WillSaveTextDocumentParams: TWillSaveTextDocumentParams;
-  Result: TdwsJSONObject;
+  TextDocument: TdwsTextDocumentItem;
+  TextEdit: TTextEdit;
+  Result: TdwsJSONArray;
 begin
   WillSaveTextDocumentParams := TWillSaveTextDocumentParams.Create;
-  WillSaveTextDocumentParams.ReadFromJson(Params);
+  try
+    WillSaveTextDocumentParams.ReadFromJson(Params);
+    TextDocument := FTextDocumentItemList.GetObjects(WillSaveTextDocumentParams.TextDocument.Uri);
+  finally
+    WillSaveTextDocumentParams.Free;
+  end;
 
-  // not further implemented
-
-  Result := TdwsJSONObject.Create;
-
-  SendResponse(Result);
+  Result := TdwsJSONArray.Create;
+  try
+    TextEdit := TTextEdit.Create;
+    TextEdit.NewText := TextDocument.FText;
+    TextEdit.WriteToJson(Result.AddValue);
+    SendResponse(Result);
+  finally
+    Result.Free;
+  end;
 end;
 
 procedure TDWScriptLanguageServer.HandleExit;
@@ -894,7 +990,7 @@ begin
       HandleDocumentLinkResolve
     else
   end
-{$IFDEF DEBUG}
+{$IFDEF DEBUGLOG}
   else
     Log('UnknownMessage: ' + JsonRpc.AsString);
 {$ENDIF}
@@ -948,14 +1044,14 @@ begin
   TextDocumentSyncOptions := Capabilities.AddObject('textDocumentSync');
   TextDocumentSyncOptions.AddValue('openClose', true);
   TextDocumentSyncOptions.AddValue('change', Integer(dsFull));
-(*
-  TextDocumentSyncOptions.AddValue('willSave', true);
-  TextDocumentSyncOptions.AddValue('willSaveWaitUntil', true);
+  TextDocumentSyncOptions.AddValue('willSave', false); // not needed so far
+  TextDocumentSyncOptions.AddValue('willSaveWaitUntil', false); // not needed so far
   SaveOptions := TextDocumentSyncOptions.AddObject('save');
-  SaveOptions.AddValue('includeText', true);
+  SaveOptions.AddValue('includeText', false); // not needed so far
 
   Capabilities.AddValue('hoverProvider', true);
 
+(*
   // completion options
   CompletionOptions := Capabilities.AddObject('completionProvider');
   CompletionOptions.AddValue('resolveProvider', true);
@@ -1093,7 +1189,8 @@ begin
   WriteOutput(Response.ToString);
 end;
 
-procedure TDWScriptLanguageServer.SendResponse(Result, Error: TdwsJSONObject);
+procedure TDWScriptLanguageServer.SendResponse(Result: TdwsJSONValue;
+  Error: TdwsJSONObject);
 var
   Response: TdwsJSONObject;
 begin
@@ -1110,7 +1207,7 @@ procedure TDWScriptLanguageServer.WriteOutput(const Text: string);
 var
   OutputText: UTF8String;
 begin
-{$IFDEF DEBUG}
+{$IFDEF DEBUGLOG}
   Log('Output: ' + Text);
 {$ENDIF}
 
@@ -1134,7 +1231,7 @@ begin
 
     Text := Text + string(NewText);
 
-    {$IFDEF DEBUG}
+    {$IFDEF DEBUGLOG}
     Log(Text);
     {$ENDIF}
 
