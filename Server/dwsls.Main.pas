@@ -114,6 +114,8 @@ type
     procedure Run;
   end;
 
+function DecodeJavaScriptString(const Input: string): string;
+
 implementation
 
 uses
@@ -122,9 +124,48 @@ uses
 { TdwsTextDocumentItem }
 
 function DecodeJavaScriptString(const Input: string): string;
+var
+  StartIndex: Integer;
+  StopIndex: Integer;
 begin
-  Result := StringReplace(Input, '/n', #10, [rfReplaceAll]);
-  Result := StringReplace(Result, '/r', #13, [rfReplaceAll]);
+  StartIndex := 1;
+  StopIndex := 1;
+  Result := '';
+  while StopIndex < Length(Input) do
+  begin
+    if (Input[StopIndex] = '/') and (StopIndex + 1 < Length(Input)) then
+    begin
+      Result := Result + Copy(Input, StartIndex, StopIndex - StartIndex);
+
+      case Ord(Input[StopIndex + 1]) of
+        Ord('b'):
+          Result := Result + #8;
+        Ord('t'):
+          Result := Result + #9;
+        Ord('n'):
+          Result := Result + #10;
+        Ord('f'):
+          Result := Result + #10;
+        Ord('r'):
+          Result := Result + #13;
+        Ord('"'):
+          Result := Result + '"';
+        Ord('/'):
+          Result := Result + '/';
+        Ord('\'):
+          Result := Result + '\';
+        else
+          Result := Result + '/' + Input[StopIndex + 1];
+      end;
+
+      Inc(StopIndex);
+      StartIndex := StopIndex + 1;
+    end;
+    Inc(StopIndex);
+  end;
+
+  // copy last characters
+  Result := Result + Copy(Input, StartIndex, StopIndex - StartIndex);
 end;
 
 constructor TdwsTextDocumentItem.Create(TextDocumentItem: TTextDocumentItem);
@@ -421,7 +462,7 @@ begin
     // perform changes
     for Index := 0 to DidChangeTextDocumentParams.ContentChanges.Count - 1 do
       if not DidChangeTextDocumentParams.ContentChanges[Index].HasRange then
-        TextDocument.Text := DidChangeTextDocumentParams.ContentChanges[Index].Text;
+        TextDocument.Text := DecodeJavaScriptString(DidChangeTextDocumentParams.ContentChanges[Index].Text);
   finally
     DidChangeTextDocumentParams.Free;
   end;
