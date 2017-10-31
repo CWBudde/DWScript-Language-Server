@@ -27,6 +27,19 @@ type
     dsIncremental = 2
   );
 
+  TErrorCodes = (
+    ecParseError = -32700,
+    ecInvalidRequest = -32600,
+	  ecMethodNotFound = -32601,
+	  ecInvalidParams = -32602,
+	  ecInternalError = -32603,
+	  ecserverErrorStart = -32099,
+	  ecserverErrorEnd = -32000,
+	  ecServerNotInitialized = -32002,
+	  ecUnknownErrorCode = -32001,
+	  ecRequestCancelled = -32800
+  );
+
   TPosition = class(TJsonClass)
   private
     FLine: Integer;

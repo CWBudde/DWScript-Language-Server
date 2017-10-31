@@ -38,14 +38,14 @@ type
 
   TDidOpenTextDocumentParams = class(TJsonClass)
   private
-    FTextDocument: TTextDocumentIdentifier;
+    FTextDocument: TTextDocumentItem;
   public
     constructor Create;
 
     procedure ReadFromJson(Value: TdwsJSONValue); override;
     procedure WriteToJson(Value: TdwsJSONValue); override;
 
-    property TextDocument: TTextDocumentIdentifier read FTextDocument;
+    property TextDocument: TTextDocumentItem read FTextDocument;
   end;
 
   TTextDocumentContentChangeEvent = class(TJsonClass)
@@ -53,6 +53,7 @@ type
     FText: string;
     FRangeLength: Integer;
     FRange: TRange;
+    FHasRange: Boolean;
   public
     constructor Create;
 
@@ -62,6 +63,7 @@ type
     property Range: TRange read FRange;
     property RangeLength: Integer read FRangeLength write FRangeLength;
     property Text: string read FText write FText;
+    property HasRange: Boolean read FHasRange;
   end;
 
   TDidChangeTextDocumentParams = class(TJsonClass)
@@ -76,6 +78,7 @@ type
     procedure ReadFromJson(Value: TdwsJSONValue); override;
     procedure WriteToJson(Value: TdwsJSONValue); override;
 
+    property ContentChanges: TTextDocumentContentChangeEvents read FContentChanges;
     property TextDocument: TVersionedTextDocumentIdentifier read FTextDocument;
   end;
 
@@ -142,6 +145,48 @@ type
   end;
 
   TDocumentSymbolParams = class(TJsonClass)
+  private
+    FTextDocument: TTextDocumentIdentifier;
+  public
+    constructor Create;
+
+    procedure ReadFromJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONValue); override;
+
+    property TextDocument: TTextDocumentIdentifier read FTextDocument;
+  end;
+
+  TCodeActionContext = class(TJsonClass)
+  type
+    TDiagnostics = TObjectList<TDiagnostic>;
+  private
+    FDiagnostics: TDiagnostics;
+  public
+    constructor Create;
+
+    procedure ReadFromJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONValue); override;
+
+    property Diagnostics: TDiagnostics read FDiagnostics;
+  end;
+
+  TCodeActionParams = class(TJsonClass)
+  private
+    FTextDocument: TTextDocumentIdentifier;
+    FContext: TCodeActionContext;
+    FRange: TRange;
+  public
+    constructor Create;
+
+    procedure ReadFromJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONValue); override;
+
+    property TextDocument: TTextDocumentIdentifier read FTextDocument;
+    property Range: TRange read FRange;
+    property Context: TCodeActionContext read FContext;
+  end;
+
+  TCodeLensParams = class(TJsonClass)
   private
     FTextDocument: TTextDocumentIdentifier;
   public
@@ -305,7 +350,7 @@ end;
 
 constructor TDidOpenTextDocumentParams.Create;
 begin
-  FTextDocument := TTextDocumentIdentifier.Create;
+  FTextDocument := TTextDocumentItem.Create;
 end;
 
 procedure TDidOpenTextDocumentParams.ReadFromJson(Value: TdwsJSONValue);
@@ -328,15 +373,26 @@ end;
 
 procedure TTextDocumentContentChangeEvent.ReadFromJson(Value: TdwsJSONValue);
 begin
-  FRange.ReadFromJson(Value['range']);
-  FRangeLength := Value['rangeLength'].AsInteger;
+  if Value['range'] <> nil then
+  begin
+    FHasRange := True;
+    FRange.ReadFromJson(Value['range']);
+    FRangeLength := Value['rangeLength'].AsInteger;
+  end
+  else
+    FHasRange := false;
+
   FText := Value['text'].AsString;
 end;
 
 procedure TTextDocumentContentChangeEvent.WriteToJson(Value: TdwsJSONValue);
 begin
-  FRange.WriteToJson(Value['range']);
-  Value['rangeLength'].AsInteger := FRangeLength;
+  if FHasRange then
+  begin
+    FRange.WriteToJson(Value['range']);
+    Value['rangeLength'].AsInteger := FRangeLength;
+  end;
+
   Value['text'].AsString := FText;
 end;
 
@@ -477,6 +533,66 @@ begin
 end;
 
 procedure TDocumentSymbolParams.WriteToJson(Value: TdwsJSONValue);
+begin
+  FTextDocument.WriteToJson(Value['textDocument']);
+end;
+
+
+{ TCodeActionContext }
+
+constructor TCodeActionContext.Create;
+begin
+  FDiagnostics := TDiagnostics.Create;
+end;
+
+procedure TCodeActionContext.ReadFromJson(Value: TdwsJSONValue);
+begin
+//  FDiagnostics
+end;
+
+procedure TCodeActionContext.WriteToJson(Value: TdwsJSONValue);
+begin
+//  FDiagnostics
+end;
+
+
+{ TCodeActionParams }
+
+constructor TCodeActionParams.Create;
+begin
+  FTextDocument := TTextDocumentIdentifier.Create;
+  FRange := TRange.Create;
+  FContext := TCodeActionContext.Create;
+end;
+
+procedure TCodeActionParams.ReadFromJson(Value: TdwsJSONValue);
+begin
+  FTextDocument.ReadFromJson(Value['textDocument']);
+  FRange.ReadFromJson(Value['range']);
+  FContext.ReadFromJson(Value['context']);
+end;
+
+procedure TCodeActionParams.WriteToJson(Value: TdwsJSONValue);
+begin
+  FTextDocument.WriteToJson(Value['textDocument']);
+  FRange.WriteToJson(Value['range']);
+  FContext.WriteToJson(Value['context']);
+end;
+
+
+{ TCodeLensParams }
+
+constructor TCodeLensParams.Create;
+begin
+  FTextDocument := TTextDocumentIdentifier.Create;
+end;
+
+procedure TCodeLensParams.ReadFromJson(Value: TdwsJSONValue);
+begin
+  FTextDocument.ReadFromJson(Value['textDocument']);
+end;
+
+procedure TCodeLensParams.WriteToJson(Value: TdwsJSONValue);
 begin
   FTextDocument.WriteToJson(Value['textDocument']);
 end;

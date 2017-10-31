@@ -23,6 +23,7 @@
 		"Languages",
 		"Snippets",
 		"Linters",
+		"Formatters",
 		"Other"
 	],
 	"icon": "icon/128x128.png",

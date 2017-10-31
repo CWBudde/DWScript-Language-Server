@@ -3,11 +3,40 @@ unit dwsls.Main;
 interface
 
 uses
-  Windows, Classes, Variants, dwsJson, dwsXPlatform, dwsUtils,
+  Windows, Classes, dwsJson, dwsXPlatform, dwsUtils,
   dwsls.Classes.Capabilities, dwsls.Classes.Common, dwsls.Classes.Document,
   dwsls.Classes.Workspace;
 
 type
+  TdwsTextDocumentItem = class
+  private
+    FUri: string;
+    FVersion: Integer;
+    FText: string;
+  public
+    constructor Create(TextDocumentItem: TTextDocumentItem);
+
+    property Uri: string read FUri write FUri;
+    property Version: Integer read FVersion write FVersion;
+    property Text: string read FText write FText;
+  end;
+
+  TdwsTextDocumentItemList = class(TSimpleHash<TdwsTextDocumentItem>)
+  private
+    function GetObjects(const Uri: string): TdwsTextDocumentItem; inline;
+    procedure SetObjects(const Uri: string; TextDocumentItem: TdwsTextDocumentItem); inline;
+  protected
+    function SameItem(const Item1, Item2 : TdwsTextDocumentItem) : Boolean; override;
+    function GetItemHashCode(const Item1 : TdwsTextDocumentItem) : Cardinal; override;
+  public
+    function Remove(const Uri: string): Boolean;
+    function Contains(const Uri: string): Boolean;
+
+    procedure Clean;
+
+    property Objects[const Uri: string]: TdwsTextDocumentItem read GetObjects write SetObjects; default;
+  end;
+
   TDWScriptLanguageServer = class
   private
     FClientCapabilities: TClientCapabilities;
@@ -15,6 +44,11 @@ type
     FInputStream: THandleStream;
     FOutputStream: THandleStream;
     FCurrentId: Integer;
+    FInitialized: Boolean;
+//    FWorkspace: TDWScriptWorkspace;
+
+    FTextDocumentItemList: TdwsTextDocumentItemList;
+
     {$IFDEF DEBUG}
     FLog: TStringList;
     procedure Log(Text: string);
@@ -25,6 +59,7 @@ type
     procedure SendInitializeResponse;
     procedure SendNotification(Method: string; Params: TdwsJSONObject = nil); overload;
     procedure SendRequest(Method: string; Params: TdwsJSONObject = nil);
+    procedure SendErrorResponse(ErrorCode: TErrorCodes; ErrorMessage: string);
     procedure SendResponse(Result: TdwsJSONObject; Error: TdwsJSONObject = nil); overload;
     procedure SendResponse(Result: string; Error: TdwsJSONObject = nil); overload;
     procedure SendResponse(Result: Integer; Error: TdwsJSONObject = nil); overload;
@@ -46,8 +81,8 @@ type
     procedure HandleCodeLensResolve;
     procedure HandleCompletionItemResolve;
     procedure HandleDocumentLinkResolve;
-    procedure HandleTextDocumentCodeAction;
-    procedure HandleTextDocumentCodeLens;
+    procedure HandleTextDocumentCodeAction(Params: TdwsJSONObject);
+    procedure HandleTextDocumentCodeLens(Params: TdwsJSONObject);
     procedure HandleTextDocumentCompletion(Params: TdwsJSONObject);
     procedure HandleTextDocumentDefinition(Params: TdwsJSONObject);
     procedure HandleTextDocumentDidChange(Params: TdwsJSONObject);
@@ -84,6 +119,89 @@ implementation
 uses
   SysUtils;
 
+{ TdwsTextDocumentItem }
+
+function DecodeJavaScriptString(const Input: string): string;
+begin
+  Result := StringReplace(Input, '/n', #10, [rfReplaceAll]);
+  Result := StringReplace(Result, '/r', #13, [rfReplaceAll]);
+end;
+
+constructor TdwsTextDocumentItem.Create(TextDocumentItem: TTextDocumentItem);
+begin
+  Assert(TextDocumentItem.LanguageId = 'dwscript');
+  FUri := TextDocumentItem.Uri;
+  FVersion := TextDocumentItem.Version;
+  FText := DecodeJavaScriptString(TextDocumentItem.Text);
+end;
+
+
+{ TdwsTextDocumentItemList }
+
+procedure TdwsTextDocumentItemList.Clean;
+var
+  i: Integer;
+begin
+  for i := 0 to FCapacity - 1 do
+    if FBuckets[i].HashCode <> 0 then
+      FBuckets[i].Value.Free;
+  Clear;
+end;
+
+function TdwsTextDocumentItemList.Contains(const Uri: string): Boolean;
+var
+  Index: Integer;
+  Item: TdwsTextDocumentItem;
+begin
+  if FCount = 0 then Exit(False);
+  Index := SimpleStringHash(Uri) and (FCapacity - 1);
+  Result := LinearFind(Item, Index);
+end;
+
+function TdwsTextDocumentItemList.GetItemHashCode(
+  const Item1: TdwsTextDocumentItem): Cardinal;
+begin
+  Result := SimpleStringHash(Item1.Uri);
+end;
+
+function TdwsTextDocumentItemList.GetObjects(
+  const Uri: string): TdwsTextDocumentItem;
+var
+  HashCode: Cardinal;
+  Index: Integer;
+begin
+  HashCode := SimpleStringHash(Uri);
+  Index := HashCode and (FCapacity - 1);
+  LinearFind(Result, Index);
+end;
+
+function TdwsTextDocumentItemList.Remove(const Uri: string): Boolean;
+var
+  Index: Integer;
+  Item: TdwsTextDocumentItem;
+begin
+  if FCount = 0 then Exit(False);
+  Index := SimpleStringHash(Uri) and (FCapacity - 1);
+  Result := LinearFind(Item, Index);
+  if Result then Delete(Index);
+end;
+
+function TdwsTextDocumentItemList.SameItem(const Item1,
+  Item2: TdwsTextDocumentItem): Boolean;
+begin
+  Result := (Item1.Uri = Item2.Uri);
+end;
+
+procedure TdwsTextDocumentItemList.SetObjects(const Uri: string;
+  TextDocumentItem: TdwsTextDocumentItem);
+begin
+  if Contains(Uri) then
+    Replace(TextDocumentItem)
+  else
+    Add(TextDocumentItem);
+end;
+
+
 { TDWScriptLanguageServer }
 
 constructor TDWScriptLanguageServer.Create;
@@ -96,10 +214,14 @@ begin
 
   FClientCapabilities := TClientCapabilities.Create;
   FServerCapabilities := TServerCapabilities.Create;
+
+  FTextDocumentItemList := TdwsTextDocumentItemList.Create
 end;
 
 destructor TDWScriptLanguageServer.Destroy;
 begin
+  FTextDocumentItemList.Free;
+
   FServerCapabilities.Free;
   FClientCapabilities.Free;
 
@@ -178,86 +300,13 @@ begin
   Registration.AddValue('id', Id);
   Registration.AddValue('method', Method);
   RegisterOptions := Registration.AddObject('registerOptions');
-  RegisterOptions.AddArray('documentSelector').AddObject.AddValue('language', 'dws');
+  RegisterOptions.AddArray('documentSelector').AddObject.AddValue('language', 'dwscript');
   SendNotification('client/unregisterCapability', Params);
 end;
 
 procedure TDWScriptLanguageServer.EvaluateClientCapabilities(Params: TdwsJSONObject);
 begin
   FClientCapabilities.ReadFromJson(Params);
-end;
-
-procedure TDWScriptLanguageServer.SendInitializeResponse;
-var
-  InitializeResult: TdwsJSONObject;
-  Capabilities: TdwsJSONObject;
-  TextDocumentSyncOptions: TdwsJSONObject;
-  SaveOptions: TdwsJSONObject;
-  CompletionOptions: TdwsJSONObject;
-  TriggerCharacters: TdwsJSONArray;
-  SignatureHelpOptions: TdwsJSONObject;
-  CodeLensOptions: TdwsJSONObject;
-  DocumentOnTypeFormattingOptions: TdwsJSONObject;
-  DocumentLinkOptions: TdwsJSONObject;
-  ExecuteCommandOptions: TdwsJSONObject;
-  Commands: TdwsJSONArray;
-begin
-  InitializeResult := TdwsJSONObject.Create;
-  Capabilities := InitializeResult.AddObject('capabilities');
-
-  // text document sync options
-  TextDocumentSyncOptions := Capabilities.AddObject('textDocumentSync');
-  TextDocumentSyncOptions.AddValue('openClose', true);
-  TextDocumentSyncOptions.AddValue('change', Integer(dsFull));
-  TextDocumentSyncOptions.AddValue('willSave', true);
-  TextDocumentSyncOptions.AddValue('willSaveWaitUntil', true);
-  SaveOptions := TextDocumentSyncOptions.AddObject('save');
-  SaveOptions.AddValue('includeText', true);
-
-  Capabilities.AddValue('hoverProvider', true);
-
-  // completion options
-  CompletionOptions := Capabilities.AddObject('completionProvider');
-  CompletionOptions.AddValue('resolveProvider', true);
-  TriggerCharacters := CompletionOptions.AddArray('triggerCharacters');
-  TriggerCharacters.Add('.');
-
-  // signature help options
-  SignatureHelpOptions := Capabilities.AddObject('signatureHelpProvider');
-  TriggerCharacters := CompletionOptions.AddArray('triggerCharacters');
-
-  Capabilities.AddValue('definitionProvider', true);
-  Capabilities.AddValue('referencesProvider', true);
-  Capabilities.AddValue('documentHighlightProvider', true);
-  Capabilities.AddValue('documentSymbolProvider', true);
-  Capabilities.AddValue('workspaceSymbolProvider', true);
-  Capabilities.AddValue('codeActionProvider', true);
-
-  // Code Lens options
-	CodeLensOptions := Capabilities.AddObject('codeLensProvider');
-  CodeLensOptions.AddValue('resolveProvider', true);
-
-	Capabilities.AddValue('documentFormattingProvider', true);
-	Capabilities.AddValue('documentRangeFormattingProvider', true);
-
-(*
-  // Format document on type options
-  DocumentOnTypeFormattingOptions := Capabilities.AddObject('documentOnTypeFormattingProvider');
-  DocumentOnTypeFormattingOptions.AddValue('firstTriggerCharacter', '');
-  TriggerCharacters := CompletionOptions.AddArray('moreTriggerCharacter');
-*)
-
-	Capabilities.AddValue('renameProvider', true);
-
-	DocumentLinkOptions := Capabilities.AddObject('documentLinkProvider');
-  DocumentLinkOptions.AddValue('resolveProvider', true);
-
-(*
-	ExecuteCommandOptions := Capabilities.AddObject('executeCommandProvider');
-  Commands := ExecuteCommandOptions.AddArray('commands')
-*)
-
-  SendResponse(InitializeResult);
 end;
 
 procedure TDWScriptLanguageServer.HandleInitialize(Params: TdwsJSONObject);
@@ -268,6 +317,7 @@ end;
 
 procedure TDWScriptLanguageServer.HandleInitialized;
 begin
+  FInitialized := True;
   //ShowMessage('Initialized');
 end;
 
@@ -284,7 +334,7 @@ begin
   Registration.AddValue('id', Id);
   Registration.AddValue('method', Method);
   RegisterOptions := Registration.AddObject('registerOptions');
-  RegisterOptions.AddArray('documentSelector').AddObject.AddValue('language', 'dws');
+  RegisterOptions.AddArray('documentSelector').AddObject.AddValue('language', 'dwscript');
   SendNotification('client/registerCapability', Params);
 end;
 
@@ -308,12 +358,12 @@ begin
   // not yet implemented
 end;
 
-procedure TDWScriptLanguageServer.HandleTextDocumentCodeAction;
+procedure TDWScriptLanguageServer.HandleTextDocumentCodeAction(Params: TdwsJSONObject);
 begin
   // not yet implemented
 end;
 
-procedure TDWScriptLanguageServer.HandleTextDocumentCodeLens;
+procedure TDWScriptLanguageServer.HandleTextDocumentCodeLens(Params: TdwsJSONObject);
 begin
   // not yet implemented
 end;
@@ -351,11 +401,30 @@ end;
 procedure TDWScriptLanguageServer.HandleTextDocumentDidChange(Params: TdwsJSONObject);
 var
   DidChangeTextDocumentParams: TDidChangeTextDocumentParams;
+  TextDocument: TdwsTextDocumentItem;
+  Index: Integer;
 begin
   DidChangeTextDocumentParams := TDidChangeTextDocumentParams.Create;
-  DidChangeTextDocumentParams.ReadFromJson(Params);
+  try
+    DidChangeTextDocumentParams.ReadFromJson(Params);
 
-  // not implemented much further
+    // locate text document
+    TextDocument := FTextDocumentItemList[DidChangeTextDocumentParams.TextDocument.Uri];
+
+    // exit if no text document has been found
+    if not Assigned(TextDocument) then
+      Exit;
+
+    // update version
+    TextDocument.Version := DidChangeTextDocumentParams.TextDocument.Version;
+
+    // perform changes
+    for Index := 0 to DidChangeTextDocumentParams.ContentChanges.Count - 1 do
+      if not DidChangeTextDocumentParams.ContentChanges[Index].HasRange then
+        TextDocument.Text := DidChangeTextDocumentParams.ContentChanges[Index].Text;
+  finally
+    DidChangeTextDocumentParams.Free;
+  end;
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentDidClose(Params: TdwsJSONObject);
@@ -363,19 +432,30 @@ var
   DidCloseTextDocumentParams: TDidCloseTextDocumentParams;
 begin
   DidCloseTextDocumentParams := TDidCloseTextDocumentParams.Create;
-  DidCloseTextDocumentParams.ReadFromJson(Params);
+  try
+    DidCloseTextDocumentParams.ReadFromJson(Params);
 
-  // not further implemented
+    // remove text document from list
+    FTextDocumentItemList.Remove(DidCloseTextDocumentParams.TextDocument.Uri);
+  finally
+    DidCloseTextDocumentParams.Free;
+  end;
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentDidOpen(Params: TdwsJSONObject);
 var
   DidOpenTextDocumentParams: TDidOpenTextDocumentParams;
+  TextDocumentItem: TdwsTextDocumentItem;
 begin
   DidOpenTextDocumentParams := TDidOpenTextDocumentParams.Create;
-  DidOpenTextDocumentParams.ReadFromJson(Params);
+  try
+    DidOpenTextDocumentParams.ReadFromJson(Params);
 
-  // not yet implemented
+    // add to text document item list
+    FTextDocumentItemList.Add(TdwsTextDocumentItem.Create(DidOpenTextDocumentParams.TextDocument));
+  finally
+    FreeAndNil(DidOpenTextDocumentParams);
+  end;
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentDidSave(Params: TdwsJSONObject);
@@ -637,11 +717,24 @@ begin
   Method := JsonRpc['method'].AsString;
 
   if Method = 'initialize' then
-    HandleInitialize(TdwsJSONObject(JsonRpc['params']))
+  begin
+    HandleInitialize(TdwsJSONObject(JsonRpc['params']));
+    Exit;
+  end
   else
   if Method = 'initialized' then
-    HandleInitialized
-  else
+  begin
+    HandleInitialized;
+    Exit;
+  end;
+
+  // only continue if the server is initialized
+  if not FInitialized then
+  begin
+    SendErrorResponse(ecServerNotInitialized, 'Server not initialized');
+    Exit;
+  end;
+
   if Method = 'shutdown' then
     HandleShutDown
   else
@@ -716,10 +809,10 @@ begin
       HandleTextDocumentSymbol(TdwsJsonObject(JsonRpc['params']))
     else
     if Method = 'textDocument/codeAction' then
-      HandleTextDocumentCodeAction
+      HandleTextDocumentCodeAction(TdwsJsonObject(JsonRpc['params']))
     else
     if Method = 'textDocument/codeLense' then
-      HandleTextDocumentCodeLens
+      HandleTextDocumentCodeLens(TdwsJsonObject(JsonRpc['params']))
     else
     if Method = 'textDocument/documentLink' then
       HandleTextDocumentLink(TdwsJsonObject(JsonRpc['params']))
@@ -790,6 +883,95 @@ begin
   end;
 
   Result := HandleJsonRpc(TdwsJSONObject(JsonValue));
+end;
+
+procedure TDWScriptLanguageServer.SendInitializeResponse;
+var
+  InitializeResult: TdwsJSONObject;
+  Capabilities: TdwsJSONObject;
+  TextDocumentSyncOptions: TdwsJSONObject;
+  SaveOptions: TdwsJSONObject;
+  CompletionOptions: TdwsJSONObject;
+  TriggerCharacters: TdwsJSONArray;
+  SignatureHelpOptions: TdwsJSONObject;
+  CodeLensOptions: TdwsJSONObject;
+  DocumentOnTypeFormattingOptions: TdwsJSONObject;
+  DocumentLinkOptions: TdwsJSONObject;
+  ExecuteCommandOptions: TdwsJSONObject;
+  Commands: TdwsJSONArray;
+begin
+  InitializeResult := TdwsJSONObject.Create;
+  Capabilities := InitializeResult.AddObject('capabilities');
+
+  // text document sync options
+  TextDocumentSyncOptions := Capabilities.AddObject('textDocumentSync');
+  TextDocumentSyncOptions.AddValue('openClose', true);
+  TextDocumentSyncOptions.AddValue('change', Integer(dsFull));
+(*
+  TextDocumentSyncOptions.AddValue('willSave', true);
+  TextDocumentSyncOptions.AddValue('willSaveWaitUntil', true);
+  SaveOptions := TextDocumentSyncOptions.AddObject('save');
+  SaveOptions.AddValue('includeText', true);
+
+  Capabilities.AddValue('hoverProvider', true);
+
+  // completion options
+  CompletionOptions := Capabilities.AddObject('completionProvider');
+  CompletionOptions.AddValue('resolveProvider', true);
+  TriggerCharacters := CompletionOptions.AddArray('triggerCharacters');
+  TriggerCharacters.Add('.');
+
+  // signature help options
+  SignatureHelpOptions := Capabilities.AddObject('signatureHelpProvider');
+  TriggerCharacters := CompletionOptions.AddArray('triggerCharacters');
+
+  Capabilities.AddValue('definitionProvider', true);
+  Capabilities.AddValue('referencesProvider', true);
+  Capabilities.AddValue('documentHighlightProvider', true);
+  Capabilities.AddValue('documentSymbolProvider', true);
+  Capabilities.AddValue('workspaceSymbolProvider', true);
+  Capabilities.AddValue('codeActionProvider', true);
+
+  // Code Lens options
+	CodeLensOptions := Capabilities.AddObject('codeLensProvider');
+  CodeLensOptions.AddValue('resolveProvider', true);
+
+	Capabilities.AddValue('documentFormattingProvider', true);
+	Capabilities.AddValue('documentRangeFormattingProvider', true);
+
+{
+  // Format document on type options
+  DocumentOnTypeFormattingOptions := Capabilities.AddObject('documentOnTypeFormattingProvider');
+  DocumentOnTypeFormattingOptions.AddValue('firstTriggerCharacter', '');
+  TriggerCharacters := CompletionOptions.AddArray('moreTriggerCharacter');
+}
+
+	Capabilities.AddValue('renameProvider', true);
+
+	DocumentLinkOptions := Capabilities.AddObject('documentLinkProvider');
+  DocumentLinkOptions.AddValue('resolveProvider', true);
+
+	ExecuteCommandOptions := Capabilities.AddObject('executeCommandProvider');
+  Commands := ExecuteCommandOptions.AddArray('commands');
+  Commands.Add('DwsTest');
+*)
+
+  SendResponse(InitializeResult);
+end;
+
+procedure TDWScriptLanguageServer.SendErrorResponse(ErrorCode: TErrorCodes;
+  ErrorMessage: string);
+var
+  Error: TdwsJSONObject;
+  Response: TdwsJSONObject;
+begin
+  Response := TdwsJSONObject.Create;
+  Response.AddValue('id', FCurrentId);
+  Response.AddObject('error');
+  Error := Response.AddObject('error');
+  Error.AddValue('code', Integer(ErrorCode));
+  Error.AddValue('message', ErrorMessage);
+  WriteOutput(Response.ToString);
 end;
 
 procedure TDWScriptLanguageServer.SendResponse;

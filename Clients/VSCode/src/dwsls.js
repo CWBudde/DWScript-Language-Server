@@ -13,10 +13,10 @@ function activate(context) {
     // Options to control the language client
     let clientOptions = {
         // Register the server for plain text documents
-        documentSelector: ['dws'],
+        documentSelector: ['dwscript'],
         synchronize: {
             // Synchronize the setting section 'languageServerExample' to the server
-            configurationSection: 'dws',
+            configurationSection: 'dwsls',
             // Notify the server about file changes to '.clientrc files contain in the workspace
             fileEvents: vscode.workspace.createFileSystemWatcher('**/*.dws')
         }
