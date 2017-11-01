@@ -6,6 +6,7 @@ program dwsls;
 
 uses
   System.SysUtils,
+  dwsJson,
   dwsls.Main in 'dwsls.Main.pas',
   dwsls.Classes.Capabilities in 'dwsls.Classes.Capabilities.pas',
   dwsls.Classes.Common in 'dwsls.Classes.Common.pas',

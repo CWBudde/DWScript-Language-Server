@@ -3,7 +3,7 @@ unit dwsls.Main;
 interface
 
 {$IFDEF DEBUG}
-  {$DEFINE _DEBUGLOG}
+  {$DEFINE DEBUGLOG}
 {$ENDIF}
 
 
@@ -84,7 +84,7 @@ type
     function OnNeedUnitEventHandler(const UnitName: string;
       var UnitSource: string) : IdwsUnit;
 
-    function HandleInput(Text: string): Boolean;
+    function HandleInput(Body: string): Boolean;
     function HandleJsonRpc(JsonRpc: TdwsJSONObject): Boolean;
 
     procedure HandleInitialize(Params: TdwsJSONObject);
@@ -127,8 +127,6 @@ type
     procedure Run;
   end;
 
-function DecodeJavaScriptString(const Input: string): string;
-
 implementation
 
 uses
@@ -136,57 +134,12 @@ uses
 
 { TdwsTextDocumentItem }
 
-function DecodeJavaScriptString(const Input: string): string;
-var
-  StartIndex: Integer;
-  StopIndex: Integer;
-begin
-  StartIndex := 1;
-  StopIndex := 1;
-  Result := '';
-  while StopIndex < Length(Input) do
-  begin
-    if (Input[StopIndex] = '/') and (StopIndex + 1 < Length(Input)) then
-    begin
-      Result := Result + Copy(Input, StartIndex, StopIndex - StartIndex);
-
-      case Ord(Input[StopIndex + 1]) of
-        Ord('b'):
-          Result := Result + #8;
-        Ord('t'):
-          Result := Result + #9;
-        Ord('n'):
-          Result := Result + #10;
-        Ord('f'):
-          Result := Result + #10;
-        Ord('r'):
-          Result := Result + #13;
-        Ord('"'):
-          Result := Result + '"';
-        Ord('/'):
-          Result := Result + '/';
-        Ord('\'):
-          Result := Result + '\';
-        else
-          Result := Result + '/' + Input[StopIndex + 1];
-      end;
-
-      Inc(StopIndex);
-      StartIndex := StopIndex + 1;
-    end;
-    Inc(StopIndex);
-  end;
-
-  // copy last characters
-  Result := Result + Copy(Input, StartIndex, StopIndex - StartIndex);
-end;
-
 constructor TdwsTextDocumentItem.Create(TextDocumentItem: TTextDocumentItem);
 begin
   Assert(TextDocumentItem.LanguageId = 'dwscript');
   FUri := WebUtils.DecodeURLEncoded(TextDocumentItem.Uri, 1);
   FVersion := TextDocumentItem.Version;
-  FText := DecodeJavaScriptString(TextDocumentItem.Text);
+  FText := TextDocumentItem.Text;
 end;
 
 
@@ -334,10 +287,6 @@ procedure TDWScriptLanguageServer.ShowMessage(Text: string;
 var
   Params: TdwsJSONObject;
 begin
-{$IFDEF DEBUGLOG}
-  Log('ShowMessage: ' + Text);
-{$ENDIF}
-
   Params := TdwsJSONObject.Create;
   Params.AddValue('type', Integer(MessageType));
   Params.AddValue('message', Text);
@@ -349,10 +298,6 @@ procedure TDWScriptLanguageServer.ShowMessageRequest(Text: string;
 var
   Params: TdwsJSONObject;
 begin
-{$IFDEF DEBUGLOG}
-  Log('ShowMessage: ' + Text);
-{$ENDIF}
-
   Params := TdwsJSONObject.Create;
   Params.AddValue('type', Integer(MessageType));
   Params.AddValue('message', Text);
@@ -498,7 +443,7 @@ begin
     // perform changes
     for Index := 0 to DidChangeTextDocumentParams.ContentChanges.Count - 1 do
       if not DidChangeTextDocumentParams.ContentChanges[Index].HasRange then
-        TextDocument.Text := DecodeJavaScriptString(DidChangeTextDocumentParams.ContentChanges[Index].Text);
+        TextDocument.Text := DidChangeTextDocumentParams.ContentChanges[Index].Text;
   finally
     DidChangeTextDocumentParams.Free;
   end;
@@ -996,23 +941,13 @@ begin
 {$ENDIF}
 end;
 
-function TDWScriptLanguageServer.HandleInput(Text: string): Boolean;
+function TDWScriptLanguageServer.HandleInput(Body: string): Boolean;
 var
-  Header: string;
-  SplitterPos: Integer;
   JsonValue: TdwsJSONValue;
 begin
   Result := False;
 
-  SplitterPos := Pos(#13#10#13#10, Text);
-  if SplitterPos < 0 then
-    Exit;
-
-  Header := Copy(Text, 1, SplitterPos - 1);
-
-  Delete(Text, 1, SplitterPos + 3);
-
-  JsonValue := TdwsJSONObject.ParseString(Text);
+  JsonValue := TdwsJSONObject.ParseString(Body);
   if JsonValue.Items['jsonrpc'].AsString <> '2.0' then
   begin
     OutputDebugString('Unknown jsonrpc format');
@@ -1220,6 +1155,10 @@ procedure TDWScriptLanguageServer.Run;
 var
   Text: string;
   NewText: UTF8String;
+  CharPos: Integer;
+  ContentLengthText: string;
+  ContentLength: Integer;
+  Body: string;
 begin
   Text := '';
   repeat
@@ -1232,14 +1171,30 @@ begin
     Text := Text + string(NewText);
 
     {$IFDEF DEBUGLOG}
-    Log(Text);
+    Log('<-- Original'); Log(Text); Log('Original-->');
     {$ENDIF}
 
-    if AnsiPos(#13#10, Text) > 0 then
+    while StrBeginsWith(Text, 'Content-Length:') and (AnsiPos(#13#10#13#10, Text) > 0) and (Text[Length(Text)] = '}') do
     begin
-      if HandleInput(Text) then
-        Exit;
-      Text := '';
+      CharPos := Pos('Content-Length:', Text) + 15;
+      ContentLengthText := '';
+      while not CharInSet(Text[CharPos], [#13, #10]) do
+      begin
+        case Text[CharPos] of
+          '0'..'9':
+            ContentLengthText := ContentLengthText + Text[CharPos];
+        end;
+        Inc(CharPos);
+      end;
+      ContentLength := StrToInt(ContentLengthText);
+
+      CharPos := Pos(#13#10#13#10, Text) + 4;
+      Body := Copy(Text, CharPos, ContentLength);
+
+      // delete header and message
+      Delete(Text, 1, CharPos + ContentLength - 1);
+      if HandleInput(Body) then
+          Exit;
     end;
   until False;
 end;
