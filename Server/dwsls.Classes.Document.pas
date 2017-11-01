@@ -32,6 +32,8 @@ type
     procedure ReadFromJson(Value: TdwsJSONValue); override;
     procedure WriteToJson(Value: TdwsJSONValue); override;
 
+    procedure AddDiagnostic(Line, Character: Integer; Severity: TDiagnosticSeverity; Message: string);
+
     property Uri: string read FUri write FUri;
     property Diagnostics: TDiagnostics read FDiagnostics write FDiagnostics;
   end;
@@ -326,6 +328,7 @@ var
 begin
   FUri := Value['uri'].AsString;
   DiagnosticArray := TdwsJSONArray(Value['diagnostics']);
+  FDiagnostics.Clear;
   for Index := 0 to DiagnosticArray.ElementCount - 1 do
   begin
     Diagnostic := TDiagnostic.Create;
@@ -343,6 +346,22 @@ begin
   DiagnosticArray := TdwsJSONObject(Value).AddArray('diagnostics');
   for Index := 0 to FDiagnostics.Count - 1 do
     FDiagnostics[Index].WriteToJson(DiagnosticArray.AddValue);
+end;
+
+procedure TPublishDiagnosticsParams.AddDiagnostic(Line, Character: Integer;
+  Severity: TDiagnosticSeverity; Message: string);
+var
+  Diagnostic: TDiagnostic;
+begin
+  Diagnostic := TDiagnostic.Create;
+  Diagnostic.Range.Start.Line := Line;
+  Diagnostic.Range.Start.Character := Character;
+  Diagnostic.Range.&End.Line := Line;
+  Diagnostic.Range.&End.Character := Character;
+  Diagnostic.Severity := Severity;
+  Diagnostic.Message := Message;
+  Diagnostic.CodeAsString := 'dwsls';
+  FDiagnostics.Add(Diagnostic);
 end;
 
 

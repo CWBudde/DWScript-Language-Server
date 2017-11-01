@@ -1,4 +1,4 @@
-unit dwsls.Main;
+unit dwsls.LanguageServer;
 
 interface
 
@@ -8,7 +8,7 @@ interface
 
 
 uses
-  Windows, Classes, dwsComp, dwsCompiler, dwsExprs, dwsErrors, dwsFunctions,
+  Classes, dwsComp, dwsCompiler, dwsExprs, dwsErrors, dwsFunctions,
   dwsCodeGen, dwsUnitSymbols, dwsCompilerContext, dwsJson, dwsXPlatform,
   dwsUtils, dwsls.Classes.Capabilities, dwsls.Classes.Common,
   dwsls.Classes.Document, dwsls.Classes.Workspace;
@@ -43,14 +43,16 @@ type
     property Objects[const Uri: string]: TdwsTextDocumentItem read GetObjects write SetObjects; default;
   end;
 
+  TOnOutput = procedure(const Output: string) of object;
+
   TDWScriptLanguageServer = class
   private
     FClientCapabilities: TClientCapabilities;
     FServerCapabilities: TServerCapabilities;
-    FInputStream: THandleStream;
-    FOutputStream: THandleStream;
     FCurrentId: Integer;
     FInitialized: Boolean;
+    FOnOutput: TOnOutput;
+    FOnLog: TOnOutput;
 //    FWorkspace: TDWScriptWorkspace;
 
     FDelphiWebScript: TDelphiWebScript;
@@ -58,9 +60,9 @@ type
     FTextDocumentItemList: TdwsTextDocumentItemList;
 
     {$IFDEF DEBUGLOG}
-    FLog: TStringList;
-    procedure Log(Text: string);
+    procedure Log(const Text: string);
     {$ENDIF}
+
     procedure EvaluateClientCapabilities(Params: TdwsJSONObject);
     procedure LogMessage(Text: string; MessageType: TMessageType = msLog);
     procedure RegisterCapability(Method, Id: string);
@@ -77,14 +79,15 @@ type
     procedure ShowMessageRequest(Text: string; MessageType: TMessageType = msInfo);
     procedure Telemetry(Params: TdwsJSONObject);
     procedure UnregisterCapability(Method, Id: string);
-    procedure WriteOutput(const Text: string);
+    procedure WriteOutput(const Text: string); inline;
+
+    function Compile(Uri: string): IdwsProgram;
 
     procedure OnIncludeEventHandler(const ScriptName: string;
       var ScriptSource: string);
     function OnNeedUnitEventHandler(const UnitName: string;
       var UnitSource: string) : IdwsUnit;
 
-    function HandleInput(Body: string): Boolean;
     function HandleJsonRpc(JsonRpc: TdwsJSONObject): Boolean;
 
     procedure HandleInitialize(Params: TdwsJSONObject);
@@ -107,7 +110,6 @@ type
     procedure HandleTextDocumentHover(Params: TdwsJSONObject);
     procedure HandleTextDocumentLink(Params: TdwsJSONObject);
     procedure HandleTextDocumentOnTypeFormatting(Params: TdwsJSONObject);
-    procedure HandleTextDocumentPublishDiagnostics(Params: TdwsJSONObject);
     procedure HandleTextDocumentRangeFormatting(Params: TdwsJSONObject);
     procedure HandleTextDocumentReferences(Params: TdwsJSONObject);
     procedure HandleTextDocumentRenameSymbol(Params: TdwsJSONObject);
@@ -124,7 +126,9 @@ type
     constructor Create;
     destructor Destroy; override;
 
-    procedure Run;
+    function Input(Body: string): Boolean;
+    property OnOutput: TOnOutput read FOnOutput write FOnOutput;
+    property OnLog: TOnOutput read FOnLog write FOnLog;
   end;
 
 implementation
@@ -215,12 +219,6 @@ end;
 
 constructor TDWScriptLanguageServer.Create;
 begin
-  FInputStream := THandleStream.Create(GetStdHandle(STD_INPUT_HANDLE));
-  FOutputStream := THandleStream.Create(GetStdHandle(STD_OUTPUT_HANDLE));
-{$IFDEF DEBUGLOG}
-  FLog := TStringList.Create;
-{$ENDIF}
-
   // create DWS compiler
   FDelphiWebScript := TDelphiWebScript.Create(nil);
   FDelphiWebScript.Config.CompilerOptions := [coAssertions, coAllowClosures,
@@ -237,26 +235,21 @@ end;
 destructor TDWScriptLanguageServer.Destroy;
 begin
   FTextDocumentItemList.Free;
+  FTextDocumentItemList := nil;
 
   FServerCapabilities.Free;
   FClientCapabilities.Free;
 
   FDelphiWebScript.Free;
 
-  FInputStream.Free;
-  FOutputStream.Free;
-{$IFDEF DEBUGLOG}
-  FLog.Free;
-{$ENDIF}
-
   inherited;
 end;
 
 {$IFDEF DEBUGLOG}
-procedure TDWScriptLanguageServer.Log(Text: string);
+procedure TDWScriptLanguageServer.Log(const Text: string);
 begin
-  FLog.Add(Text);
-  FLog.SaveToFile('A:\Input.txt');
+  if Assigned(FOnLog) then
+    FOnLog(Text);
 end;
 {$ENDIF}
 
@@ -280,6 +273,64 @@ function TDWScriptLanguageServer.OnNeedUnitEventHandler(const UnitName: string;
   var UnitSource: string): IdwsUnit;
 begin
   LogMessage('OnNeedUnitEventHandler: ' + UnitName);
+end;
+
+function TDWScriptLanguageServer.Compile(Uri: string): IdwsProgram;
+var
+  TextDocumentItem: TdwsTextDocumentItem;
+  PublishDiagnosticsParams: TPublishDiagnosticsParams;
+  Params: TdwsJSONObject;
+  SourceCode: string;
+  ScriptMessage: TScriptMessage;
+  Index: Integer;
+begin
+  SourceCode := '';
+
+  TextDocumentItem := FTextDocumentItemList[Uri];
+
+  if Assigned(TextDocumentItem) then
+    SourceCode := TextDocumentItem.Text
+  else
+    if StrBeginsWith(Uri, 'file:///') then
+    begin
+      Delete(Uri, 1, 8);
+      SourceCode := LoadTextFromFile(Uri);
+    end;
+
+  if SourceCode <> '' then
+    Result := FDelphiWebScript.Compile(SourceCode);
+
+  if Assigned(Result) and (Result.Msgs.Count > 0) then
+  begin
+    PublishDiagnosticsParams := TPublishDiagnosticsParams.Create;
+    try
+      for Index := 0 to Result.Msgs.Count - 1 do
+        if Result.Msgs.Msgs[Index] is TScriptMessage then
+        begin
+          ScriptMessage := TScriptMessage(Result.Msgs.Msgs[Index]);
+          if ScriptMessage is THintMessage then
+            PublishDiagnosticsParams.AddDiagnostic(ScriptMessage.Line,
+              ScriptMessage.Col, dsHint, ScriptMessage.Text)
+          else
+          if ScriptMessage is TWarningMessage then
+            PublishDiagnosticsParams.AddDiagnostic(ScriptMessage.Line,
+              ScriptMessage.Col, dsWarning, ScriptMessage.Text)
+          else
+          if ScriptMessage is TErrorMessage then
+            PublishDiagnosticsParams.AddDiagnostic(ScriptMessage.Line,
+              ScriptMessage.Col, dsError, ScriptMessage.Text)
+          else
+            PublishDiagnosticsParams.AddDiagnostic(ScriptMessage.Line,
+              ScriptMessage.Col, dsInformation, ScriptMessage.Text);
+        end;
+
+      Params := TdwsJSONObject.Create;
+      PublishDiagnosticsParams.WriteToJson(Params);
+      SendNotification('textDocument/publishDiagnostics', Params);
+    finally
+      PublishDiagnosticsParams.Free;
+    end;
+  end;
 end;
 
 procedure TDWScriptLanguageServer.ShowMessage(Text: string;
@@ -444,6 +495,8 @@ begin
     for Index := 0 to DidChangeTextDocumentParams.ContentChanges.Count - 1 do
       if not DidChangeTextDocumentParams.ContentChanges[Index].HasRange then
         TextDocument.Text := DidChangeTextDocumentParams.ContentChanges[Index].Text;
+
+    Compile(TextDocument.Uri);
   finally
     DidChangeTextDocumentParams.Free;
   end;
@@ -473,8 +526,11 @@ begin
   try
     DidOpenTextDocumentParams.ReadFromJson(Params);
 
+    // create text document item
+    TextDocumentItem := TdwsTextDocumentItem.Create(DidOpenTextDocumentParams.TextDocument);
+
     // add to text document item list
-    FTextDocumentItemList.Add(TdwsTextDocumentItem.Create(DidOpenTextDocumentParams.TextDocument));
+    FTextDocumentItemList.Add(TextDocumentItem);
   finally
     FreeAndNil(DidOpenTextDocumentParams);
   end;
@@ -541,25 +597,10 @@ begin
   try
     TextDocumentPositionParams.ReadFromJson(Params);
 
-    Uri := WebUtils.DecodeURLEncoded(TextDocumentPositionParams.TextDocument.Uri, 1);
-    TextDocumentItem := FTextDocumentItemList[Uri];
-    if Assigned(TextDocumentItem) then
-      Text := TextDocumentItem.Text
-    else
-      if StrBeginsWith(Uri, 'file:///') then
-      begin
-        Delete(Uri, 1, 8);
-        Text := LoadTextFromFile(Uri);
-      end;
-
-    if Text <> '' then
-      Prog := FDelphiWebScript.Compile(Text);
+    Prog := Compile(WebUtils.DecodeURLEncoded(TextDocumentPositionParams.TextDocument.Uri, 1));
 
     if Assigned(Prog) then
     begin
-      if Prog.Msgs.HasErrors then
-        LogMessage('Program has errors: ' + Prog.Msgs.AsInfo);
-
       Symbol := Prog.SymbolDictionary.FindSymbolAtPosition(
         TextDocumentPositionParams.Position.Character + 1,
         TextDocumentPositionParams.Position.Line + 1, SYS_MainModule);
@@ -572,7 +613,7 @@ begin
 
   // add contents here
   if Assigned(Symbol) then
-    Result.AddValue('contents', 'Symbol name: ' + Symbol.Name)
+    Result.AddValue('contents', 'Symbol: ' + Symbol.ToString)
   else
     Result.AddValue('contents', 'Hello from dwsls');
 
@@ -605,16 +646,6 @@ begin
   // not yet implemented
 
   SendResponse(Result);
-end;
-
-procedure TDWScriptLanguageServer.HandleTextDocumentPublishDiagnostics(Params: TdwsJSONObject);
-var
-  PublishDiagnosticsParams: TPublishDiagnosticsParams;
-begin
-  PublishDiagnosticsParams := TPublishDiagnosticsParams.Create;
-  PublishDiagnosticsParams.ReadFromJson(Params);
-
-  // not further implemented
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentRangeFormatting;
@@ -826,6 +857,11 @@ begin
     Result := True;
   end
   else
+  if Pos('$/cancelRequest', Method) = 1 then
+  begin
+    // yet todo
+  end
+  else
   if Pos('workspace', Method) = 1 then
   begin
     // workspace related messages
@@ -865,9 +901,6 @@ begin
     else
     if Method = 'textDocument/didClose' then
       HandleTextDocumentDidClose(TdwsJsonObject(JsonRpc['params']))
-    else
-    if Method = 'textDocument/publishDiagnostics' then
-      HandleTextDocumentPublishDiagnostics(TdwsJsonObject(JsonRpc['params']))
     else
     if Method = 'textDocument/completion' then
       HandleTextDocumentCompletion(TdwsJsonObject(JsonRpc['params']))
@@ -941,7 +974,7 @@ begin
 {$ENDIF}
 end;
 
-function TDWScriptLanguageServer.HandleInput(Body: string): Boolean;
+function TDWScriptLanguageServer.Input(Body: string): Boolean;
 var
   JsonValue: TdwsJSONValue;
 begin
@@ -1139,64 +1172,9 @@ begin
 end;
 
 procedure TDWScriptLanguageServer.WriteOutput(const Text: string);
-var
-  OutputText: UTF8String;
 begin
-{$IFDEF DEBUGLOG}
-  Log('Output: ' + Text);
-{$ENDIF}
-
-  OutputText := Utf8String('Content-Length: ' + IntToStr(Length(Text)) + #13#10#13#10 + Text);
-
-  FOutputStream.Write(OutputText[1], Length(OutputText));
-end;
-
-procedure TDWScriptLanguageServer.Run;
-var
-  Text: string;
-  NewText: UTF8String;
-  CharPos: Integer;
-  ContentLengthText: string;
-  ContentLength: Integer;
-  Body: string;
-begin
-  Text := '';
-  repeat
-    repeat
-      sleep(100);
-    until (FInputStream.Size > FInputStream.Position);
-    SetLength(NewText, FInputStream.Size - FInputStream.Position);
-    FInputStream.Read(NewText[1], FInputStream.Size - FInputStream.Position);
-
-    Text := Text + string(NewText);
-
-    {$IFDEF DEBUGLOG}
-    Log('<-- Original'); Log(Text); Log('Original-->');
-    {$ENDIF}
-
-    while StrBeginsWith(Text, 'Content-Length:') and (AnsiPos(#13#10#13#10, Text) > 0) and (Text[Length(Text)] = '}') do
-    begin
-      CharPos := Pos('Content-Length:', Text) + 15;
-      ContentLengthText := '';
-      while not CharInSet(Text[CharPos], [#13, #10]) do
-      begin
-        case Text[CharPos] of
-          '0'..'9':
-            ContentLengthText := ContentLengthText + Text[CharPos];
-        end;
-        Inc(CharPos);
-      end;
-      ContentLength := StrToInt(ContentLengthText);
-
-      CharPos := Pos(#13#10#13#10, Text) + 4;
-      Body := Copy(Text, CharPos, ContentLength);
-
-      // delete header and message
-      Delete(Text, 1, CharPos + ContentLength - 1);
-      if HandleInput(Body) then
-          Exit;
-    end;
-  until False;
+  if Assigned(OnOutput) then
+    OnOutput(Text);
 end;
 
 end.

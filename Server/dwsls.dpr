@@ -7,7 +7,7 @@ program dwsls;
 uses
   System.SysUtils,
   dwsJson,
-  dwsls.Main in 'dwsls.Main.pas',
+  dwsls.IO.Pipe in 'dwsls.IO.Pipe.pas',
   dwsls.Classes.Capabilities in 'dwsls.Classes.Capabilities.pas',
   dwsls.Classes.Common in 'dwsls.Classes.Common.pas',
   dwsls.Classes.Document in 'dwsls.Classes.Document.pas',
@@ -15,10 +15,10 @@ uses
   dwsls.Classes.Workspace in 'dwsls.Classes.Workspace.pas';
 
 var
-  LanguageServer: TDWScriptLanguageServer;
+  LanguageServer: TDWScriptLanguageServerLoop;
 
 begin
-  LanguageServer := TDWScriptLanguageServer.Create;
+  LanguageServer := TDWScriptLanguageServerLoop.Create;
   LanguageServer.Run;
 end.
 

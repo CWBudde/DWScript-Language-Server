@@ -94,6 +94,8 @@ type
     FCodeType: TCodeType;
     FSource: string;
     FMessage: string;
+    procedure SetCodeString(const Value: string);
+    procedure SetCodeValue(const Value: Integer);
   public
     constructor Create;
 
@@ -102,8 +104,8 @@ type
 
     property Range: TRange read FRange write FRange;
     property Severity: TDiagnosticSeverity read FSeverity write FSeverity;
-    property CodeAsString: string read FCodeString write FCodeString;
-    property CodeAsInteger: Integer read FCodeValue write FCodeValue;
+    property CodeAsString: string read FCodeString write SetCodeString;
+    property CodeAsInteger: Integer read FCodeValue write SetCodeValue;
     property CodeType: TCodeType read FCodeType write FCodeType;
     property Source: string read FSource write FSource;
     property Message: string read FMessage write FMessage;
@@ -319,6 +321,24 @@ begin
   if not Value['severity'].IsNull then
     FSeverity := TDiagnosticSeverity(Value['severity'].AsInteger);
   FMessage := Value['message'].AsString;
+end;
+
+procedure TDiagnostic.SetCodeString(const Value: string);
+begin
+  if FCodeString <> Value then
+  begin
+    FCodeString := Value;
+    FCodeType := ctString;
+  end;
+end;
+
+procedure TDiagnostic.SetCodeValue(const Value: Integer);
+begin
+  if FCodeValue <> Value then
+  begin
+    FCodeValue := Value;
+    FCodeType := ctNumber;
+  end;
 end;
 
 procedure TDiagnostic.WriteToJson(Value: TdwsJSONValue);
