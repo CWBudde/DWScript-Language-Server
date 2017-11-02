@@ -239,6 +239,9 @@ type
 
 implementation
 
+uses
+  dwsWebUtils;
+
 { TPosition }
 
 constructor TPosition.Create;
@@ -297,13 +300,13 @@ end;
 procedure TLocation.ReadFromJson(Value: TdwsJSONValue);
 begin
   FRange.ReadFromJson(Value['range']);
-  FUri := Value['uri'].AsString;
+  FUri := WebUtils.DecodeURLEncoded(Value['uri'].AsString, 1);
 end;
 
 procedure TLocation.WriteToJson(Value: TdwsJSONValue);
 begin
   FRange.WriteToJson(Value['range']);
-  Value['uri'].AsString := FUri;
+  Value['uri'].AsString := WebUtils.EncodeURLEncoded(FUri);
 end;
 
 
@@ -412,12 +415,12 @@ end;
 
 procedure TTextDocumentIdentifier.ReadFromJson(Value: TdwsJSONValue);
 begin
-  FUri := Value['uri'].AsString;
+  FUri := WebUtils.DecodeURLEncoded(Value['uri'].AsString, 1);
 end;
 
 procedure TTextDocumentIdentifier.WriteToJson(Value: TdwsJSONValue);
 begin
-  Value['uri'].AsString := FUri;
+  Value['uri'].AsString := WebUtils.EncodeURLEncoded(FUri);
 end;
 
 
@@ -425,7 +428,7 @@ end;
 
 procedure TTextDocumentItem.ReadFromJson(Value: TdwsJSONValue);
 begin
-  FUri := Value['uri'].AsString;
+  FUri := WebUtils.DecodeURLEncoded(Value['uri'].AsString, 1);
   FLanguageId := Value['languageId'].AsString;
   FVersion := Value['version'].AsInteger;
   FText := Value['text'].AsString;
@@ -433,7 +436,7 @@ end;
 
 procedure TTextDocumentItem.WriteToJson(Value: TdwsJSONValue);
 begin
-  Value['uri'].AsString := FUri;
+  Value['uri'].AsString := WebUtils.EncodeURLEncoded(FUri);
   Value['languageId'].AsString := FLanguageId;
   Value['version'].AsInteger := FVersion;
   Value['text'].AsString := FText;
@@ -536,13 +539,13 @@ end;
 
 procedure TFileEvent.ReadFromJson(Value: TdwsJSONValue);
 begin
-  FUri := Value['uri'].AsString;
+  FUri := WebUtils.DecodeURLEncoded(Value['uri'].AsString, 1);
   FType := TFileChangeType(Value['type'].AsInteger);
 end;
 
 procedure TFileEvent.WriteToJson(Value: TdwsJSONValue);
 begin
-  Value['uri'].AsString := FUri;
+  Value['uri'].AsString := WebUtils.EncodeURLEncoded(FUri);
   Value['type'].AsInteger := Integer(FType);
 end;
 

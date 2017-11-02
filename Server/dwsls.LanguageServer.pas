@@ -11,38 +11,9 @@ uses
   Classes, dwsComp, dwsCompiler, dwsExprs, dwsErrors, dwsFunctions,
   dwsCodeGen, dwsUnitSymbols, dwsCompilerContext, dwsJson, dwsXPlatform,
   dwsUtils, dwsls.Classes.Capabilities, dwsls.Classes.Common,
-  dwsls.Classes.Document, dwsls.Classes.Workspace;
+  dwsls.Classes.Document, dwsls.Classes.Workspace, dwsls.Utils;
 
 type
-  TdwsTextDocumentItem = class
-  private
-    FUri: string;
-    FVersion: Integer;
-    FText: string;
-  public
-    constructor Create(TextDocumentItem: TTextDocumentItem);
-
-    property Uri: string read FUri write FUri;
-    property Version: Integer read FVersion write FVersion;
-    property Text: string read FText write FText;
-  end;
-
-  TdwsTextDocumentItemList = class(TSimpleHash<TdwsTextDocumentItem>)
-  private
-    function GetObjects(const Uri: string): TdwsTextDocumentItem; inline;
-    procedure SetObjects(const Uri: string; TextDocumentItem: TdwsTextDocumentItem); inline;
-  protected
-    function SameItem(const Item1, Item2 : TdwsTextDocumentItem) : Boolean; override;
-    function GetItemHashCode(const Item1 : TdwsTextDocumentItem) : Cardinal; override;
-  public
-    function Remove(const Uri: string): Boolean;
-    function Contains(const Uri: string): Boolean;
-
-    procedure Clean;
-
-    property Objects[const Uri: string]: TdwsTextDocumentItem read GetObjects write SetObjects; default;
-  end;
-
   TOnOutput = procedure(const Output: string) of object;
 
   TDWScriptLanguageServer = class
@@ -134,86 +105,7 @@ type
 implementation
 
 uses
-  SysUtils, dwsStrings, dwsSymbols, dwsWebUtils;
-
-{ TdwsTextDocumentItem }
-
-constructor TdwsTextDocumentItem.Create(TextDocumentItem: TTextDocumentItem);
-begin
-  Assert(TextDocumentItem.LanguageId = 'dwscript');
-  FUri := WebUtils.DecodeURLEncoded(TextDocumentItem.Uri, 1);
-  FVersion := TextDocumentItem.Version;
-  FText := TextDocumentItem.Text;
-end;
-
-
-{ TdwsTextDocumentItemList }
-
-procedure TdwsTextDocumentItemList.Clean;
-var
-  i: Integer;
-begin
-  for i := 0 to FCapacity - 1 do
-    if FBuckets[i].HashCode <> 0 then
-      FBuckets[i].Value.Free;
-  Clear;
-end;
-
-function TdwsTextDocumentItemList.Contains(const Uri: string): Boolean;
-var
-  Index: Integer;
-  Item: TdwsTextDocumentItem;
-begin
-  if FCount = 0 then Exit(False);
-  Index := SimpleStringHash(Uri) and (FCapacity - 1);
-  Result := LinearFind(Item, Index);
-end;
-
-function TdwsTextDocumentItemList.GetItemHashCode(
-  const Item1: TdwsTextDocumentItem): Cardinal;
-begin
-  Result := SimpleStringHash(Item1.Uri);
-end;
-
-function TdwsTextDocumentItemList.GetObjects(
-  const Uri: string): TdwsTextDocumentItem;
-var
-  HashCode: Cardinal;
-  Index: Integer;
-begin
-  Result := nil;
-  if FCount = 0 then Exit;
-  HashCode := SimpleStringHash(Uri);
-  Index := HashCode and (FCapacity - 1);
-  LinearFind(Result, Index);
-end;
-
-function TdwsTextDocumentItemList.Remove(const Uri: string): Boolean;
-var
-  Index: Integer;
-  Item: TdwsTextDocumentItem;
-begin
-  if FCount = 0 then Exit(False);
-  Index := SimpleStringHash(Uri) and (FCapacity - 1);
-  Result := LinearFind(Item, Index);
-  if Result then Delete(Index);
-end;
-
-function TdwsTextDocumentItemList.SameItem(const Item1,
-  Item2: TdwsTextDocumentItem): Boolean;
-begin
-  Result := (Item1.Uri = Item2.Uri);
-end;
-
-procedure TdwsTextDocumentItemList.SetObjects(const Uri: string;
-  TextDocumentItem: TdwsTextDocumentItem);
-begin
-  if Contains(Uri) then
-    Replace(TextDocumentItem)
-  else
-    Add(TextDocumentItem);
-end;
-
+  SysUtils, dwsStrings, dwsSymbols;
 
 { TDWScriptLanguageServer }
 
@@ -511,7 +403,7 @@ begin
     DidCloseTextDocumentParams.ReadFromJson(Params);
 
     // remove text document from list
-    FTextDocumentItemList.Remove(DidCloseTextDocumentParams.TextDocument.Uri);
+    FTextDocumentItemList.RemoveUri(DidCloseTextDocumentParams.TextDocument.Uri);
   finally
     DidCloseTextDocumentParams.Free;
   end;
@@ -597,7 +489,7 @@ begin
   try
     TextDocumentPositionParams.ReadFromJson(Params);
 
-    Prog := Compile(WebUtils.DecodeURLEncoded(TextDocumentPositionParams.TextDocument.Uri, 1));
+    Prog := Compile(TextDocumentPositionParams.TextDocument.Uri);
 
     if Assigned(Prog) then
     begin
@@ -727,7 +619,7 @@ begin
   WillSaveTextDocumentParams := TWillSaveTextDocumentParams.Create;
   try
     WillSaveTextDocumentParams.ReadFromJson(Params);
-    TextDocument := FTextDocumentItemList.GetObjects(WillSaveTextDocumentParams.TextDocument.Uri);
+    TextDocument := FTextDocumentItemList[WillSaveTextDocumentParams.TextDocument.Uri];
   finally
     WillSaveTextDocumentParams.Free;
   end;
@@ -735,7 +627,7 @@ begin
   Result := TdwsJSONArray.Create;
   try
     TextEdit := TTextEdit.Create;
-    TextEdit.NewText := TextDocument.FText;
+    TextEdit.NewText := TextDocument.Text;
     TextEdit.WriteToJson(Result.AddValue);
     SendResponse(Result);
   finally
