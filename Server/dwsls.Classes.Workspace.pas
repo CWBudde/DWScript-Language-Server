@@ -15,7 +15,7 @@ type
     constructor Create;
 
     procedure ReadFromJson(Value: TdwsJSONValue); override;
-    procedure WriteToJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONObject); override;
 
     property FileEvents: TFileEvents read FFileEvents;
   end;
@@ -25,7 +25,7 @@ type
     FQuery: string;
   public
     procedure ReadFromJson(Value: TdwsJSONValue); override;
-    procedure WriteToJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONObject); override;
 
     property Query: string read FQuery write FQuery;
   end;
@@ -38,7 +38,7 @@ type
     constructor Create;
 
     procedure ReadFromJson(Value: TdwsJSONValue); override;
-    procedure WriteToJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONObject); override;
 
     property Command: string read FCommand write FCommand;
   end;
@@ -50,7 +50,7 @@ type
     constructor Create;
 
     procedure ReadFromJson(Value: TdwsJSONValue); override;
-    procedure WriteToJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONObject); override;
 
     property WorkspaceEdit: TWorkspaceEdit read FEdit;
   end;
@@ -79,14 +79,14 @@ begin
   end;
 end;
 
-procedure TDidChangeWatchedFilesParams.WriteToJson(Value: TdwsJSONValue);
+procedure TDidChangeWatchedFilesParams.WriteToJson(Value: TdwsJSONObject);
 var
   FileEventArray: TdwsJSONArray;
   Index: Integer;
 begin
   FileEventArray := TdwsJSONObject(Value).AddArray('changes');
   for Index := 0 to FFileEvents.Count - 1 do
-    FFileEvents[Index].WriteToJson(FileEventArray.AddValue);
+    FFileEvents[Index].WriteToJson(FileEventArray.AddObject);
 end;
 
 
@@ -97,7 +97,7 @@ begin
   FQuery := Value['query'].AsString;
 end;
 
-procedure TWorkspaceSymbolParams.WriteToJson(Value: TdwsJSONValue);
+procedure TWorkspaceSymbolParams.WriteToJson(Value: TdwsJSONObject);
 begin
   Value['query'].AsString := FQuery;
 end;
@@ -124,7 +124,7 @@ begin
     FArguments.Add(ArgumentArray.Elements[Index].AsString);
 end;
 
-procedure TExecuteCommandParams.WriteToJson(Value: TdwsJSONValue);
+procedure TExecuteCommandParams.WriteToJson(Value: TdwsJSONObject);
 var
   ArgumentArray: TdwsJSONArray;
   Index: Integer;
@@ -149,9 +149,9 @@ begin
   FEdit.ReadFromJson(Value['edit']);
 end;
 
-procedure TApplyWorkspaceEditParams.WriteToJson(Value: TdwsJSONValue);
+procedure TApplyWorkspaceEditParams.WriteToJson(Value: TdwsJSONObject);
 begin
-  FEdit.WriteToJson(Value['edit']);
+  FEdit.WriteToJson(Value.AddObject('edit'));
 end;
 
 

@@ -628,7 +628,7 @@ begin
   try
     TextEdit := TTextEdit.Create;
     TextEdit.NewText := TextDocument.Text;
-    TextEdit.WriteToJson(Result.AddValue);
+    TextEdit.WriteToJson(Result.AddObject);
     SendResponse(Result);
   finally
     Result.Free;

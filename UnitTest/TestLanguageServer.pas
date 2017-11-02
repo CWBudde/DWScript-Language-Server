@@ -31,6 +31,7 @@ type
   published
     procedure TestBasicStartUpSequence;
     procedure TestBasicHoverSequence;
+    procedure TestBasicCompileSequence;
   end;
 
 implementation
@@ -75,6 +76,18 @@ end;
 procedure TTestLanguageServer.OnOutputHandler(const Text: string);
 begin
   FLastResponse := Text;
+end;
+
+procedure TTestLanguageServer.TestBasicCompileSequence;
+const
+  CTestUnit = '"unit Test;\r\n\r\ninterface\r\n\r\nimplementation\r\n\r\nfunction Add(A, B: Integer): Integer;\r\nbgin\r\n  Result := A + B;\r\nend;\r\n\r\nend.\r\n"';
+begin
+  FLanguageServer.Input('{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"processId":0,"rootPath":"c:\\","rootUri":"file:///c%3A/","capabilities":{"workspace":{"didChangeConfiguration":{"dynamicRegistration":true}}},"trace":"verbose"}}');
+  SendNotification('initialized');
+  SendNotification('workspace/didChangeConfiguration', '{"settings":{"dwsls":{"path":"dwsls","trace":{"server":"verbose"}}}}');
+  SendNotification('textDocument/didOpen', '{"textDocument":{"uri":"file:///c%3A/Test.dws","languageId":"dwscript","version":1,"text":' + CTestUnit + '}}}');
+  FLanguageServer.Input('{"jsonrpc":"2.0","id":1,"method":"textDocument/hover","params":{"textDocument":{"uri":"file:///c%3A/Test.dws"},"position":{"line":1,"character":2}}}');
+  FLanguageServer.Input('{"jsonrpc":"2.0","id":2,"method":"shutdown","params":null}');
 end;
 
 procedure TTestLanguageServer.TestBasicHoverSequence;

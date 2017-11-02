@@ -14,7 +14,7 @@ type
     constructor Create;
 
     procedure ReadFromJson(Value: TdwsJSONValue); override;
-    procedure WriteToJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONObject); override;
 
     property TextDocument: TTextDocumentIdentifier read FTextDocument;
     property Position: TPosition read FPosition;
@@ -30,7 +30,7 @@ type
     constructor Create;
 
     procedure ReadFromJson(Value: TdwsJSONValue); override;
-    procedure WriteToJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONObject); override;
 
     procedure AddDiagnostic(Line, Character: Integer; Severity: TDiagnosticSeverity; Message: string);
 
@@ -45,7 +45,7 @@ type
     constructor Create;
 
     procedure ReadFromJson(Value: TdwsJSONValue); override;
-    procedure WriteToJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONObject); override;
 
     property TextDocument: TTextDocumentItem read FTextDocument;
   end;
@@ -60,7 +60,7 @@ type
     constructor Create;
 
     procedure ReadFromJson(Value: TdwsJSONValue); override;
-    procedure WriteToJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONObject); override;
 
     property Range: TRange read FRange;
     property RangeLength: Integer read FRangeLength write FRangeLength;
@@ -78,7 +78,7 @@ type
     constructor Create;
 
     procedure ReadFromJson(Value: TdwsJSONValue); override;
-    procedure WriteToJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONObject); override;
 
     property ContentChanges: TTextDocumentContentChangeEvents read FContentChanges;
     property TextDocument: TVersionedTextDocumentIdentifier read FTextDocument;
@@ -94,7 +94,7 @@ type
     constructor Create;
 
     procedure ReadFromJson(Value: TdwsJSONValue); override;
-    procedure WriteToJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONObject); override;
 
     property TextDocument: TTextDocumentIdentifier read FTextDocument;
     property Reason: TSaveReason read FReason write FReason;
@@ -108,7 +108,7 @@ type
     constructor Create;
 
     procedure ReadFromJson(Value: TdwsJSONValue); override;
-    procedure WriteToJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONObject); override;
 
     property TextDocument: TTextDocumentIdentifier read FTextDocument;
     property Text: string read FText write FText;
@@ -121,7 +121,7 @@ type
     constructor Create;
 
     procedure ReadFromJson(Value: TdwsJSONValue); override;
-    procedure WriteToJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONObject); override;
 
     property TextDocument: TTextDocumentIdentifier read FTextDocument;
   end;
@@ -131,7 +131,7 @@ type
     FIncludeDeclaration: Boolean;
   public
     procedure ReadFromJson(Value: TdwsJSONValue); override;
-    procedure WriteToJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONObject); override;
 
     property IncludeDeclaration: Boolean read FIncludeDeclaration write FIncludeDeclaration;
   end;
@@ -141,7 +141,7 @@ type
     FContext: TReferenceContext;
   public
     procedure ReadFromJson(Value: TdwsJSONValue); override;
-    procedure WriteToJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONObject); override;
 
     property Context: TReferenceContext read FContext;
   end;
@@ -153,7 +153,7 @@ type
     constructor Create;
 
     procedure ReadFromJson(Value: TdwsJSONValue); override;
-    procedure WriteToJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONObject); override;
 
     property TextDocument: TTextDocumentIdentifier read FTextDocument;
   end;
@@ -167,7 +167,7 @@ type
     constructor Create;
 
     procedure ReadFromJson(Value: TdwsJSONValue); override;
-    procedure WriteToJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONObject); override;
 
     property Diagnostics: TDiagnostics read FDiagnostics;
   end;
@@ -181,7 +181,7 @@ type
     constructor Create;
 
     procedure ReadFromJson(Value: TdwsJSONValue); override;
-    procedure WriteToJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONObject); override;
 
     property TextDocument: TTextDocumentIdentifier read FTextDocument;
     property Range: TRange read FRange;
@@ -195,7 +195,7 @@ type
     constructor Create;
 
     procedure ReadFromJson(Value: TdwsJSONValue); override;
-    procedure WriteToJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONObject); override;
 
     property TextDocument: TTextDocumentIdentifier read FTextDocument;
   end;
@@ -207,7 +207,7 @@ type
     constructor Create;
 
     procedure ReadFromJson(Value: TdwsJSONValue); override;
-    procedure WriteToJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONObject); override;
 
     property TextDocument: TTextDocumentIdentifier read FTextDocument;
   end;
@@ -219,7 +219,7 @@ type
 //    [key: string]: Boolean | number | string;
   public
     procedure ReadFromJson(Value: TdwsJSONValue); override;
-    procedure WriteToJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONObject); override;
 
     property TabSize: Integer read FTabSize write FTabSize;
     property InsertSpaces: Boolean read FInsertSpaces write FInsertSpaces;
@@ -233,7 +233,7 @@ type
     constructor Create;
 
     procedure ReadFromJson(Value: TdwsJSONValue); override;
-    procedure WriteToJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONObject); override;
 
     property TextDocument: TTextDocumentIdentifier read FTextDocument;
     property Options: TFormattingOptions read FOptions;
@@ -249,7 +249,7 @@ type
     constructor Create;
 
     procedure ReadFromJson(Value: TdwsJSONValue); override;
-    procedure WriteToJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONObject); override;
 
     property TextDocument: TTextDocumentIdentifier read FTextDocument;
     property Position: TPosition read FPosition;
@@ -266,7 +266,7 @@ type
     constructor Create;
 
     procedure ReadFromJson(Value: TdwsJSONValue); override;
-    procedure WriteToJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONObject); override;
 
     property TextDocument: TTextDocumentIdentifier read FTextDocument;
     property Position: TPosition read FPosition;
@@ -283,7 +283,7 @@ type
     constructor Create;
 
     procedure ReadFromJson(Value: TdwsJSONValue); override;
-    procedure WriteToJson(Value: TdwsJSONValue); override;
+    procedure WriteToJson(Value: TdwsJSONObject); override;
 
     property TextDocument: TTextDocumentIdentifier read FTextDocument;
     property Position: TPosition read FPosition;
@@ -306,10 +306,10 @@ begin
   FTextDocument.ReadFromJson(Value['textDocument']);
 end;
 
-procedure TTextDocumentPositionParams.WriteToJson(Value: TdwsJSONValue);
+procedure TTextDocumentPositionParams.WriteToJson(Value: TdwsJSONObject);
 begin
-  FPosition.WriteToJson(Value['position']);
-  FTextDocument.WriteToJson(Value['textDocument']);
+  FPosition.WriteToJson(Value.AddObject('position'));
+  FTextDocument.WriteToJson(Value.AddObject('textDocument'));
 end;
 
 
@@ -337,15 +337,15 @@ begin
   end;
 end;
 
-procedure TPublishDiagnosticsParams.WriteToJson(Value: TdwsJSONValue);
+procedure TPublishDiagnosticsParams.WriteToJson(Value: TdwsJSONObject);
 var
   DiagnosticArray: TdwsJSONArray;
   Index: Integer;
 begin
-  Value['uri'].AsString := FUri;
+  TdwsJSONObject(Value).AddValue('uri', FUri);
   DiagnosticArray := TdwsJSONObject(Value).AddArray('diagnostics');
   for Index := 0 to FDiagnostics.Count - 1 do
-    FDiagnostics[Index].WriteToJson(DiagnosticArray.AddValue);
+    FDiagnostics[Index].WriteToJson(DiagnosticArray.AddObject);
 end;
 
 procedure TPublishDiagnosticsParams.AddDiagnostic(Line, Character: Integer;
@@ -377,9 +377,9 @@ begin
   FTextDocument.ReadFromJson(Value['textDocument']);
 end;
 
-procedure TDidOpenTextDocumentParams.WriteToJson(Value: TdwsJSONValue);
+procedure TDidOpenTextDocumentParams.WriteToJson(Value: TdwsJSONObject);
 begin
-  FTextDocument.WriteToJson(Value['textDocument']);
+  FTextDocument.WriteToJson(Value.AddObject('textDocument'));
 end;
 
 
@@ -404,11 +404,11 @@ begin
   FText := Value['text'].AsString;
 end;
 
-procedure TTextDocumentContentChangeEvent.WriteToJson(Value: TdwsJSONValue);
+procedure TTextDocumentContentChangeEvent.WriteToJson(Value: TdwsJSONObject);
 begin
   if FHasRange then
   begin
-    FRange.WriteToJson(Value['range']);
+    FRange.WriteToJson(Value.AddObject('range'));
     Value['rangeLength'].AsInteger := FRangeLength;
   end;
 
@@ -440,12 +440,12 @@ begin
   end;
 end;
 
-procedure TDidChangeTextDocumentParams.WriteToJson(Value: TdwsJSONValue);
+procedure TDidChangeTextDocumentParams.WriteToJson(Value: TdwsJSONObject);
 var
   Changes: TdwsJSONArray;
   Index: Integer;
 begin
-  FTextDocument.WriteToJson(Value['textDocument']);
+  FTextDocument.WriteToJson(Value.AddObject('textDocument'));
 
   Changes := TdwsJSONObject(Value).AddArray('contentChanges');
   for Index := 0 to FContentChanges.Count - 1 do
@@ -467,9 +467,9 @@ begin
   FReason := TSaveReason(Value['reason'].AsInteger);
 end;
 
-procedure TWillSaveTextDocumentParams.WriteToJson(Value: TdwsJSONValue);
+procedure TWillSaveTextDocumentParams.WriteToJson(Value: TdwsJSONObject);
 begin
-  FTextDocument.WriteToJson(Value['textDocument']);
+  FTextDocument.WriteToJson(Value.AddObject('textDocument'));
 
   Value['reason'].AsInteger := Integer(FReason);
 end;
@@ -488,9 +488,9 @@ begin
   FText := Value['text'].AsString;
 end;
 
-procedure TDidSaveTextDocumentParams.WriteToJson(Value: TdwsJSONValue);
+procedure TDidSaveTextDocumentParams.WriteToJson(Value: TdwsJSONObject);
 begin
-  FTextDocument.WriteToJson(Value['textDocument']);
+  FTextDocument.WriteToJson(Value.AddObject('textDocument'));
   Value['text'].AsString := FText;
 end;
 
@@ -507,9 +507,9 @@ begin
   FTextDocument.ReadFromJson(Value['textDocument']);
 end;
 
-procedure TDidCloseTextDocumentParams.WriteToJson(Value: TdwsJSONValue);
+procedure TDidCloseTextDocumentParams.WriteToJson(Value: TdwsJSONObject);
 begin
-  FTextDocument.WriteToJson(Value['textDocument']);
+  FTextDocument.WriteToJson(Value.AddObject('textDocument'));
 end;
 
 
@@ -520,7 +520,7 @@ begin
   FIncludeDeclaration := Value['includeDeclaration'].AsBoolean;
 end;
 
-procedure TReferenceContext.WriteToJson(Value: TdwsJSONValue);
+procedure TReferenceContext.WriteToJson(Value: TdwsJSONObject);
 begin
   Value['includeDeclaration'].AsBoolean := FIncludeDeclaration;
 end;
@@ -533,9 +533,9 @@ begin
   FContext.ReadFromJson(Value['context']);
 end;
 
-procedure TReferenceParams.WriteToJson(Value: TdwsJSONValue);
+procedure TReferenceParams.WriteToJson(Value: TdwsJSONObject);
 begin
-  FContext.WriteToJson(Value['context']);
+  FContext.WriteToJson(Value.AddObject('context'));
 end;
 
 
@@ -551,9 +551,9 @@ begin
   FTextDocument.ReadFromJson(Value['textDocument']);
 end;
 
-procedure TDocumentSymbolParams.WriteToJson(Value: TdwsJSONValue);
+procedure TDocumentSymbolParams.WriteToJson(Value: TdwsJSONObject);
 begin
-  FTextDocument.WriteToJson(Value['textDocument']);
+  FTextDocument.WriteToJson(Value.AddObject('textDocument'));
 end;
 
 
@@ -569,7 +569,7 @@ begin
 //  FDiagnostics
 end;
 
-procedure TCodeActionContext.WriteToJson(Value: TdwsJSONValue);
+procedure TCodeActionContext.WriteToJson(Value: TdwsJSONObject);
 begin
 //  FDiagnostics
 end;
@@ -591,11 +591,11 @@ begin
   FContext.ReadFromJson(Value['context']);
 end;
 
-procedure TCodeActionParams.WriteToJson(Value: TdwsJSONValue);
+procedure TCodeActionParams.WriteToJson(Value: TdwsJSONObject);
 begin
-  FTextDocument.WriteToJson(Value['textDocument']);
-  FRange.WriteToJson(Value['range']);
-  FContext.WriteToJson(Value['context']);
+  FTextDocument.WriteToJson(Value.AddObject('textDocument'));
+  FRange.WriteToJson(Value.AddObject('range'));
+  FContext.WriteToJson(Value.AddObject('context'));
 end;
 
 
@@ -611,9 +611,9 @@ begin
   FTextDocument.ReadFromJson(Value['textDocument']);
 end;
 
-procedure TCodeLensParams.WriteToJson(Value: TdwsJSONValue);
+procedure TCodeLensParams.WriteToJson(Value: TdwsJSONObject);
 begin
-  FTextDocument.WriteToJson(Value['textDocument']);
+  FTextDocument.WriteToJson(Value.AddObject('textDocument'));
 end;
 
 
@@ -629,9 +629,9 @@ begin
   FTextDocument.ReadFromJson(Value['textDocument']);
 end;
 
-procedure TDocumentLinkParams.WriteToJson(Value: TdwsJSONValue);
+procedure TDocumentLinkParams.WriteToJson(Value: TdwsJSONObject);
 begin
-  FTextDocument.WriteToJson(Value['textDocument']);
+  FTextDocument.WriteToJson(Value.AddObject('textDocument'));
 end;
 
 
@@ -643,7 +643,7 @@ begin
   FInsertSpaces := Value['insertSpaces'].AsBoolean;
 end;
 
-procedure TFormattingOptions.WriteToJson(Value: TdwsJSONValue);
+procedure TFormattingOptions.WriteToJson(Value: TdwsJSONObject);
 begin
   Value['tabSize'].AsInteger := FTabSize;
   Value['insertSpaces'].AsBoolean := FInsertSpaces;
@@ -664,10 +664,10 @@ begin
   FOptions.ReadFromJson(Value['options']);
 end;
 
-procedure TDocumentFormattingParams.WriteToJson(Value: TdwsJSONValue);
+procedure TDocumentFormattingParams.WriteToJson(Value: TdwsJSONObject);
 begin
-  FTextDocument.WriteToJson(Value['textDocument']);
-  FOptions.WriteToJson(Value['options']);
+  FTextDocument.WriteToJson(Value.AddObject('textDocument'));
+  FOptions.WriteToJson(Value.AddObject('options'));
 end;
 
 
@@ -687,11 +687,11 @@ begin
   FOptions.ReadFromJson(Value['options']);
 end;
 
-procedure TDocumentRangeFormattingParams.WriteToJson(Value: TdwsJSONValue);
+procedure TDocumentRangeFormattingParams.WriteToJson(Value: TdwsJSONObject);
 begin
-  FTextDocument.WriteToJson(Value['textDocument']);
-  FRange.WriteToJson(Value['range']);
-  FOptions.WriteToJson(Value['options']);
+  FTextDocument.WriteToJson(Value.AddObject('textDocument'));
+  FRange.WriteToJson(Value.AddObject('range'));
+  FOptions.WriteToJson(Value.AddObject('options'));
 end;
 
 
@@ -712,12 +712,12 @@ begin
   FOptions.ReadFromJson(Value['options']);
 end;
 
-procedure TDocumentOnTypeFormattingParams.WriteToJson(Value: TdwsJSONValue);
+procedure TDocumentOnTypeFormattingParams.WriteToJson(Value: TdwsJSONObject);
 begin
-  FTextDocument.WriteToJson(Value['textDocument']);
-  FPosition.WriteToJson(Value['position']);
+  FTextDocument.WriteToJson(Value.AddObject('textDocument'));
+  FPosition.WriteToJson(Value.AddObject('position'));
   Value['ch'].AsString := FCharacter;
-  FOptions.WriteToJson(Value['options']);
+  FOptions.WriteToJson(Value.AddObject('options'));
 end;
 
 
@@ -735,10 +735,10 @@ begin
   FPosition.ReadFromJson(Value['position']);
 end;
 
-procedure TRenameParams.WriteToJson(Value: TdwsJSONValue);
+procedure TRenameParams.WriteToJson(Value: TdwsJSONObject);
 begin
-  FTextDocument.WriteToJson(Value['textDocument']);
-  FPosition.WriteToJson(Value['position']);
+  FTextDocument.WriteToJson(Value.AddObject('textDocument'));
+  FPosition.WriteToJson(Value.AddObject('position'));
 end;
 
 
