@@ -1,0 +1,2 @@
+# DWScript-Language-Server Unit-Test
+In order to test the DWScript-Language-Server reliably, a unit test project with a set of test cases have been created. It bypasses the inter-process communication and calls the language server code directly for sake of easier debugging.
