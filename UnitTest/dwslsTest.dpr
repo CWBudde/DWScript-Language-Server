@@ -9,6 +9,7 @@ uses
   TestLanguageServer in 'TestLanguageServer.pas',
   dwsls.IO.Pipe in '..\Server\dwsls.IO.Pipe.pas',
   dwsls.LanguageServer in '..\Server\dwsls.LanguageServer.pas',
+  dwsls.Client in '..\Clients\Internal\dwsls.Client.pas',
   dwsls.Classes.Capabilities in '..\Server\dwsls.Classes.Capabilities.pas',
   dwsls.Classes.Common in '..\Server\dwsls.Classes.Common.pas',
   dwsls.Classes.Document in '..\Server\dwsls.Classes.Document.pas',
