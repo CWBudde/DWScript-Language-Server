@@ -98,6 +98,7 @@ type
     procedure SetCodeValue(const Value: Integer);
   public
     constructor Create;
+    destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
@@ -118,6 +119,7 @@ type
     FArguments: TStringList;
   public
     constructor Create;
+    destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
@@ -133,6 +135,7 @@ type
     FNewText: string;
   public
     constructor Create;
+    destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
@@ -185,6 +188,7 @@ type
     FEdits: TTextEdits;
   public
     constructor Create;
+    destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
@@ -202,6 +206,7 @@ type
     FDocumentChanges: TTextDocumentEdits;
   public
     constructor Create;
+    destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
@@ -306,7 +311,7 @@ end;
 procedure TLocation.WriteToJson(const Value: TdwsJSONObject);
 begin
   FRange.WriteToJson(Value.AddObject('range'));
-  Value['uri'].AsString := WebUtils.EncodeURLEncoded(FUri);
+  Value.AddValue('uri', WebUtils.EncodeURLEncoded(FUri));
 end;
 
 
@@ -315,6 +320,12 @@ end;
 constructor TDiagnostic.Create;
 begin
   FRange := TRange.Create;
+end;
+
+destructor TDiagnostic.Destroy;
+begin
+  FRange.Free;
+  inherited;
 end;
 
 procedure TDiagnostic.ReadFromJson(const Value: TdwsJSONValue);
@@ -362,6 +373,12 @@ begin
   FArguments := TStringList.Create;
 end;
 
+destructor TCommand.Destroy;
+begin
+  FArguments.Free;
+  inherited;
+end;
+
 procedure TCommand.ReadFromJson(const Value: TdwsJSONValue);
 var
   ArgumentArray: TdwsJSONArray;
@@ -396,6 +413,12 @@ end;
 constructor TTextEdit.Create;
 begin
   FRange := TRange.Create;
+end;
+
+destructor TTextEdit.Destroy;
+begin
+  FRange.Free;
+  inherited;
 end;
 
 procedure TTextEdit.ReadFromJson(const Value: TdwsJSONValue);
@@ -466,6 +489,13 @@ begin
   FEdits := TTextEdits.Create;
 end;
 
+destructor TTextDocumentEdit.Destroy;
+begin
+  FTextDocument.Free;
+  FEdits.Free;
+  inherited;
+end;
+
 procedure TTextDocumentEdit.ReadFromJson(const Value: TdwsJSONValue);
 var
   TextEdit: TTextEdit;
@@ -505,6 +535,12 @@ begin
   inherited;
 
   FDocumentChanges := TTextDocumentEdits.Create;
+end;
+
+destructor TWorkspaceEdit.Destroy;
+begin
+  FDocumentChanges.Free;
+  inherited;
 end;
 
 procedure TWorkspaceEdit.ReadFromJson(const Value: TdwsJSONValue);

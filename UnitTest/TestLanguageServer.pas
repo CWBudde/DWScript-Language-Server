@@ -22,9 +22,11 @@ type
     procedure TestJsonDidCloseTextDocumentParams;
     procedure TestJsonReferenceParams;
     procedure TestJsonDocumentSymbolParams;
+    procedure TestJsonDocumentSymbolInformation;
     procedure TestJsonCodeActionParams;
     procedure TestJsonCodeLensParams;
     procedure TestJsonDocumentLinkParams;
+    procedure TestJsonDocumentHighlight;
     procedure TestJsonDocumentFormattingParams;
     procedure TestJsonDocumentRangeFormattingParams;
     procedure TestJsonDocumentOnTypeFormattingParams;
@@ -45,8 +47,10 @@ type
     procedure TearDown; override;
   published
     procedure TestBasicStartUpSequence;
-    procedure TestBasicHoverSequence;
     procedure TestBasicCompileSequence;
+    procedure TestBasicHoverSequence;
+    procedure TestBasicSymbolSequence;
+    procedure TestBasicDocumentHightlightSequence;
   end;
 
 implementation
@@ -330,6 +334,41 @@ begin
   end;
 end;
 
+procedure TTestLanguageServerClasses.TestJsonDocumentHighlight;
+var
+  DocumentHighlight: TDocumentHighlight;
+  Params: TdwsJSONObject;
+begin
+  Params := TdwsJSONObject.Create;
+  try
+    DocumentHighlight := TDocumentHighlight.Create;
+    try
+      DocumentHighlight.Kind := hkRead;
+      DocumentHighlight.Range.Start.Line := 42;
+      DocumentHighlight.Range.Start.Character := 57;
+      DocumentHighlight.Range.&End.Line := 47;
+      DocumentHighlight.Range.&End.Character := 52;
+      DocumentHighlight.WriteToJson(Params);
+    finally
+      DocumentHighlight.Free;
+    end;
+
+    DocumentHighlight := TDocumentHighlight.Create;
+    try
+      DocumentHighlight.ReadFromJson(Params);
+      CheckEquals(Integer(hkRead), Integer(DocumentHighlight.Kind));
+      CheckEquals(42, DocumentHighlight.Range.Start.Line);
+      CheckEquals(57, DocumentHighlight.Range.Start.Character);
+      CheckEquals(47, DocumentHighlight.Range.&End.Line);
+      CheckEquals(52, DocumentHighlight.Range.&End.Character);
+    finally
+      DocumentHighlight.Free;
+    end;
+  finally
+    Params.Free;
+  end;
+end;
+
 procedure TTestLanguageServerClasses.TestJsonDocumentLinkParams;
 var
   DocumentLinkParams: TDocumentLinkParams;
@@ -454,6 +493,45 @@ begin
       CheckEquals('c:\Test.dws', DocumentSymbolParams.TextDocument.Uri);
     finally
       DocumentSymbolParams.Free;
+    end;
+  finally
+    Params.Free;
+  end;
+end;
+
+procedure TTestLanguageServerClasses.TestJsonDocumentSymbolInformation;
+var
+  DocumentSymbolInformation: TDocumentSymbolInformation;
+  Params: TdwsJSONObject;
+begin
+  Params := TdwsJSONObject.Create;
+  try
+    DocumentSymbolInformation := TDocumentSymbolInformation.Create;
+    try
+      DocumentSymbolInformation.Name := 'Foo';
+      DocumentSymbolInformation.Kind := skMethod;
+      DocumentSymbolInformation.Location.Uri := 'c:\Test.dws';
+      DocumentSymbolInformation.Location.Range.Start.Line := 42;
+      DocumentSymbolInformation.Location.Range.Start.Character := 57;
+      DocumentSymbolInformation.Location.Range.&End.Line := 47;
+      DocumentSymbolInformation.Location.Range.&End.Character := 52;
+      DocumentSymbolInformation.WriteToJson(Params);
+    finally
+      DocumentSymbolInformation.Free;
+    end;
+
+    DocumentSymbolInformation := TDocumentSymbolInformation.Create;
+    try
+      DocumentSymbolInformation.ReadFromJson(Params);
+      CheckEquals('Foo', DocumentSymbolInformation.Name);
+      CheckEquals(Integer(skMethod), Integer(DocumentSymbolInformation.Kind));
+      CheckEquals('c:\Test.dws', DocumentSymbolInformation.Location.Uri);
+      CheckEquals(42, DocumentSymbolInformation.Location.Range.Start.Line);
+      CheckEquals(57, DocumentSymbolInformation.Location.Range.Start.Character);
+      CheckEquals(47, DocumentSymbolInformation.Location.Range.&End.Line);
+      CheckEquals(52, DocumentSymbolInformation.Location.Range.&End.Character);
+    finally
+      DocumentSymbolInformation.Free;
     end;
   finally
     Params.Free;
@@ -645,12 +723,22 @@ end;
 procedure TTestLanguageServer.BasicInitialization;
 begin
   FLanguageServerHost.SendRequest('initialize', '{"processId":0,"rootPath":"c:\\","rootUri":"file:///c%3A/","capabilities":{"workspace":{"didChangeConfiguration":{"dynamicRegistration":true}}},"trace":"verbose"}}');
-  FLanguageServerHost.SendNotification('initialized');
+  FLanguageServerHost.SendInitialized;
   FLanguageServerHost.SendNotification('workspace/didChangeConfiguration', '{"settings":{"dwsls":{"path":"dwsls","trace":{"server":"verbose"}}}}');
+end;
+
+procedure TTestLanguageServer.TestBasicStartUpSequence;
+begin
+  FLanguageServerHost.LanguageServer.Input('{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"processId":0,"rootPath":"c:\\","rootUri":"file:///c%3A/","capabilities":{"workspace":{"didChangeConfiguration":{"dynamicRegistration":true}}},"trace":"verbose"}}');
+  FLanguageServerHost.LanguageServer.Input('{"jsonrpc":"2.0","method":"initialized","params":{}}');
+  FLanguageServerHost.LanguageServer.Input('{"jsonrpc":"2.0","method":"workspace/didChangeConfiguration","params":{"settings":{"dwsls":{"path":"dwsls","trace":{"server":"verbose"}}}}}');
+  FLanguageServerHost.LanguageServer.Input('{"jsonrpc":"2.0","id":1,"method":"shutdown","params":null}');
+  CheckEquals('{"id":1}', FLanguageServerHost.LastResponse);
 end;
 
 procedure TTestLanguageServer.TestBasicCompileSequence;
 const
+  CFile = 'file:///c:/Test.dws';
   CTestUnit =
     'unit Test;' + #13#10#13#10 +
     'interface' + #13#10#13#10 +
@@ -663,16 +751,17 @@ const
     'end.';
 begin
   BasicInitialization;
-  FLanguageServerHost.SendDidOpenNotification('file:///c:/Test.dws', CTestUnit);
-  FLanguageServerHost.SendRequest('textDocument/hover', '{"textDocument":{"uri":"file:///c%3A/Test.dws"},"position":{"line":1,"character":2}}}');
+  FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
+  FLanguageServerHost.SendHoverRequest(CFile, 1, 2);
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
 procedure TTestLanguageServer.TestBasicHoverSequence;
 var
   TextDocument: TTextDocumentItem;
-  JsonParams: TdwsJSONObject;
+  Response: TdwsJSONObject;
 const
+  CFile = 'file:///c:/Test.dws';
   CTestUnit =
     'unit Test;' + #13#10#13#10 +
     'interface' + #13#10#13#10 +
@@ -684,19 +773,55 @@ const
     'end.';
 begin
   BasicInitialization;
-  FLanguageServerHost.SendDidOpenNotification('file:///c:/Test.dws', CTestUnit);
-  FLanguageServerHost.SendHoverRequest('file:///c:/Test.dws', 0, 5);
-  CheckEquals('{"jsonrpc":"2.0","id":1,"result":{"contents":"Symbol: TUnitMainSymbol"}}', FLanguageServerHost.LastResponse);
+  FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
+  FLanguageServerHost.SendHoverRequest(CFile, 0, 5);
+  Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
+  CheckEquals('{"contents":"Symbol: TUnitMainSymbol"}', Response['result'].ToString);
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
-procedure TTestLanguageServer.TestBasicStartUpSequence;
+procedure TTestLanguageServer.TestBasicSymbolSequence;
+var
+  TextDocument: TTextDocumentItem;
+  Response: TdwsJSONObject;
+const
+  CFile = 'file:///c:/Test.dws';
+  CTestUnit =
+    'unit Test;' + #13#10#13#10 +
+    'interface' + #13#10#13#10 +
+    'implementation' + #13#10#13#10 +
+    'function Add(A, B: Integer): Integer;' + #13#10 +
+    'begin' + #13#10 +
+    '  Result := A + B;' + #13#10 +
+    'end;' + #13#10#13#10 +
+    'end.';
 begin
-  FLanguageServerHost.LanguageServer.Input('{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"processId":0,"rootPath":"c:\\","rootUri":"file:///c%3A/","capabilities":{"workspace":{"didChangeConfiguration":{"dynamicRegistration":true}}},"trace":"verbose"}}');
-  FLanguageServerHost.LanguageServer.Input('{"jsonrpc":"2.0","method":"initialized","params":{}}');
-  FLanguageServerHost.LanguageServer.Input('{"jsonrpc":"2.0","method":"workspace/didChangeConfiguration","params":{"settings":{"dwsls":{"path":"dwsls","trace":{"server":"verbose"}}}}}');
-  FLanguageServerHost.LanguageServer.Input('{"jsonrpc":"2.0","id":1,"method":"shutdown","params":null}');
-  CheckEquals('{"id":1}', FLanguageServerHost.LastResponse);
+  BasicInitialization;
+  FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
+  FLanguageServerHost.SendSymbolRequest(CFile);
+  Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
+  FLanguageServerHost.SendRequest('shutdown');
+end;
+
+procedure TTestLanguageServer.TestBasicDocumentHightlightSequence;
+var
+  TextDocument: TTextDocumentItem;
+  Response: TdwsJSONObject;
+const
+  CFile = 'file:///c:/Test.dws';
+  CTestUnit =
+    'program Test;' + #13#10#13#10 +
+    'function Add(A, B: Integer): Integer;' + #13#10 +
+    'begin' + #13#10 +
+    '  Result := A + B;' + #13#10 +
+    'end;';
+begin
+  BasicInitialization;
+  FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
+  FLanguageServerHost.SendDocumentHighlightRequest(CFile, 2, 13);
+  Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
+  CheckEquals('{"contents":"Symbol: TUnitMainSymbol"}', Response['result'].ToString);
+  FLanguageServerHost.SendRequest('shutdown');
 end;
 
 initialization

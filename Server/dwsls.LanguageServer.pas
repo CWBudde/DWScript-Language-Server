@@ -10,8 +10,9 @@ interface
 uses
   Classes, dwsComp, dwsCompiler, dwsExprs, dwsErrors, dwsFunctions,
   dwsCodeGen, dwsUnitSymbols, dwsCompilerContext, dwsJson, dwsXPlatform,
-  dwsUtils, dwsls.Classes.Capabilities, dwsls.Classes.Common,
-  dwsls.Classes.Document, dwsls.Classes.Workspace, dwsls.Utils;
+  dwsUtils, dwsSymbolDictionary, dwsls.Classes.Capabilities,
+  dwsls.Classes.Common, dwsls.Classes.Document, dwsls.Classes.Workspace,
+  dwsls.Utils;
 
 type
   TOnOutput = procedure(const Output: string) of object;
@@ -416,8 +417,6 @@ var
 begin
   DidOpenTextDocumentParams := TDidOpenTextDocumentParams.Create;
   try
-    OutputDebugString(Params.ToString);
-
     DidOpenTextDocumentParams.ReadFromJson(Params);
 
     // create text document item
@@ -462,16 +461,52 @@ end;
 procedure TDWScriptLanguageServer.HandleTextDocumentHighlight(Params: TdwsJSONObject);
 var
   TextDocumentPositionParams: TTextDocumentPositionParams;
-  Result: TdwsJSONObject;
+  DocumentHighlight: TDocumentHighlight;
+  Prog: IdwsProgram;
+  Result: TdwsJSONArray;
+  Symbol: TSymbol;
+  SymbolPosList: TSymbolPositionList;
+  SymbolPos: TSymbolPosition;
 begin
+  Prog := nil;
   TextDocumentPositionParams := TTextDocumentPositionParams.Create;
-  TextDocumentPositionParams.ReadFromJson(Params);
+  try
+    TextDocumentPositionParams.ReadFromJson(Params);
 
-  Result := TdwsJSONObject.Create;
+    Prog := Compile(TextDocumentPositionParams.TextDocument.Uri);
 
-  // not yet implemented
+    Symbol := Prog.SymbolDictionary.FindSymbolAtPosition(
+      TextDocumentPositionParams.Position.Character + 1,
+      TextDocumentPositionParams.Position.Line + 1,
+      SYS_MainModule);
+    if Assigned(Symbol) then
+      SymbolPosList := Prog.SymbolDictionary.FindSymbolPosList(Symbol);
+  finally
+    TextDocumentPositionParams.Free;
+  end;
 
-  SendResponse(Result);
+  if Assigned(Prog) then
+  begin
+    Result := TdwsJSONArray.Create;
+
+    if Assigned(SymbolPosList) then
+      for SymbolPos in SymbolPosList do
+      begin
+        DocumentHighlight := TDocumentHighlight.Create;
+        try
+          DocumentHighlight.Kind := hkText;
+          DocumentHighlight.Range.Start.Line := SymbolPos.ScriptPos.Line;
+          DocumentHighlight.Range.Start.Character := SymbolPos.ScriptPos.Col;
+          DocumentHighlight.Range.&End.Line := SymbolPos.ScriptPos.Line;
+          DocumentHighlight.Range.&End.Character := SymbolPos.ScriptPos.Col + Length(Symbol.Name);
+          DocumentHighlight.WriteToJson(Result.AddObject);
+        finally
+          DocumentHighlight.Free;
+        end;
+      end;
+
+    SendResponse(Result);
+  end;
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentHover(Params: TdwsJSONObject);
@@ -497,7 +532,8 @@ begin
     begin
       Symbol := Prog.SymbolDictionary.FindSymbolAtPosition(
         TextDocumentPositionParams.Position.Character + 1,
-        TextDocumentPositionParams.Position.Line + 1, SYS_MainModule);
+        TextDocumentPositionParams.Position.Line + 1,
+        SYS_MainModule);
     end;
   finally
     TextDocumentPositionParams.Free;
@@ -582,19 +618,121 @@ begin
   SendResponse(Result);
 end;
 
+function SymbolToSymbolKind(Symbol: TSymbol): TDocumentSymbolInformation.TSymbolKind;
+begin
+  if Symbol is TFuncSymbol then
+  begin
+    case TFuncSymbol(Symbol).Kind of
+      fkMethod:
+        Result := skMethod;
+      fkConstructor:
+        Result := skConstructor;
+      else
+        Result := skFunction;
+    end;
+  end
+  else
+  if Symbol is TUnitSymbol then
+    Result := skModule
+  else
+  if Symbol is TFieldSymbol then
+    Result := skField
+  else
+  if Symbol is TClassSymbol then
+    Result := skClass
+  else
+  if Symbol is TPropertySymbol then
+    Result := skProperty
+  else
+  if Symbol is TConstSymbol then
+    Result := skConstant
+  else
+  if Symbol is TInterfaceSymbol then
+    Result := skFunction
+  else
+  if Symbol is TEnumerationSymbol then
+    Result := skEnum
+  else
+  if Symbol is TArraySymbol then
+    Result := skArray
+  else
+  if Symbol is TBaseFloatSymbol then
+    Result := skNumber
+  else
+  if Symbol is TBaseBooleanSymbol then
+    Result := skBoolean
+  else
+  if Symbol is TBaseStringSymbol then
+    Result := skString
+  else
+  if Symbol is TBaseIntegerSymbol then
+    Result := skNumber
+  else
+  if Symbol is TVarParamSymbol then
+    Result := skVariable
+  else
+  if Assigned(Symbol.Typ) then
+    if Symbol.Typ is TBaseFloatSymbol then
+      Result := skNumber
+    else
+    if Symbol.Typ is TBaseIntegerSymbol then
+      Result := skNumber
+    else
+    if Symbol.Typ is TBaseBooleanSymbol then
+      Result := skBoolean
+    else
+    if Symbol.Typ is TBaseStringSymbol then
+      Result := skString;
+
+(*
+skFile = 1,
+skNamespace = 3,
+skPackage = 4,
+skVariable = 13,
+*)
+end;
+
 procedure TDWScriptLanguageServer.HandleTextDocumentSymbol(Params: TdwsJSONObject);
 var
   DocumentSymbolParams: TDocumentSymbolParams;
-  Result: TdwsJSONObject;
+  DocumentSymbolInformation: TDocumentSymbolInformation;
+  Uri: string;
+  SymbolPosList: TSymbolPositionList;
+  Index: Integer;
+  Prog: IdwsProgram;
+  Result: TdwsJSONArray;
 begin
+  Prog := nil;
   DocumentSymbolParams := TDocumentSymbolParams.Create;
-  DocumentSymbolParams.ReadFromJson(Params);
+  try
+    DocumentSymbolParams.ReadFromJson(Params);
 
-  // not further implemented
+    Prog := Compile(DocumentSymbolParams.TextDocument.Uri);
+  finally
+    DocumentSymbolParams.Free;
+  end;
 
-  Result := TdwsJSONObject.Create;
+  if Assigned(Prog) then
+  begin
+    Result := TdwsJSONArray.Create;
 
-  SendResponse(Result);
+    for SymbolPosList in Prog.SymbolDictionary do
+    begin
+      DocumentSymbolInformation := TDocumentSymbolInformation.Create;
+      try
+        DocumentSymbolInformation.Name := SymbolPosList.Symbol.Name;
+        DocumentSymbolInformation.Kind := SymbolToSymbolKind(SymbolPosList.Symbol);
+        DocumentSymbolInformation.Location.Uri := SymbolPosList.Items[0].ScriptPos.SourceFile.Location;
+        DocumentSymbolInformation.Location.Range.Start.Line := SymbolPosList.Items[0].ScriptPos.Line;
+        DocumentSymbolInformation.Location.Range.Start.Character := SymbolPosList.Items[0].ScriptPos.Col;
+        DocumentSymbolInformation.WriteToJson(Result.AddObject);
+      finally
+        DocumentSymbolInformation.Free;
+      end;
+    end;
+
+    SendResponse(Result);
+  end;
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentWillSave(Params: TdwsJSONObject);
@@ -912,6 +1050,8 @@ begin
   SaveOptions.AddValue('includeText', false); // not needed so far
 
   Capabilities.AddValue('hoverProvider', true);
+  Capabilities.AddValue('documentSymbolProvider', true);
+  Capabilities.AddValue('documentHighlightProvider', true);
 
 (*
   // completion options
@@ -926,8 +1066,6 @@ begin
 
   Capabilities.AddValue('definitionProvider', true);
   Capabilities.AddValue('referencesProvider', true);
-  Capabilities.AddValue('documentHighlightProvider', true);
-  Capabilities.AddValue('documentSymbolProvider', true);
   Capabilities.AddValue('workspaceSymbolProvider', true);
   Capabilities.AddValue('codeActionProvider', true);
 

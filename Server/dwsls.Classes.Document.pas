@@ -12,6 +12,7 @@ type
     FPosition: TPosition;
   public
     constructor Create;
+    destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
@@ -28,6 +29,7 @@ type
     FUri: string;
   public
     constructor Create;
+    destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
@@ -43,6 +45,7 @@ type
     FTextDocument: TTextDocumentItem;
   public
     constructor Create;
+    destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
@@ -58,6 +61,7 @@ type
     FHasRange: Boolean;
   public
     constructor Create;
+    destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
@@ -76,6 +80,7 @@ type
     FContentChanges: TTextDocumentContentChangeEvents;
   public
     constructor Create;
+    destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
@@ -92,6 +97,7 @@ type
     FReason: TSaveReason;
   public
     constructor Create;
+    destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
@@ -106,6 +112,7 @@ type
     FText: string;
   public
     constructor Create;
+    destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
@@ -119,6 +126,7 @@ type
     FTextDocument: TTextDocumentIdentifier;
   public
     constructor Create;
+    destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
@@ -141,10 +149,33 @@ type
     FContext: TReferenceContext;
   public
     constructor Create;
+    destructor Destroy; override;
+
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
 
     property Context: TReferenceContext read FContext;
+  end;
+
+  TDocumentHighlight = class(TJsonClass)
+  type
+    THighlightKind = (
+      hkText = 1,
+      hkRead = 2,
+      hkWrite = 3
+    );
+  private
+    FRange: TRange;
+    FKind: THighlightKind;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Range: TRange read FRange;
+    property Kind: THighlightKind read FKind write FKind;
   end;
 
   TDocumentSymbolParams = class(TJsonClass)
@@ -152,11 +183,52 @@ type
     FTextDocument: TTextDocumentIdentifier;
   public
     constructor Create;
+    destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
 
     property TextDocument: TTextDocumentIdentifier read FTextDocument;
+  end;
+
+  TDocumentSymbolInformation = class(TJsonClass)
+  type
+    TSymbolKind = (
+      skFile = 1,
+      skModule = 2,
+      skNamespace = 3,
+      skPackage = 4,
+      skClass = 5,
+      skMethod = 6,
+      skProperty = 7,
+      skField = 8,
+      skConstructor = 9,
+      skEnum = 10,
+      skInterface = 11,
+      skFunction = 12,
+      skVariable = 13,
+      skConstant = 14,
+      skString = 15,
+      skNumber = 16,
+      skBoolean = 17,
+      skArray = 18
+    );
+  private
+    FName: string;
+    FKind: TSymbolKind;
+    FContainerName: string;
+    FLocation: TLocation;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Name: string read FName write FName;
+    property Kind: TSymbolKind read FKind write FKind;
+    property Location: TLocation read FLocation;
+    property ContainerName: string read FContainerName write FContainerName;
   end;
 
   TCodeActionContext = class(TJsonClass)
@@ -166,6 +238,7 @@ type
     FDiagnostics: TDiagnostics;
   public
     constructor Create;
+    destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
@@ -180,6 +253,7 @@ type
     FRange: TRange;
   public
     constructor Create;
+    destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
@@ -194,6 +268,7 @@ type
     FTextDocument: TTextDocumentIdentifier;
   public
     constructor Create;
+    destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
@@ -206,6 +281,7 @@ type
     FTextDocument: TTextDocumentIdentifier;
   public
     constructor Create;
+    destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
@@ -232,6 +308,7 @@ type
     FOptions: TFormattingOptions;
   public
     constructor Create;
+    destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
@@ -247,6 +324,7 @@ type
     FOptions: TFormattingOptions;
   public
     constructor Create;
+    destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
@@ -264,6 +342,7 @@ type
     FOptions: TFormattingOptions;
   public
     constructor Create;
+    destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
@@ -281,6 +360,7 @@ type
     FNewName: string;
   public
     constructor Create;
+    destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
@@ -298,6 +378,13 @@ constructor TTextDocumentPositionParams.Create;
 begin
   FPosition := TPosition.Create;
   FTextDocument := TTextDocumentIdentifier.Create;
+end;
+
+destructor TTextDocumentPositionParams.Destroy;
+begin
+  FPosition.Free;
+  FTextDocument.Free;
+  inherited;
 end;
 
 procedure TTextDocumentPositionParams.ReadFromJson(const Value: TdwsJSONValue);
@@ -318,6 +405,12 @@ end;
 constructor TPublishDiagnosticsParams.Create;
 begin
   FDiagnostics := TDiagnostics.Create;
+end;
+
+destructor TPublishDiagnosticsParams.Destroy;
+begin
+  FDiagnostics.Free;
+  inherited;
 end;
 
 procedure TPublishDiagnosticsParams.ReadFromJson(const Value: TdwsJSONValue);
@@ -372,6 +465,12 @@ begin
   FTextDocument := TTextDocumentItem.Create;
 end;
 
+destructor TDidOpenTextDocumentParams.Destroy;
+begin
+  FTextDocument.Free;
+  inherited;
+end;
+
 procedure TDidOpenTextDocumentParams.ReadFromJson(const Value: TdwsJSONValue);
 begin
   FTextDocument.ReadFromJson(Value['textDocument']);
@@ -388,6 +487,12 @@ end;
 constructor TTextDocumentContentChangeEvent.Create;
 begin
   FRange := TRange.Create;
+end;
+
+destructor TTextDocumentContentChangeEvent.Destroy;
+begin
+  FRange.Free;
+  inherited;
 end;
 
 procedure TTextDocumentContentChangeEvent.ReadFromJson(const Value: TdwsJSONValue);
@@ -422,6 +527,13 @@ constructor TDidChangeTextDocumentParams.Create;
 begin
   FTextDocument := TVersionedTextDocumentIdentifier.Create;
   FContentChanges := TTextDocumentContentChangeEvents.Create;
+end;
+
+destructor TDidChangeTextDocumentParams.Destroy;
+begin
+  FTextDocument.Free;
+  FContentChanges.Free;
+  inherited;
 end;
 
 procedure TDidChangeTextDocumentParams.ReadFromJson(const Value: TdwsJSONValue);
@@ -460,6 +572,12 @@ begin
   FTextDocument := TTextDocumentIdentifier.Create;
 end;
 
+destructor TWillSaveTextDocumentParams.Destroy;
+begin
+  FTextDocument.Free;
+  inherited;
+end;
+
 procedure TWillSaveTextDocumentParams.ReadFromJson(const Value: TdwsJSONValue);
 begin
   FTextDocument.ReadFromJson(Value['textDocument']);
@@ -482,6 +600,12 @@ begin
   FTextDocument := TTextDocumentIdentifier.Create;
 end;
 
+destructor TDidSaveTextDocumentParams.Destroy;
+begin
+  FTextDocument.Free;
+  inherited;
+end;
+
 procedure TDidSaveTextDocumentParams.ReadFromJson(const Value: TdwsJSONValue);
 begin
   FTextDocument.ReadFromJson(Value['textDocument']);
@@ -500,6 +624,12 @@ end;
 constructor TDidCloseTextDocumentParams.Create;
 begin
   FTextDocument := TTextDocumentIdentifier.Create;
+end;
+
+destructor TDidCloseTextDocumentParams.Destroy;
+begin
+  FTextDocument.Free;
+  inherited;
 end;
 
 procedure TDidCloseTextDocumentParams.ReadFromJson(const Value: TdwsJSONValue);
@@ -533,6 +663,12 @@ begin
   FContext := TReferenceContext.Create;
 end;
 
+destructor TReferenceParams.Destroy;
+begin
+  FContext.Free;
+  inherited;
+end;
+
 procedure TReferenceParams.ReadFromJson(const Value: TdwsJSONValue);
 begin
   FContext.ReadFromJson(Value['context']);
@@ -544,11 +680,44 @@ begin
 end;
 
 
+{ TDocumentHighlight }
+
+constructor TDocumentHighlight.Create;
+begin
+  FRange := TRange.Create;
+  FKind := hkText;
+end;
+
+destructor TDocumentHighlight.Destroy;
+begin
+  FRange.Free;
+  inherited;
+end;
+
+procedure TDocumentHighlight.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FKind := THighlightKind(Value['kind'].AsInteger);
+  FRange.ReadFromJson(Value['range']);
+end;
+
+procedure TDocumentHighlight.WriteToJson(const Value: TdwsJSONObject);
+begin
+  Value.AddValue('kind', Integer(FKind));
+  FRange.WriteToJson(Value.AddObject('range'));
+end;
+
+
 { TDocumentSymbolParams }
 
 constructor TDocumentSymbolParams.Create;
 begin
   FTextDocument := TTextDocumentIdentifier.Create;
+end;
+
+destructor TDocumentSymbolParams.Destroy;
+begin
+  FTextDocument.Free;
+  inherited;
 end;
 
 procedure TDocumentSymbolParams.ReadFromJson(const Value: TdwsJSONValue);
@@ -562,11 +731,49 @@ begin
 end;
 
 
+{ TDocumentSymbolInformation }
+
+constructor TDocumentSymbolInformation.Create;
+begin
+  FLocation := TLocation.Create;
+end;
+
+destructor TDocumentSymbolInformation.Destroy;
+begin
+  FLocation.Free;
+  inherited;
+end;
+
+procedure TDocumentSymbolInformation.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FName := Value['name'].AsString;
+  FKind := TSymbolKind(Value['kind'].AsInteger);
+  FLocation.ReadFromJson(Value['location']);
+  if Value['containerName'] <> nil then
+    FContainerName := Value['containerName'].AsString;
+end;
+
+procedure TDocumentSymbolInformation.WriteToJson(const Value: TdwsJSONObject);
+begin
+  Value.AddValue('name', FName);
+  Value.AddValue('kind', Integer(FKind));
+  FLocation.WriteToJson(Value.AddObject('location'));
+  if FContainerName <> '' then
+    Value.AddValue('containerName', FContainerName);
+end;
+
+
 { TCodeActionContext }
 
 constructor TCodeActionContext.Create;
 begin
   FDiagnostics := TDiagnostics.Create;
+end;
+
+destructor TCodeActionContext.Destroy;
+begin
+  FDiagnostics.Free;
+  inherited;
 end;
 
 procedure TCodeActionContext.ReadFromJson(const Value: TdwsJSONValue);
@@ -587,6 +794,14 @@ begin
   FTextDocument := TTextDocumentIdentifier.Create;
   FRange := TRange.Create;
   FContext := TCodeActionContext.Create;
+end;
+
+destructor TCodeActionParams.Destroy;
+begin
+  FTextDocument.Free;
+  FRange.Free;
+  FContext.Free;
+  inherited;
 end;
 
 procedure TCodeActionParams.ReadFromJson(const Value: TdwsJSONValue);
@@ -611,6 +826,12 @@ begin
   FTextDocument := TTextDocumentIdentifier.Create;
 end;
 
+destructor TCodeLensParams.Destroy;
+begin
+  FTextDocument.Free;
+  inherited;
+end;
+
 procedure TCodeLensParams.ReadFromJson(const Value: TdwsJSONValue);
 begin
   FTextDocument.ReadFromJson(Value['textDocument']);
@@ -627,6 +848,12 @@ end;
 constructor TDocumentLinkParams.Create;
 begin
   FTextDocument := TTextDocumentIdentifier.Create;
+end;
+
+destructor TDocumentLinkParams.Destroy;
+begin
+  FTextDocument.Free;
+  inherited;
 end;
 
 procedure TDocumentLinkParams.ReadFromJson(const Value: TdwsJSONValue);
@@ -663,6 +890,13 @@ begin
   FOptions := TFormattingOptions.Create;
 end;
 
+destructor TDocumentFormattingParams.Destroy;
+begin
+  FTextDocument.Free;
+  FOptions.Free;
+  inherited;
+end;
+
 procedure TDocumentFormattingParams.ReadFromJson(const Value: TdwsJSONValue);
 begin
   FTextDocument.ReadFromJson(Value['textDocument']);
@@ -683,6 +917,14 @@ begin
   FTextDocument := TTextDocumentIdentifier.Create;
   FRange := TRange.Create;
   FOptions := TFormattingOptions.Create;
+end;
+
+destructor TDocumentRangeFormattingParams.Destroy;
+begin
+  FTextDocument.Free;
+  FRange.Free;
+  FOptions.Free;
+  inherited;
 end;
 
 procedure TDocumentRangeFormattingParams.ReadFromJson(const Value: TdwsJSONValue);
@@ -709,6 +951,14 @@ begin
   FOptions := TFormattingOptions.Create;
 end;
 
+destructor TDocumentOnTypeFormattingParams.Destroy;
+begin
+  FTextDocument.Free;
+  FPosition.Free;
+  FOptions.Free;
+  inherited;
+end;
+
 procedure TDocumentOnTypeFormattingParams.ReadFromJson(const Value: TdwsJSONValue);
 begin
   FTextDocument.ReadFromJson(Value['textDocument']);
@@ -732,6 +982,13 @@ constructor TRenameParams.Create;
 begin
   FTextDocument := TTextDocumentIdentifier.Create;
   FPosition := TPosition.Create;
+end;
+
+destructor TRenameParams.Destroy;
+begin
+  FTextDocument.Free;
+  FPosition.Free;
+  inherited;
 end;
 
 procedure TRenameParams.ReadFromJson(const Value: TdwsJSONValue);

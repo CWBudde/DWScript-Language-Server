@@ -24,8 +24,11 @@ type
     procedure SendNotification(Method: string; Params: TdwsJSONObject = nil); overload;
     procedure SendNotification(Method: string; Params: string); overload;
 
+    procedure SendInitialized;
     procedure SendDidOpenNotification(Uri, Text: string; Version: Integer = 0; LanguageID: string = 'dwscript');
+    procedure SendSymbolRequest(Uri: string);
     procedure SendHoverRequest(Uri: string; Line, Character: Integer);
+    procedure SendDocumentHighlightRequest(Uri: string; Line, Character: Integer);
 
     property LastResponse: string read FLastResponse;
     property LanguageServer: TDWScriptLanguageServer read FLanguageServer;
@@ -58,63 +61,6 @@ end;
 procedure TLanguageServerHost.OnOutputHandler(const Text: string);
 begin
   FLastResponse := Text;
-end;
-
-procedure TLanguageServerHost.SendDidOpenNotification(Uri, Text: string; Version: Integer;
-  LanguageID: string);
-var
-  TextDocument: TTextDocumentItem;
-  JsonParams: TdwsJSONObject;
-begin
-  JsonParams := TdwsJSONObject.Create;
-  try
-    TextDocument := TTextDocumentItem.Create;
-    try
-      TextDocument.Uri := Uri;
-      TextDocument.LanguageId := LanguageID;
-      TextDocument.Version := Version;
-      TextDocument.Text := Text;
-      TextDocument.WriteToJson(JsonParams.AddObject('textDocument'));
-    finally
-      TextDocument.Free;
-    end;
-
-    SendNotification('textDocument/didOpen', JsonParams);
-  finally
-    JsonParams.Free;
-  end;
-end;
-
-procedure TLanguageServerHost.SendHoverRequest(Uri: string; Line,
-  Character: Integer);
-var
-  TextDocument: TTextDocumentIdentifier;
-  Position: TPosition;
-  JsonParams: TdwsJSONObject;
-begin
-  JsonParams := TdwsJSONObject.Create;
-  try
-    TextDocument := TTextDocumentIdentifier.Create;
-    try
-      TextDocument.Uri := Uri;
-      TextDocument.WriteToJson(JsonParams.AddObject('textDocument'));
-    finally
-      TextDocument.Free;
-    end;
-
-    Position := TPosition.Create;
-    try
-      Position.Line := Line;
-      Position.Character := Character;
-      Position.WriteToJson(JsonParams.AddObject('position'));
-    finally
-      Position.Free;
-    end;
-
-    SendRequest('textDocument/hover', JsonParams);
-  finally
-    JsonParams.Free;
-  end;
 end;
 
 procedure TLanguageServerHost.SendNotification(Method, Params: string);
@@ -155,6 +101,113 @@ begin
   Response.AddValue('id', FRequestIndex);
   Inc(FRequestIndex);
   FLanguageServer.Input(Response.ToString);
+end;
+
+procedure TLanguageServerHost.SendDidOpenNotification(Uri, Text: string; Version: Integer;
+  LanguageID: string);
+var
+  TextDocument: TTextDocumentItem;
+  JsonParams: TdwsJSONObject;
+begin
+  JsonParams := TdwsJSONObject.Create;
+  try
+    TextDocument := TTextDocumentItem.Create;
+    try
+      TextDocument.Uri := Uri;
+      TextDocument.LanguageId := LanguageID;
+      TextDocument.Version := Version;
+      TextDocument.Text := Text;
+      TextDocument.WriteToJson(JsonParams.AddObject('textDocument'));
+    finally
+      TextDocument.Free;
+    end;
+
+    SendNotification('textDocument/didOpen', JsonParams);
+  finally
+    JsonParams.Free;
+  end;
+end;
+
+procedure TLanguageServerHost.SendDocumentHighlightRequest(Uri: string; Line,
+  Character: Integer);
+var
+  TextDocumentPositionParams: TTextDocumentPositionParams;
+  JsonParams: TdwsJSONObject;
+begin
+  JsonParams := TdwsJSONObject.Create;
+  try
+    TextDocumentPositionParams := TTextDocumentPositionParams.Create;
+    try
+      TextDocumentPositionParams.TextDocument.Uri := Uri;
+      TextDocumentPositionParams.Position.Line := Line;
+      TextDocumentPositionParams.Position.Character := Character;
+      TextDocumentPositionParams.WriteToJson(JsonParams);
+    finally
+      TextDocumentPositionParams.Free;
+    end;
+
+    SendRequest('textDocument/documentHighlight', JsonParams);
+  finally
+    JsonParams.Free;
+  end;
+end;
+
+procedure TLanguageServerHost.SendHoverRequest(Uri: string; Line,
+  Character: Integer);
+var
+  TextDocument: TTextDocumentIdentifier;
+  Position: TPosition;
+  JsonParams: TdwsJSONObject;
+begin
+  JsonParams := TdwsJSONObject.Create;
+  try
+    TextDocument := TTextDocumentIdentifier.Create;
+    try
+      TextDocument.Uri := Uri;
+      TextDocument.WriteToJson(JsonParams.AddObject('textDocument'));
+    finally
+      TextDocument.Free;
+    end;
+
+    Position := TPosition.Create;
+    try
+      Position.Line := Line;
+      Position.Character := Character;
+      Position.WriteToJson(JsonParams.AddObject('position'));
+    finally
+      Position.Free;
+    end;
+
+    SendRequest('textDocument/hover', JsonParams);
+  finally
+    JsonParams.Free;
+  end;
+end;
+
+procedure TLanguageServerHost.SendSymbolRequest(Uri: string);
+var
+  TextDocument: TTextDocumentIdentifier;
+  JsonParams: TdwsJSONObject;
+begin
+  JsonParams := TdwsJSONObject.Create;
+  try
+    TextDocument := TTextDocumentIdentifier.Create;
+    try
+      TextDocument.Uri := Uri;
+      TextDocument.WriteToJson(JsonParams.AddObject('textDocument'));
+    finally
+      TextDocument.Free;
+    end;
+
+    SendRequest('textDocument/documentSymbol', JsonParams);
+  finally
+    JsonParams.Free;
+  end;
+end;
+
+procedure TLanguageServerHost.SendInitialized;
+begin
+  SendNotification('initialized');
 end;
 
 

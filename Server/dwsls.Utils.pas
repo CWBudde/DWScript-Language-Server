@@ -30,7 +30,6 @@ type
     property Items[const Uri: string]: TdwsTextDocumentItem read GetUriItems; default;
   end;
 
-
 implementation
 
 { TdwsTextDocumentItem }

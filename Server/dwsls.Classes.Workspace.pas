@@ -13,6 +13,7 @@ type
     FFileEvents: TFileEvents;
   public
     constructor Create;
+    destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
@@ -36,6 +37,7 @@ type
     FArguments: TStringList;
   public
     constructor Create;
+    destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
@@ -48,6 +50,7 @@ type
     FEdit: TWorkspaceEdit;
   public
     constructor Create;
+    destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
@@ -62,6 +65,12 @@ implementation
 constructor TDidChangeWatchedFilesParams.Create;
 begin
   FFileEvents := TFileEvents.Create;
+end;
+
+destructor TDidChangeWatchedFilesParams.Destroy;
+begin
+  FFileEvents.Free;
+  inherited;
 end;
 
 procedure TDidChangeWatchedFilesParams.ReadFromJson(const Value: TdwsJSONValue);
@@ -110,6 +119,12 @@ begin
   FArguments := TStringList.Create;
 end;
 
+destructor TExecuteCommandParams.Destroy;
+begin
+  FArguments.Free;
+  inherited;
+end;
+
 procedure TExecuteCommandParams.ReadFromJson(const Value: TdwsJSONValue);
 var
   ArgumentArray: TdwsJSONArray;
@@ -142,6 +157,12 @@ end;
 constructor TApplyWorkspaceEditParams.Create;
 begin
   FEdit := TWorkspaceEdit.Create;
+end;
+
+destructor TApplyWorkspaceEditParams.Destroy;
+begin
+  FEdit.Free;
+  inherited;
 end;
 
 procedure TApplyWorkspaceEditParams.ReadFromJson(const Value: TdwsJSONValue);
