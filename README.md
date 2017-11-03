@@ -9,6 +9,8 @@ What works so far is:
 * hover over symbols (only over the very first char so far)
 * document highlight (basic support)
 * symbol list (basic support)
+* goto definition (basic support)
+* find reference (basic support)
 
 ## Editors
 At the moment only the [VSCode](https://code.visualstudio.com/) editor is supported directly. However others should also be able to work with the language server.

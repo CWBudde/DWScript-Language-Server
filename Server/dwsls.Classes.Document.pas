@@ -11,7 +11,7 @@ type
     FTextDocument: TTextDocumentIdentifier;
     FPosition: TPosition;
   public
-    constructor Create;
+    constructor Create; virtual;
     destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
@@ -144,11 +144,11 @@ type
     property IncludeDeclaration: Boolean read FIncludeDeclaration write FIncludeDeclaration;
   end;
 
-  TReferenceParams = class(TJsonClass)
+  TReferenceParams = class(TTextDocumentPositionParams)
   private
     FContext: TReferenceContext;
   public
-    constructor Create;
+    constructor Create; override;
     destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
@@ -660,6 +660,7 @@ end;
 
 constructor TReferenceParams.Create;
 begin
+  inherited;
   FContext := TReferenceContext.Create;
 end;
 
@@ -671,11 +672,13 @@ end;
 
 procedure TReferenceParams.ReadFromJson(const Value: TdwsJSONValue);
 begin
+  inherited;
   FContext.ReadFromJson(Value['context']);
 end;
 
 procedure TReferenceParams.WriteToJson(const Value: TdwsJSONObject);
 begin
+  inherited;
   FContext.WriteToJson(Value.AddObject('context'));
 end;
 

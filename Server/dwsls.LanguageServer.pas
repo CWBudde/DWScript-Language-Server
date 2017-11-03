@@ -352,16 +352,53 @@ end;
 procedure TDWScriptLanguageServer.HandleTextDocumentDefinition(Params: TdwsJSONObject);
 var
   TextDocumentPositionParams: TTextDocumentPositionParams;
+  Location: TLocation;
+  Prog: IdwsProgram;
   Result: TdwsJSONObject;
+  Symbol: TSymbol;
+  SymbolPosList: TSymbolPositionList;
+  SymbolPos: TSymbolPosition;
 begin
+  Prog := nil;
   TextDocumentPositionParams := TTextDocumentPositionParams.Create;
-  TextDocumentPositionParams.ReadFromJson(Params);
+  try
+    TextDocumentPositionParams.ReadFromJson(Params);
 
-  Result := TdwsJSONObject.Create;
+    Prog := Compile(TextDocumentPositionParams.TextDocument.Uri);
 
-  // not yet implemented
+    Symbol := Prog.SymbolDictionary.FindSymbolAtPosition(
+      TextDocumentPositionParams.Position.Character + 1,
+      TextDocumentPositionParams.Position.Line + 1,
+      SYS_MainModule);
+    if Assigned(Symbol) then
+      SymbolPosList := Prog.SymbolDictionary.FindSymbolPosList(Symbol);
+  finally
+    TextDocumentPositionParams.Free;
+  end;
 
-  SendResponse(Result);
+  if Assigned(Prog) then
+  begin
+    if Assigned(SymbolPosList) then
+    begin
+      Location := TLocation.Create;
+      try
+        Location.Uri := SymbolPos.ScriptPos.SourceFile.Location;
+        Location.Range.Start.Line := SymbolPos.ScriptPos.Line;
+        Location.Range.Start.Character := SymbolPos.ScriptPos.Col;
+        Location.Range.&End.Line := SymbolPos.ScriptPos.Line;
+        Location.Range.&End.Character := SymbolPos.ScriptPos.Col + Length(Symbol.Name);
+        Result := TdwsJSONObject.Create;
+        Location.WriteToJson(Result);
+        SendResponse(Result);
+      finally
+        Location.Free;
+      end;
+    end
+    else
+      SendResponse;
+  end
+  else
+    SendResponse;
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentDidChange(Params: TdwsJSONObject);
@@ -594,8 +631,54 @@ begin
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentReferences(Params: TdwsJSONObject);
+var
+  ReferenceParams: TReferenceParams;
+  Location: TLocation;
+  Prog: IdwsProgram;
+  Result: TdwsJSONArray;
+  Symbol: TSymbol;
+  SymbolPosList: TSymbolPositionList;
+  SymbolPos: TSymbolPosition;
 begin
-  // not yet implemented
+  Prog := nil;
+  ReferenceParams := TReferenceParams.Create;
+  try
+    ReferenceParams.ReadFromJson(Params);
+
+    Prog := Compile(ReferenceParams.TextDocument.Uri);
+
+    Symbol := Prog.SymbolDictionary.FindSymbolAtPosition(
+      ReferenceParams.Position.Character + 1,
+      ReferenceParams.Position.Line + 1,
+      SYS_MainModule);
+    if Assigned(Symbol) then
+      SymbolPosList := Prog.SymbolDictionary.FindSymbolPosList(Symbol);
+  finally
+    ReferenceParams.Free;
+  end;
+
+  if Assigned(Prog) then
+  begin
+    Result := TdwsJSONArray.Create;
+
+    if Assigned(SymbolPosList) then
+      for SymbolPos in SymbolPosList do
+      begin
+        Location := TLocation.Create;
+        try
+          Location.Uri := SymbolPos.ScriptPos.SourceFile.Location;
+          Location.Range.Start.Line := SymbolPos.ScriptPos.Line;
+          Location.Range.Start.Character := SymbolPos.ScriptPos.Col;
+          Location.Range.&End.Line := SymbolPos.ScriptPos.Line;
+          Location.Range.&End.Character := SymbolPos.ScriptPos.Col + Length(Symbol.Name);
+          Location.WriteToJson(Result.AddObject);
+        finally
+          Location.Free;
+        end;
+      end;
+
+    SendResponse(Result);
+  end;
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentRenameSymbol(Params: TdwsJSONObject);
@@ -1049,7 +1132,9 @@ begin
   SaveOptions := TextDocumentSyncOptions.AddObject('save');
   SaveOptions.AddValue('includeText', false); // not needed so far
 
+  Capabilities.AddValue('definitionProvider', true);
   Capabilities.AddValue('hoverProvider', true);
+  Capabilities.AddValue('referencesProvider', true);
   Capabilities.AddValue('documentSymbolProvider', true);
   Capabilities.AddValue('documentHighlightProvider', true);
 
@@ -1064,8 +1149,6 @@ begin
   SignatureHelpOptions := Capabilities.AddObject('signatureHelpProvider');
   TriggerCharacters := CompletionOptions.AddArray('triggerCharacters');
 
-  Capabilities.AddValue('definitionProvider', true);
-  Capabilities.AddValue('referencesProvider', true);
   Capabilities.AddValue('workspaceSymbolProvider', true);
   Capabilities.AddValue('codeActionProvider', true);
 

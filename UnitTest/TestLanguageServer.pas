@@ -50,6 +50,8 @@ type
     procedure TestBasicCompileSequence;
     procedure TestBasicHoverSequence;
     procedure TestBasicSymbolSequence;
+    procedure TestBasicDefinitionSequence;
+    procedure TestBasicFindReferenceSequence;
     procedure TestBasicDocumentHightlightSequence;
   end;
 
@@ -803,6 +805,27 @@ begin
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
+procedure TTestLanguageServer.TestBasicFindReferenceSequence;
+var
+  TextDocument: TTextDocumentItem;
+  Response: TdwsJSONObject;
+const
+  CFile = 'file:///c:/Test.dws';
+  CTestUnit =
+    'program Test;' + #13#10#13#10 +
+    'function Add(A, B: Integer): Integer;' + #13#10 +
+    'begin' + #13#10 +
+    '  Result := A + B;' + #13#10 +
+    'end;';
+begin
+  BasicInitialization;
+  FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
+  FLanguageServerHost.SendRefrencesRequest(CFile, 2, 13, True);
+  Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
+  CheckEquals('{"contents":"Symbol: TUnitMainSymbol"}', Response['result'].ToString);
+  FLanguageServerHost.SendRequest('shutdown');
+end;
+
 procedure TTestLanguageServer.TestBasicDocumentHightlightSequence;
 var
   TextDocument: TTextDocumentItem;
@@ -819,6 +842,27 @@ begin
   BasicInitialization;
   FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
   FLanguageServerHost.SendDocumentHighlightRequest(CFile, 2, 13);
+  Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
+  CheckEquals('{"contents":"Symbol: TUnitMainSymbol"}', Response['result'].ToString);
+  FLanguageServerHost.SendRequest('shutdown');
+end;
+
+procedure TTestLanguageServer.TestBasicDefinitionSequence;
+var
+  TextDocument: TTextDocumentItem;
+  Response: TdwsJSONObject;
+const
+  CFile = 'file:///c:/Test.dws';
+  CTestUnit =
+    'program Test;' + #13#10#13#10 +
+    'function Add(A, B: Integer): Integer;' + #13#10 +
+    'begin' + #13#10 +
+    '  Result := A + B;' + #13#10 +
+    'end;';
+begin
+  BasicInitialization;
+  FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
+  FLanguageServerHost.SendDefinitionRequest(CFile, 4, 12);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
   CheckEquals('{"contents":"Symbol: TUnitMainSymbol"}', Response['result'].ToString);
   FLanguageServerHost.SendRequest('shutdown');
