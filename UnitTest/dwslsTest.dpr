@@ -20,5 +20,3 @@ uses
 begin
   DUnitTestRunner.RunRegisteredTests;
 end.
-
-

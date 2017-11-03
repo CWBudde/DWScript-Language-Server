@@ -25,6 +25,7 @@ type
     procedure SendNotification(Method: string; Params: string); overload;
 
     procedure SendDidOpenNotification(Uri, Text: string; Version: Integer = 0; LanguageID: string = 'dwscript');
+    procedure SendHoverRequest(Uri: string; Line, Character: Integer);
 
     property LastResponse: string read FLastResponse;
     property LanguageServer: TDWScriptLanguageServer read FLanguageServer;
@@ -65,16 +66,52 @@ var
   TextDocument: TTextDocumentItem;
   JsonParams: TdwsJSONObject;
 begin
-  TextDocument := TTextDocumentItem.Create;
-  TextDocument.Uri := Uri;
-  TextDocument.LanguageId := LanguageID;
-  TextDocument.Version := Version;
-  TextDocument.Text := Text;
-
   JsonParams := TdwsJSONObject.Create;
   try
-    TextDocument.WriteToJson(JsonParams.AddObject('textDocument'));
+    TextDocument := TTextDocumentItem.Create;
+    try
+      TextDocument.Uri := Uri;
+      TextDocument.LanguageId := LanguageID;
+      TextDocument.Version := Version;
+      TextDocument.Text := Text;
+      TextDocument.WriteToJson(JsonParams.AddObject('textDocument'));
+    finally
+      TextDocument.Free;
+    end;
+
     SendNotification('textDocument/didOpen', JsonParams);
+  finally
+    JsonParams.Free;
+  end;
+end;
+
+procedure TLanguageServerHost.SendHoverRequest(Uri: string; Line,
+  Character: Integer);
+var
+  TextDocument: TTextDocumentIdentifier;
+  Position: TPosition;
+  JsonParams: TdwsJSONObject;
+begin
+  JsonParams := TdwsJSONObject.Create;
+  try
+    TextDocument := TTextDocumentIdentifier.Create;
+    try
+      TextDocument.Uri := Uri;
+      TextDocument.WriteToJson(JsonParams.AddObject('textDocument'));
+    finally
+      TextDocument.Free;
+    end;
+
+    Position := TPosition.Create;
+    try
+      Position.Line := Line;
+      Position.Character := Character;
+      Position.WriteToJson(JsonParams.AddObject('position'));
+    finally
+      Position.Free;
+    end;
+
+    SendRequest('textDocument/hover', JsonParams);
   finally
     JsonParams.Free;
   end;
@@ -122,4 +159,3 @@ end;
 
 
 end.
-

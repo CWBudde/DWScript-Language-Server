@@ -651,10 +651,19 @@ end;
 
 procedure TTestLanguageServer.TestBasicCompileSequence;
 const
-  CTestUnit = '"unit Test;\r\n\r\ninterface\r\n\r\nimplementation\r\n\r\nfunction Add(A, B: Integer): Integer;\r\nbgin\r\n  Result := A + B;\r\nend;\r\n\r\nend.\r\n"';
+  CTestUnit =
+    'unit Test;' + #13#10#13#10 +
+    'interface' + #13#10#13#10 +
+    'implementation' + #13#10#13#10 +
+    'error' + #13#10#13#10 +
+    'function Add(A, B: Integer): Integer;' + #13#10 +
+    'begin' + #13#10 +
+    '  Result := A + B;' + #13#10 +
+    'end;' + #13#10#13#10 +
+    'end.';
 begin
   BasicInitialization;
-  FLanguageServerHost.SendNotification('textDocument/didOpen', '{"textDocument":{"uri":"file:///c%3A/Test.dws","languageId":"dwscript","version":1,"text":' + CTestUnit + '}}}');
+  FLanguageServerHost.SendDidOpenNotification('file:///c:/Test.dws', CTestUnit);
   FLanguageServerHost.SendRequest('textDocument/hover', '{"textDocument":{"uri":"file:///c%3A/Test.dws"},"position":{"line":1,"character":2}}}');
   FLanguageServerHost.SendRequest('shutdown');
 end;
@@ -676,7 +685,7 @@ const
 begin
   BasicInitialization;
   FLanguageServerHost.SendDidOpenNotification('file:///c:/Test.dws', CTestUnit);
-  FLanguageServerHost.SendRequest('textDocument/hover', '{"textDocument":{"uri":"file:///c%3A/Test.dws"},"position":{"line":0,"character":5}}}');
+  FLanguageServerHost.SendHoverRequest('file:///c:/Test.dws', 0, 5);
   CheckEquals('{"jsonrpc":"2.0","id":1,"result":{"contents":"Symbol: TUnitMainSymbol"}}', FLanguageServerHost.LastResponse);
   FLanguageServerHost.SendRequest('shutdown');
 end;
