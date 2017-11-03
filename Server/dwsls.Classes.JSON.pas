@@ -7,9 +7,9 @@ uses
 
 type
   TJsonClass = class(TRefCountedObject)
-  protected
-    procedure ReadFromJson(Value: TdwsJSONValue); virtual; abstract;
-    procedure WriteToJson(Value: TdwsJSONObject); virtual; abstract;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); virtual; abstract;
+    procedure WriteToJson(const Value: TdwsJSONObject); virtual; abstract;
   end;
 
 implementation

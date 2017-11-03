@@ -416,6 +416,8 @@ var
 begin
   DidOpenTextDocumentParams := TDidOpenTextDocumentParams.Create;
   try
+    OutputDebugString(Params.ToString);
+
     DidOpenTextDocumentParams.ReadFromJson(Params);
 
     // create text document item
