@@ -134,6 +134,83 @@ type
     property TextDocument: TTextDocumentIdentifier read FTextDocument;
   end;
 
+  TCompletionItem = class(TJsonClass)
+  type
+    TCompletionItemKind = (
+      itText = 1,
+      itMethod = 2,
+      itFunction = 3,
+      itConstructor = 4,
+      itField = 5,
+      itVariable = 6,
+      itClass = 7,
+      itInterface = 8,
+      itModule = 9,
+      itProperty = 10,
+      itUnit = 11,
+      itValue = 12,
+      itEnum = 13,
+      itKeyword = 14,
+      itSnippet = 15,
+      itColor = 16,
+      itFile = 17,
+      itReference = 18
+    );
+    TInsertTextFormat = (
+      tfPlainText = 1,
+      tfSnippet = 2
+    );
+  private
+    FLabel: string;
+    FKind: TCompletionItemKind;
+    FDetail: string;
+	  FDocumentation: string;
+    FSortText: string;
+    FFilterText: string;
+    FInsertText: string;
+    FInsertTextFormat: TInsertTextFormat;
+    FTextEdit: TTextEdit;
+    //FAdditionalTextEdits: TextEdit[];
+    FCommitCharacters: array of string;
+    FCommand: TCommand;
+//    FData:
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property &Label: string read FLabel write FLabel;
+    property Kind: TCompletionItemKind read FKind write FKind;
+    property Detail: string read FDetail write FDetail;
+	  property Documentation: string read FDocumentation write FDocumentation;
+    property SortText: string read FSortText write FSortText;
+    property FilterText: string read FFilterText write FFilterText;
+    property InsertText: string read FInsertText write FInsertText;
+    property InsertTextFormat: TInsertTextFormat read FInsertTextFormat write FInsertTextFormat;
+    property TextEdit: TTextEdit read FTextEdit write FTextEdit;
+//    property CommitCharacters: array of string read FCommitCharacters write FCommitCharacters;
+    property Command: TCommand read FCommand write FCommand;
+   end;
+
+  TCompletionListResponse = class(TJsonClass)
+  type
+    TCompletionItems = TObjectList<TCompletionItem>;
+  private
+    FItems: TCompletionItems;
+    FIsIncomplete: Boolean;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Items: TCompletionItems read FItems;
+    property IsIncomplete: Boolean read FIsIncomplete write FIsIncomplete;
+  end;
+
   TReferenceContext = class(TJsonClass)
   private
     FIncludeDeclaration: Boolean;
@@ -643,6 +720,88 @@ begin
 end;
 
 
+{ TCompletionItem }
+
+constructor TCompletionItem.Create;
+begin
+  FTextEdit := TTextEdit.Create;
+end;
+
+destructor TCompletionItem.Destroy;
+begin
+  FTextEdit.Free;
+  inherited;
+end;
+
+procedure TCompletionItem.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FLabel := Value['label'].AsString;
+  FKind := TCompletionItemKind(Value['kind'].AsInteger);
+  FDetail := Value['detail'].AsString;
+  FDocumentation := Value['documentation'].AsString;
+  FSortText := Value['sortText'].AsString;
+  FFilterText := Value['filterText'].AsString;
+  FInsertText := Value['insertText'].AsString;
+  FInsertTextFormat := TInsertTextFormat(Value['kind'].AsInteger);
+  FTextEdit.ReadFromJson(Value['textEdit']);
+end;
+
+procedure TCompletionItem.WriteToJson(const Value: TdwsJSONObject);
+begin
+  Value.AddValue('label', FLabel);
+  Value.AddValue('kind', Integer(FKind));
+  Value.AddValue('detail', FDetail);
+  Value.AddValue('documentation', FDocumentation);
+  Value.AddValue('sortText', FSortText);
+  Value.AddValue('filterText', FFilterText);
+  Value.AddValue('insertText', FInsertText);
+  Value.AddValue('insertTextFormat', Integer(FInsertTextFormat));
+  FTextEdit.WriteToJson(Value.AddObject('textEdit'));
+end;
+
+
+{ TCompletionListResponse }
+
+constructor TCompletionListResponse.Create;
+begin
+  FItems := TCompletionItems.Create;
+end;
+
+destructor TCompletionListResponse.Destroy;
+begin
+  FItems.Free;
+  inherited;
+end;
+
+procedure TCompletionListResponse.ReadFromJson(const Value: TdwsJSONValue);
+var
+  ItemArray: TdwsJSONArray;
+  Item: TCompletionItem;
+  Index: Integer;
+begin
+  FIsIncomplete := Value['isIncomplete'].AsBoolean;
+  ItemArray := TdwsJSONArray(Value['items']);
+  FItems.Clear;
+  for Index := 0 to ItemArray.ElementCount - 1 do
+  begin
+    Item := TCompletionItem.Create;
+    Item.ReadFromJson(ItemArray.Elements[Index]);
+    FItems.Add(Item);
+  end;
+end;
+
+procedure TCompletionListResponse.WriteToJson(const Value: TdwsJSONObject);
+var
+  ItemArray: TdwsJSONArray;
+  Index: Integer;
+begin
+  Value.AddValue('isIncomplete', FIsIncomplete);
+  ItemArray := TdwsJSONObject(Value).AddArray('items');
+  for Index := 0 to FItems.Count - 1 do
+    FItems[Index].WriteToJson(ItemArray.AddObject);
+end;
+
+
 { TReferenceContext }
 
 procedure TReferenceContext.ReadFromJson(const Value: TdwsJSONValue);
@@ -1005,6 +1164,5 @@ begin
   FTextDocument.WriteToJson(Value.AddObject('textDocument'));
   FPosition.WriteToJson(Value.AddObject('position'));
 end;
-
 
 end.

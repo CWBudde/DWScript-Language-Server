@@ -20,6 +20,7 @@ type
     procedure TestJsonWillSaveTextDocumentParams;
     procedure TestJsonDidSaveTextDocumentParams;
     procedure TestJsonDidCloseTextDocumentParams;
+    procedure TestJsonCompletionListResponse;
     procedure TestJsonReferenceParams;
     procedure TestJsonDocumentSymbolParams;
     procedure TestJsonDocumentSymbolInformation;
@@ -153,6 +154,52 @@ begin
       CheckEquals('c:\Test.dws', CodeLensParams.TextDocument.Uri);
     finally
       CodeLensParams.Free;
+    end;
+  finally
+    Params.Free;
+  end;
+end;
+
+procedure TTestLanguageServerClasses.TestJsonCompletionListResponse;
+var
+  CompletionListResponse: TCompletionListResponse;
+  CompletionItem: TCompletionItem;
+  Params: TdwsJSONObject;
+begin
+  Params := TdwsJSONObject.Create;
+  try
+    CompletionListResponse := TCompletionListResponse.Create;
+    try
+      CompletionListResponse.IsIncomplete := True;
+      CompletionItem := TCompletionItem.Create;
+      CompletionItem.&Label := 'label';
+      CompletionItem.Kind := itMethod;
+      CompletionItem.Detail := 'detail';
+      CompletionItem.Documentation := 'documentation';
+      CompletionItem.SortText := 'sort text';
+      CompletionItem.FilterText := 'filter text';
+      CompletionItem.InsertText := 'insert text';
+      CompletionItem.InsertTextFormat := tfSnippet;
+      CompletionListResponse.Items.Add(CompletionItem);
+      CompletionListResponse.WriteToJson(Params);
+    finally
+      CompletionListResponse.Free;
+    end;
+
+    CompletionListResponse := TCompletionListResponse.Create;
+    try
+      CompletionListResponse.ReadFromJson(Params);
+      CheckEquals('label', CompletionItem.&Label);
+      CheckEquals(Integer(itMethod), Integer(CompletionItem.Kind));
+      CheckEquals('detail', CompletionItem.Detail);
+      CheckEquals('documentation', CompletionItem.Documentation);
+      CheckEquals('sort text', CompletionItem.SortText);
+      CheckEquals('filter text', CompletionItem.FilterText);
+      CheckEquals('insert text', CompletionItem.InsertText);
+      CheckEquals(Integer(tfSnippet), Integer(CompletionItem.InsertTextFormat));
+      CheckEquals(True, CompletionListResponse.IsIncomplete);
+    finally
+      CompletionListResponse.Free;
     end;
   finally
     Params.Free;

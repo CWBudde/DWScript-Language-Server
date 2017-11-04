@@ -430,7 +430,7 @@ end;
 procedure TTextEdit.WriteToJson(const Value: TdwsJSONObject);
 begin
   FRange.WriteToJson(Value.AddObject('range'));
-  Value['newText'].AsString := FNewText;
+  Value.AddValue('newText', FNewText);
 end;
 
 
