@@ -53,6 +53,7 @@ type
     procedure TestBasicDefinitionSequence;
     procedure TestBasicFindReferenceSequence;
     procedure TestBasicDocumentHightlightSequence;
+    procedure TestBasicSignatureHelp;
   end;
 
 implementation
@@ -760,7 +761,6 @@ end;
 
 procedure TTestLanguageServer.TestBasicHoverSequence;
 var
-  TextDocument: TTextDocumentItem;
   Response: TdwsJSONObject;
 const
   CFile = 'file:///c:/Test.dws';
@@ -784,7 +784,6 @@ end;
 
 procedure TTestLanguageServer.TestBasicSymbolSequence;
 var
-  TextDocument: TTextDocumentItem;
   Response: TdwsJSONObject;
 const
   CFile = 'file:///c:/Test.dws';
@@ -807,7 +806,6 @@ end;
 
 procedure TTestLanguageServer.TestBasicFindReferenceSequence;
 var
-  TextDocument: TTextDocumentItem;
   Response: TdwsJSONObject;
 const
   CFile = 'file:///c:/Test.dws';
@@ -828,7 +826,6 @@ end;
 
 procedure TTestLanguageServer.TestBasicDocumentHightlightSequence;
 var
-  TextDocument: TTextDocumentItem;
   Response: TdwsJSONObject;
 const
   CFile = 'file:///c:/Test.dws';
@@ -849,7 +846,6 @@ end;
 
 procedure TTestLanguageServer.TestBasicDefinitionSequence;
 var
-  TextDocument: TTextDocumentItem;
   Response: TdwsJSONObject;
 const
   CFile = 'file:///c:/Test.dws';
@@ -863,6 +859,26 @@ begin
   BasicInitialization;
   FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
   FLanguageServerHost.SendDefinitionRequest(CFile, 4, 12);
+  Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
+  CheckEquals('{"contents":"Symbol: TUnitMainSymbol"}', Response['result'].ToString);
+  FLanguageServerHost.SendRequest('shutdown');
+end;
+
+procedure TTestLanguageServer.TestBasicSignatureHelp;
+var
+  Response: TdwsJSONObject;
+const
+  CFile = 'file:///c:/Test.dws';
+  CTestUnit =
+    'program Test;' + #13#10#13#10 +
+    'function Add(A, B: Integer): Integer;' + #13#10 +
+    'begin' + #13#10 +
+    '  Result := A + B;' + #13#10 +
+    'end;';
+begin
+  BasicInitialization;
+  FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
+  FLanguageServerHost.SendSignatureHelpRequest(CFile, 4, 12);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
   CheckEquals('{"contents":"Symbol: TUnitMainSymbol"}', Response['result'].ToString);
   FLanguageServerHost.SendRequest('shutdown');

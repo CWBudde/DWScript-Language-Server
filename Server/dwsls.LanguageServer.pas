@@ -360,6 +360,8 @@ var
   SymbolPos: TSymbolPosition;
 begin
   Prog := nil;
+  Symbol := nil;
+  SymbolPosList := nil;
   TextDocumentPositionParams := TTextDocumentPositionParams.Create;
   try
     TextDocumentPositionParams.ReadFromJson(Params);
@@ -380,6 +382,7 @@ begin
   begin
     if Assigned(SymbolPosList) then
     begin
+      SymbolPos := SymbolPosList[0];
       Location := TLocation.Create;
       try
         Location.Uri := SymbolPos.ScriptPos.SourceFile.Location;
@@ -506,6 +509,8 @@ var
   SymbolPos: TSymbolPosition;
 begin
   Prog := nil;
+  Symbol := nil;
+  SymbolPosList := nil;
   TextDocumentPositionParams := TTextDocumentPositionParams.Create;
   try
     TextDocumentPositionParams.ReadFromJson(Params);
@@ -549,9 +554,6 @@ end;
 procedure TDWScriptLanguageServer.HandleTextDocumentHover(Params: TdwsJSONObject);
 var
   TextDocumentPositionParams: TTextDocumentPositionParams;
-  TextDocumentItem: TdwsTextDocumentItem;
-  Uri, Text: string;
-  Index: Integer;
   Prog: IdwsProgram;
   Symbol: TSymbol;
   Range: TRange;
@@ -641,6 +643,7 @@ var
   SymbolPos: TSymbolPosition;
 begin
   Prog := nil;
+  SymbolPosList := nil;
   ReferenceParams := TReferenceParams.Create;
   try
     ReferenceParams.ReadFromJson(Params);
@@ -690,13 +693,26 @@ procedure TDWScriptLanguageServer.HandleTextDocumentSignatureHelp(Params: TdwsJS
 var
   TextDocumentPositionParams: TTextDocumentPositionParams;
   Result: TdwsJSONObject;
+  Prog: IdwsProgram;
+  Symbol: TSymbol;
 begin
   TextDocumentPositionParams := TTextDocumentPositionParams.Create;
-  TextDocumentPositionParams.ReadFromJson(Params);
+  try
+    TextDocumentPositionParams.ReadFromJson(Params);
+
+    Prog := Compile(TextDocumentPositionParams.TextDocument.Uri);
+
+    Symbol := Prog.SymbolDictionary.FindSymbolAtPosition(
+      TextDocumentPositionParams.Position.Character + 1,
+      TextDocumentPositionParams.Position.Line + 1,
+      SYS_MainModule);
+  finally
+    TextDocumentPositionParams.Free;
+  end;
 
   Result := TdwsJSONObject.Create;
 
-  // not further implemented
+  // not further implemented so far
 
   SendResponse(Result);
 end;
@@ -779,9 +795,7 @@ procedure TDWScriptLanguageServer.HandleTextDocumentSymbol(Params: TdwsJSONObjec
 var
   DocumentSymbolParams: TDocumentSymbolParams;
   DocumentSymbolInformation: TDocumentSymbolInformation;
-  Uri: string;
   SymbolPosList: TSymbolPositionList;
-  Index: Integer;
   Prog: IdwsProgram;
   Result: TdwsJSONArray;
 begin

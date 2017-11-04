@@ -32,6 +32,9 @@ type
 
 implementation
 
+uses
+  dwsXXHash;
+
 { TdwsTextDocumentItem }
 
 constructor TdwsTextDocumentItem.Create(TextDocumentItem: TTextDocumentItem);
