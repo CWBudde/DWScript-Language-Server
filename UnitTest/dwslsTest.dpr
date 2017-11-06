@@ -5,6 +5,7 @@ program dwslsTest;
 {$ENDIF}
 
 uses
+  FastMM4,
   DUnitTestRunner,
   TestLanguageServer in 'TestLanguageServer.pas',
   dwsls.IO.Pipe in '..\Server\dwsls.IO.Pipe.pas',

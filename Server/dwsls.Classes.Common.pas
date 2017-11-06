@@ -61,6 +61,7 @@ type
     FEnd: TPosition;
   public
     constructor Create;
+    destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
@@ -75,6 +76,7 @@ type
     FRange: TRange;
   public
     constructor Create;
+    destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
@@ -111,6 +113,8 @@ type
     property Source: string read FSource write FSource;
     property Message: string read FMessage write FMessage;
   end;
+
+  TDiagnostics = TObjectList<TDiagnostic>;
 
   TCommand = class(TJsonClass)
   private
@@ -282,6 +286,14 @@ begin
   FEnd := TPosition.Create;
 end;
 
+destructor TRange.Destroy;
+begin
+  FStart.Free;
+  FEnd.Free;
+
+  inherited;
+end;
+
 procedure TRange.ReadFromJson(const Value: TdwsJSONValue);
 begin
   FStart.ReadFromJson(Value['start']);
@@ -300,6 +312,13 @@ end;
 constructor TLocation.Create;
 begin
   FRange := TRange.Create;
+end;
+
+destructor TLocation.Destroy;
+begin
+  FRange.Free;
+
+  inherited;
 end;
 
 procedure TLocation.ReadFromJson(const Value: TdwsJSONValue);

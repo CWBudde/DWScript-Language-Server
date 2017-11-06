@@ -36,7 +36,7 @@ type
     {$ENDIF}
 
     function GetSourceCodeForUri(Uri: string): string;
-
+    function CreateJsonRpc(Method: string = ''): TdwsJSONObject;
     procedure EvaluateClientCapabilities(Params: TdwsJSONObject);
     procedure LogMessage(Text: string; MessageType: TMessageType = msLog);
     procedure RegisterCapability(Method, Id: string);
@@ -139,6 +139,14 @@ begin
   FDelphiWebScript.Free;
 
   inherited;
+end;
+
+function TDWScriptLanguageServer.CreateJsonRpc(Method: string): TdwsJSONObject;
+begin
+  Result := TdwsJSONObject.Create;
+  Result.AddValue('jsonrpc', '2.0');
+  if Method <> '' then
+    Result.AddValue('method', Method);
 end;
 
 {$IFDEF DEBUGLOG}
@@ -1115,7 +1123,7 @@ begin
   else
   if Pos('textDocument', Method) = 1 then
   begin
-    // workspace related messages
+    // text document related messages
     if Method = 'textDocument/didOpen' then
       HandleTextDocumentDidOpen(TdwsJsonObject(JsonRpc['params']))
     else
@@ -1208,18 +1216,22 @@ end;
 
 function TDWScriptLanguageServer.Input(Body: string): Boolean;
 var
-  JsonValue: TdwsJSONValue;
+  JsonValue: TdwsJSONObject;
 begin
   Result := False;
 
-  JsonValue := TdwsJSONObject.ParseString(Body);
-  if JsonValue.Items['jsonrpc'].AsString <> '2.0' then
-  begin
-    OutputDebugString('Unknown jsonrpc format');
-    Exit;
-  end;
+  JsonValue := TdwsJSONObject(TdwsJSONValue.ParseString(Body));
+  try
+    if JsonValue.Items['jsonrpc'].AsString <> '2.0' then
+    begin
+      OutputDebugString('Unknown jsonrpc format');
+      Exit;
+    end;
 
-  Result := HandleJsonRpc(TdwsJSONObject(JsonValue));
+    Result := HandleJsonRpc(JsonValue);
+  finally
+    JsonValue.Free;
+  end;
 end;
 
 procedure TDWScriptLanguageServer.SendInitializeResponse;
@@ -1302,7 +1314,7 @@ var
   Error: TdwsJSONObject;
   Response: TdwsJSONObject;
 begin
-  Response := TdwsJSONObject.Create;
+  Response := CreateJsonRpc;
   Response.AddValue('id', FCurrentId);
   Response.AddObject('error');
   Error := Response.AddObject('error');
@@ -1315,9 +1327,8 @@ procedure TDWScriptLanguageServer.SendResponse;
 var
   Response: TdwsJSONObject;
 begin
-  Response := TdwsJSONObject.Create;
+  Response := CreateJsonRpc;
   Response.AddValue('id', FCurrentId);
-//  Response.AddValue('result');
   WriteOutput(Response.ToString);
 end;
 
@@ -1325,7 +1336,7 @@ procedure TDWScriptLanguageServer.SendResponse(Result: string; Error: TdwsJSONOb
 var
   Response: TdwsJSONObject;
 begin
-  Response := TdwsJSONObject.Create;
+  Response := CreateJsonRpc;
   Response.AddValue('id', FCurrentId);
   Response.AddValue('result', Result);
 
@@ -1339,7 +1350,7 @@ procedure TDWScriptLanguageServer.SendResponse(Result: Integer; Error: TdwsJSONO
 var
   Response: TdwsJSONObject;
 begin
-  Response := TdwsJSONObject.Create;
+  Response := CreateJsonRpc;
   Response.AddValue('id', FCurrentId);
   Response.AddValue('result', Result);
 
@@ -1353,7 +1364,7 @@ procedure TDWScriptLanguageServer.SendResponse(Result: Boolean; Error: TdwsJSONO
 var
   Response: TdwsJSONObject;
 begin
-  Response := TdwsJSONObject.Create;
+  Response := CreateJsonRpc;
   Response.AddValue('id', FCurrentId);
   Response.AddValue('result', Result);
 
@@ -1368,9 +1379,7 @@ procedure TDWScriptLanguageServer.SendNotification(Method: string;
 var
   Response: TdwsJSONObject;
 begin
-  Response := TdwsJSONObject.Create;
-  Response.AddValue('jsonrpc', '2.0');
-  Response.AddValue('method', Method);
+  Response := CreateJsonRpc(Method);
   if Assigned(Params) then
     Response.Add('params', Params);
   WriteOutput(Response.ToString);
@@ -1381,9 +1390,7 @@ procedure TDWScriptLanguageServer.SendRequest(Method: string;
 var
   Response: TdwsJSONObject;
 begin
-  Response := TdwsJSONObject.Create;
-  Response.AddValue('jsonrpc', '2.0');
-  Response.AddValue('method', Method);
+  Response := CreateJsonRpc(Method);
   if Assigned(Params) then
     Response.Add('params', Params);
   WriteOutput(Response.ToString);
@@ -1394,8 +1401,7 @@ procedure TDWScriptLanguageServer.SendResponse(Result: TdwsJSONValue;
 var
   Response: TdwsJSONObject;
 begin
-  Response := TdwsJSONObject.Create;
-  Response.AddValue('jsonrpc', '2.0');
+  Response := CreateJsonRpc;
   Response.AddValue('id', FCurrentId);
   Response.Add('result', Result);
   if Assigned(Error) then

@@ -22,8 +22,6 @@ type
   end;
 
   TPublishDiagnosticsParams = class(TJsonClass)
-  type
-    TDiagnostics = TObjectList<TDiagnostic>;
   private
     FDiagnostics: TDiagnostics;
     FUri: string;
@@ -373,8 +371,6 @@ type
   end;
 
   TCodeActionContext = class(TJsonClass)
-  type
-    TDiagnostics = TObjectList<TDiagnostic>;
   private
     FDiagnostics: TDiagnostics;
   public
@@ -785,6 +781,7 @@ end;
 destructor TCompletionListResponse.Destroy;
 begin
   FItems.Free;
+
   inherited;
 end;
 

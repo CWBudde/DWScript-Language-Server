@@ -3,9 +3,9 @@ unit dwsls.Client;
 interface
 
 uses
-  Classes, dwsJson, dwsls.Classes.Capabilities, dwsls.Classes.Workspace,
-  dwsls.Classes.Document, dwsls.Classes.Common, dwsls.Classes.Json,
-  dwsls.LanguageServer;
+  Classes, SysUtils, dwsJson, dwsls.Classes.Capabilities,
+  dwsls.Classes.Workspace, dwsls.Classes.Document, dwsls.Classes.Common,
+  dwsls.Classes.Json, dwsls.LanguageServer;
 
 type
   TLanguageServerHost = class
@@ -13,8 +13,11 @@ type
     FRequestIndex: Integer;
     FLastResponse: string;
     FLanguageServer: TDWScriptLanguageServer;
+    FDiagnosticMessages: TDiagnostics;
+    function CreateJsonRpc(Method: string = ''): TdwsJSONObject;
+    procedure HandleResponse(JsonRpc: TdwsJSONObject);
+    procedure HandlePublishDiagnostics(Params: TdwsJSONObject);
     procedure OnOutputHandler(const Text: string);
-    function CreateJSONRPC(Method: string): TdwsJSONObject;
   public
     constructor Create;
     destructor Destroy; override;
@@ -25,8 +28,19 @@ type
     procedure SendNotification(const Method, Params: string); overload;
 
     procedure SendInitialized;
+
+    procedure SendWorkspaceSymbol(Query: string);
+
     procedure SendDidOpenNotification(const Uri, Text: string;
       Version: Integer = 0; LanguageID: string = 'dwscript');
+    procedure SendDidChangeNotification(const Uri, Text: string;
+      Version: Integer);
+    procedure SendWillSaveNotification(const Uri: string;
+      Reason: TWillSaveTextDocumentParams.TSaveReason);
+    procedure SendWillSaveWaitUntilRequest(const Uri: string;
+      Reason: TWillSaveTextDocumentParams.TSaveReason);
+    procedure SendDidSaveNotification(const Uri: string;
+      const Text: string = '');
 
     procedure SendCompletionRequest(const Uri: string; Line, Character: Integer);
     procedure SendHoverRequest(const Uri: string; Line, Character: Integer);
@@ -63,6 +77,9 @@ begin
   FLanguageServer := TDWScriptLanguageServer.Create;
   FLanguageServer.OnOutput := OnOutputHandler;
 
+  FDiagnosticMessages := TDiagnostics.Create;
+  FDiagnosticMessages.Clear;
+
   FRequestIndex := 0;
 end;
 
@@ -72,16 +89,93 @@ begin
   inherited;
 end;
 
-function TLanguageServerHost.CreateJSONRPC(Method: string): TdwsJSONObject;
+function TLanguageServerHost.CreateJSONRPC(Method: string = ''): TdwsJSONObject;
 begin
   Result := TdwsJSONObject.Create;
   Result.AddValue('jsonrpc', '2.0');
-  Result.AddValue('method', Method);
+  if Method <> '' then
+    Result.AddValue('method', Method);
 end;
 
 procedure TLanguageServerHost.OnOutputHandler(const Text: string);
+var
+  JsonObject: TdwsJSONObject;
 begin
   FLastResponse := Text;
+
+  JsonObject := TdwsJSONObject(TdwsJSONValue.ParseString(Text));
+  try
+    if JsonObject.Items['jsonrpc'].AsString <> '2.0' then
+      raise Exception.Create('Unknown jsonrpc format');
+
+    HandleResponse(JsonObject);
+  finally
+    JsonObject.Free;
+  end;
+end;
+
+procedure TLanguageServerHost.HandleResponse(JsonRpc: TdwsJSONObject);
+var
+  Method: string;
+  ResponseID: Integer;
+begin
+  if Assigned(JsonRpc['id']) then
+  begin
+    ResponseID := JsonRpc['id'].AsInteger;
+    // TODO: determine method by ID
+  end;
+
+  if Assigned(JsonRpc['method']) then
+    Method := JsonRpc['method'].AsString;
+
+  if Method = '' then
+    exit;
+
+  if Method = 'initialize' then
+  begin
+    // TODO: send out 'initialized' message
+    Exit;
+  end;
+  if Method = 'shutdown' then
+  begin
+    // TODO: send out 'exit' message
+    Exit;
+  end
+  else
+  if Pos('workspace', Method) = 1 then
+  begin
+
+  end
+  else
+  if Pos('textDocument', Method) = 1 then
+  begin
+    // text document related messages
+    if Method = 'textDocument/publishDiagnostics' then
+      HandlePublishDiagnostics(TdwsJsonObject(JsonRpc['params']))
+    else
+      // TODO
+  end
+{$IFDEF DEBUGLOG}
+  else
+    Log('UnknownMessage: ' + JsonRpc.AsString);
+{$ENDIF}
+//  FDiagnosticMessages.
+end;
+
+procedure TLanguageServerHost.HandlePublishDiagnostics(Params: TdwsJSONObject);
+var
+  PublishDiagnosticsParams: TPublishDiagnosticsParams;
+  Index: Integer;
+  Result: TdwsJSONArray;
+begin
+  PublishDiagnosticsParams := TPublishDiagnosticsParams.Create;
+  try
+    PublishDiagnosticsParams.ReadFromJson(Params);
+    for Index := 0 to PublishDiagnosticsParams.Diagnostics.Count - 1 do
+      FDiagnosticMessages.Add(PublishDiagnosticsParams.Diagnostics[Index]);
+  finally
+    PublishDiagnosticsParams.Free;
+  end;
 end;
 
 procedure TLanguageServerHost.SendNotification(const Method, Params: string);
@@ -124,26 +218,142 @@ begin
   FLanguageServer.Input(Response.ToString);
 end;
 
-procedure TLanguageServerHost.SendDidOpenNotification(const Uri, Text: string; Version: Integer;
-  LanguageID: string);
+procedure TLanguageServerHost.SendWorkspaceSymbol(Query: string);
 var
-  TextDocument: TTextDocumentItem;
+  WorkspaceSymbolParams: TWorkspaceSymbolParams;
   JsonParams: TdwsJSONObject;
 begin
   JsonParams := TdwsJSONObject.Create;
   try
-    TextDocument := TTextDocumentItem.Create;
+    WorkspaceSymbolParams := TWorkspaceSymbolParams.Create;
     try
-      TextDocument.Uri := Uri;
-      TextDocument.LanguageId := LanguageID;
-      TextDocument.Version := Version;
-      TextDocument.Text := Text;
-      TextDocument.WriteToJson(JsonParams.AddObject('textDocument'));
+      WorkspaceSymbolParams.Query := Query;
+      WorkspaceSymbolParams.WriteToJson(JsonParams);
     finally
-      TextDocument.Free;
+      WorkspaceSymbolParams.Free;
+    end;
+
+    SendRequest('workspace/symbol', JsonParams);
+  finally
+    JsonParams.Free;
+  end;
+end;
+
+procedure TLanguageServerHost.SendDidOpenNotification(const Uri, Text: string; Version: Integer;
+  LanguageID: string);
+var
+  DidOpenTextDocumentParams: TDidOpenTextDocumentParams;
+  JsonParams: TdwsJSONObject;
+begin
+  JsonParams := TdwsJSONObject.Create;
+  try
+    DidOpenTextDocumentParams := TDidOpenTextDocumentParams.Create;
+    try
+      DidOpenTextDocumentParams.TextDocument.Uri := Uri;
+      DidOpenTextDocumentParams.TextDocument.LanguageId := LanguageID;
+      DidOpenTextDocumentParams.TextDocument.Version := Version;
+      DidOpenTextDocumentParams.TextDocument.Text := Text;
+      DidOpenTextDocumentParams.WriteToJson(JsonParams);
+    finally
+      DidOpenTextDocumentParams.Free;
     end;
 
     SendNotification('textDocument/didOpen', JsonParams);
+  finally
+    JsonParams.Free;
+  end;
+end;
+
+procedure TLanguageServerHost.SendDidChangeNotification(const Uri, Text: string;
+  Version: Integer);
+var
+  DidChangeTextDocumentParams: TDidChangeTextDocumentParams;
+  TextDocumentContentChangeEvent: TTextDocumentContentChangeEvent;
+  JsonParams: TdwsJSONObject;
+begin
+  JsonParams := TdwsJSONObject.Create;
+  try
+    DidChangeTextDocumentParams := TDidChangeTextDocumentParams.Create;
+    try
+      DidChangeTextDocumentParams.TextDocument.Uri := Uri;
+      DidChangeTextDocumentParams.TextDocument.Version := Version;
+      TextDocumentContentChangeEvent := TTextDocumentContentChangeEvent.Create;
+      TextDocumentContentChangeEvent.Text := Text;
+      DidChangeTextDocumentParams.ContentChanges.Add(TextDocumentContentChangeEvent);
+      DidChangeTextDocumentParams.WriteToJson(JsonParams);
+    finally
+      DidChangeTextDocumentParams.Free;
+    end;
+
+    SendNotification('textDocument/didChange', JsonParams);
+  finally
+    JsonParams.Free;
+  end;
+end;
+
+procedure TLanguageServerHost.SendWillSaveNotification(const Uri: string;
+  Reason: TWillSaveTextDocumentParams.TSaveReason);
+var
+  WillSaveTextDocumentParams: TWillSaveTextDocumentParams;
+  JsonParams: TdwsJSONObject;
+begin
+  JsonParams := TdwsJSONObject.Create;
+  try
+    WillSaveTextDocumentParams := TWillSaveTextDocumentParams.Create;
+    try
+      WillSaveTextDocumentParams.TextDocument.Uri := Uri;
+      WillSaveTextDocumentParams.Reason := Reason;
+      WillSaveTextDocumentParams.WriteToJson(JsonParams);
+    finally
+      WillSaveTextDocumentParams.Free;
+    end;
+
+    SendNotification('textDocument/willSave', JsonParams);
+  finally
+    JsonParams.Free;
+  end;
+end;
+
+procedure TLanguageServerHost.SendWillSaveWaitUntilRequest(const Uri: string;
+  Reason: TWillSaveTextDocumentParams.TSaveReason);
+var
+  WillSaveTextDocumentParams: TWillSaveTextDocumentParams;
+  JsonParams: TdwsJSONObject;
+begin
+  JsonParams := TdwsJSONObject.Create;
+  try
+    WillSaveTextDocumentParams := TWillSaveTextDocumentParams.Create;
+    try
+      WillSaveTextDocumentParams.TextDocument.Uri := Uri;
+      WillSaveTextDocumentParams.Reason := Reason;
+      WillSaveTextDocumentParams.WriteToJson(JsonParams);
+    finally
+      WillSaveTextDocumentParams.Free;
+    end;
+
+    SendNotification('textDocument/willSaveWaitUntil', JsonParams);
+  finally
+    JsonParams.Free;
+  end;
+end;
+
+procedure TLanguageServerHost.SendDidSaveNotification(const Uri, Text: string);
+var
+  DidSaveTextDocumentParams: TDidSaveTextDocumentParams;
+  JsonParams: TdwsJSONObject;
+begin
+  JsonParams := TdwsJSONObject.Create;
+  try
+    DidSaveTextDocumentParams := TDidSaveTextDocumentParams.Create;
+    try
+      DidSaveTextDocumentParams.TextDocument.Uri := Uri;
+      DidSaveTextDocumentParams.Text := Text;
+      DidSaveTextDocumentParams.WriteToJson(JsonParams);
+    finally
+      DidSaveTextDocumentParams.Free;
+    end;
+
+    SendNotification('textDocument/didSave', JsonParams);
   finally
     JsonParams.Free;
   end;
