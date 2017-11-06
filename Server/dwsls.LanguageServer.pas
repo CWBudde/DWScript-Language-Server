@@ -664,7 +664,7 @@ begin
                 Text := Token.AsString;
                 ProtocolPos := Pos('http://', Text);
 
-  // TODO: proper implementation of a link parser
+                // TODO: proper implementation of a link parser
 
                 if ProtocolPos > 0 then
                 begin

@@ -25,22 +25,30 @@ type
     procedure SendNotification(const Method, Params: string); overload;
 
     procedure SendInitialized;
-    procedure SendDidOpenNotification(const Uri, Text: string; Version: Integer = 0; LanguageID: string = 'dwscript');
+    procedure SendDidOpenNotification(const Uri, Text: string;
+      Version: Integer = 0; LanguageID: string = 'dwscript');
 
     procedure SendCompletionRequest(const Uri: string; Line, Character: Integer);
     procedure SendHoverRequest(const Uri: string; Line, Character: Integer);
     procedure SendSignatureHelpRequest(const Uri: string; Line, Character: Integer);
-    procedure SendRefrencesRequest(const Uri: string; Line, Character: Integer; includeDeclaration: Boolean = True);
-    procedure SendDocumentHighlightRequest(const Uri: string; Line, Character: Integer);
-    procedure SendSymbolRequest(const Uri: string);
-    procedure SendFormattingRequest(const Uri: string; TabSize: Integer; InsertSpaces: Boolean);
-    procedure SendRangeFormattingRequest(const Uri: string; TabSize: Integer; InsertSpaces: Boolean);
+    procedure SendRefrencesRequest(const Uri: string; Line, Character: Integer;
+      includeDeclaration: Boolean = True);
+    procedure SendDocumentHighlightRequest(const Uri: string; Line,
+      Character: Integer);
+    procedure SendDocumentSymbolRequest(const Uri: string);
+    procedure SendFormattingRequest(const Uri: string; TabSize: Integer;
+      InsertSpaces: Boolean);
+    procedure SendRangeFormattingRequest(const Uri: string; TabSize: Integer;
+      InsertSpaces: Boolean);
     procedure SendOnTypeFormattingRequest(const Uri: string; Line,
-      Character: Integer; TypeCharacter: string; TabSize: Integer; InsertSpaces: Boolean);
+      Character: Integer; TypeCharacter: string; TabSize: Integer;
+      InsertSpaces: Boolean);
     procedure SendDefinitionRequest(const Uri: string; Line, Character: Integer);
-    procedure SendCodeAction(const Uri: string);
-    procedure SendCodeLens(const Uri: string);
-    procedure SendDocumentLink(const Uri: string);
+    procedure SendCodeActionRequest(const Uri: string);
+    procedure SendCodeLensRequest(const Uri: string);
+    procedure SendDocumentLinkRequest(const Uri: string);
+    procedure SendRenameRequest(const Uri: string; Line, Character: Integer;
+      NewName: string);
 
     property LastResponse: string read FLastResponse;
     property LanguageServer: TDWScriptLanguageServer read FLanguageServer;
@@ -54,6 +62,7 @@ constructor TLanguageServerHost.Create;
 begin
   FLanguageServer := TDWScriptLanguageServer.Create;
   FLanguageServer.OnOutput := OnOutputHandler;
+
   FRequestIndex := 0;
 end;
 
@@ -261,7 +270,7 @@ begin
   end;
 end;
 
-procedure TLanguageServerHost.SendSymbolRequest(const Uri: string);
+procedure TLanguageServerHost.SendDocumentSymbolRequest(const Uri: string);
 var
   TextDocument: TTextDocumentIdentifier;
   JsonParams: TdwsJSONObject;
@@ -382,7 +391,7 @@ begin
   end;
 end;
 
-procedure TLanguageServerHost.SendCodeAction(const Uri: string);
+procedure TLanguageServerHost.SendCodeActionRequest(const Uri: string);
 var
   CodeActionParams: TCodeActionParams;
   JsonParams: TdwsJSONObject;
@@ -406,7 +415,7 @@ begin
   end;
 end;
 
-procedure TLanguageServerHost.SendCodeLens(const Uri: string);
+procedure TLanguageServerHost.SendCodeLensRequest(const Uri: string);
 var
   CodeLensParams: TCodeLensParams;
   JsonParams: TdwsJSONObject;
@@ -430,7 +439,7 @@ begin
   end;
 end;
 
-procedure TLanguageServerHost.SendDocumentLink(const Uri: string);
+procedure TLanguageServerHost.SendDocumentLinkRequest(const Uri: string);
 var
   DocumentLinkParams: TDocumentLinkParams;
   JsonParams: TdwsJSONObject;
@@ -451,10 +460,34 @@ begin
   end;
 end;
 
+procedure TLanguageServerHost.SendRenameRequest(const Uri: string; Line,
+  Character: Integer; NewName: string);
+var
+  RenameParams: TRenameParams;
+  JsonParams: TdwsJSONObject;
+begin
+  JsonParams := TdwsJSONObject.Create;
+  try
+    RenameParams := TRenameParams.Create;
+    try
+      RenameParams.TextDocument.Uri := Uri;
+      RenameParams.Position.Line := Line;
+      RenameParams.Position.Character := Character;
+      RenameParams.NewName := NewName;
+      RenameParams.WriteToJson(JsonParams);
+    finally
+      RenameParams.Free;
+    end;
+
+    SendRequest('textDocument/rename', JsonParams);
+  finally
+    JsonParams.Free;
+  end;
+end;
+
 procedure TLanguageServerHost.SendInitialized;
 begin
   SendNotification('initialized');
 end;
-
 
 end.

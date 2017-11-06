@@ -3,7 +3,7 @@ unit dwsls.IO.Pipe;
 interface
 
 {$IFDEF DEBUG}
-  {$DEFINE DEBUGLOG}
+  {-$DEFINE DEBUGLOG}
 {$ENDIF}
 
 
@@ -35,20 +35,25 @@ implementation
 uses
   SysUtils;
 
+const
+  CLogFileLocation = 'A:\Input.txt'; // a RAM drive in my case
 
 { TDWScriptLanguageServerLoop }
 
 constructor TDWScriptLanguageServerLoop.Create;
 begin
+  // redirect standard I/O to streams
   FInputStream := THandleStream.Create(GetStdHandle(STD_INPUT_HANDLE));
   FOutputStream := THandleStream.Create(GetStdHandle(STD_OUTPUT_HANDLE));
   FErrorStream := THandleStream.Create(GetStdHandle(STD_ERROR_HANDLE));
+
 {$IFDEF DEBUGLOG}
   FLog := TStringList.Create;
-  if FileExists('A:\Input.txt') then
-    FLog.LoadFromFile('A:\Input.txt');
+  if FileExists(CLogFileLocation) then
+    FLog.LoadFromFile(CLogFileLocation);
 {$ENDIF}
 
+  // setup language server
   FLanguageServer := TDWScriptLanguageServer.Create;
   FLanguageServer.OnOutput := OnOutputHandler;
 end;
@@ -68,8 +73,7 @@ end;
 procedure TDWScriptLanguageServerLoop.OnLogHandler(const Text: string);
 begin
 {$IFDEF DEBUGLOG}
-  FLog.Add(Text);
-  FLog.SaveToFile('A:\Input.txt');
+  Log(Text);
 {$ENDIF}
 end;
 
@@ -77,13 +81,13 @@ end;
 procedure TDWScriptLanguageServerLoop.Log(const Text: string);
 begin
   FLog.Add(Text);
-  FLog.SaveToFile('A:\Input.txt');
+  FLog.SaveToFile(CLogFileLocation);
 end;
 {$ENDIF}
 
 const
-  CContentLength = 'Content-Length: ';
-  CSplitter = #13#10#13#10;
+  CStrContentLength = 'Content-Length: ';
+  CStrSplitter = #13#10#13#10;
 
 procedure TDWScriptLanguageServerLoop.OnOutputHandler(const Text: string);
 var
@@ -92,8 +96,10 @@ begin
 {$IFDEF DEBUGLOG}
   Log('Output: ' + Text);
 {$ENDIF}
+  // add header and convert to utf-8 string
+  OutputText := Utf8String(CStrContentLength + IntToStr(Length(Text)) + CStrSplitter + Text);
 
-  OutputText := Utf8String(CContentLength + IntToStr(Length(Text)) + CSplitter + Text);
+  // write to output stream
   FOutputStream.Write(OutputText[1], Length(OutputText));
 end;
 
@@ -111,21 +117,29 @@ begin
 {$ENDIF}
     Text := '';
     repeat
+      // loop until the input stream contains something
       repeat
         sleep(100);
       until (FInputStream.Size > FInputStream.Position);
+
+      // copy text from input stream
       SetLength(NewText, FInputStream.Size - FInputStream.Position);
       FInputStream.Read(NewText[1], FInputStream.Size - FInputStream.Position);
 
+      // append new text to existing text
       Text := Text + string(NewText);
 
       {$IFDEF DEBUGLOG}
       Log('<-- Original'); Log(Text); Log('Original-->');
       {$ENDIF}
 
-      while StrBeginsWith(Text, CContentLength) and (AnsiPos(CSplitter, Text) > 0) and (Text[Length(Text)] = '}') do
+      // unravel single messages from a bulk of messages
+      while StrBeginsWith(Text, CStrContentLength) and (AnsiPos(CStrSplitter, Text) > 0) and (Text[Length(Text)] = '}') do
       begin
-        CharPos := Pos('Content-Length:', Text) + 15;
+        // find content header
+        CharPos := Pos(CStrContentLength, Text) + 15;
+
+        // read content lengt as string
         ContentLengthText := '';
         while not CharInSet(Text[CharPos], [#13, #10]) do
         begin
@@ -135,9 +149,14 @@ begin
           end;
           Inc(CharPos);
         end;
+
+        // decode content length to integer
         ContentLength := StrToInt(ContentLengthText);
 
-        CharPos := Pos(CSplitter, Text) + 4;
+        // locate header splitter
+        CharPos := Pos(CStrSplitter, Text) + 4;
+
+        // copy message body
         Body := Copy(Text, CharPos, ContentLength);
 
         // delete header and message

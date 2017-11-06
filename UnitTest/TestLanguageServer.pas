@@ -50,13 +50,21 @@ type
   published
     procedure TestBasicStartUpSequence;
     procedure TestBasicCompileSequence;
+
+    procedure TestBasicCompletionSequence;
     procedure TestBasicHoverSequence;
-    procedure TestBasicSymbolSequence;
-    procedure TestBasicDefinitionSequence;
+    procedure TestBasicSignatureHelpSequence;
     procedure TestBasicFindReferenceSequence;
     procedure TestBasicDocumentHightlightSequence;
-    procedure TestBasicSignatureHelp;
-    procedure TestBasicDocumentLink;
+    procedure TestBasicSymbolSequence;
+    procedure TestBasicFormattingSequence;
+    procedure TestBasicRangeFormattingSequence;
+    procedure TestBasicOnTypeFormattingSequence;
+    procedure TestBasicDefinitionSequence;
+    procedure TestBasicCodeActionSequence;
+    procedure TestBasicCodeLensSequence;
+    procedure TestBasicDocumentLinkSequence;
+    procedure TestBasicRenameSequence;
   end;
 
 implementation
@@ -843,6 +851,26 @@ begin
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
+procedure TTestLanguageServer.TestBasicCompletionSequence;
+var
+  Response: TdwsJSONObject;
+const
+  CFile = 'file:///c:/Test.dws';
+  CTestUnit =
+    'program Test;' + #13#10#13#10 +
+    'function Add(A, B: Integer): Integer;' + #13#10 +
+    'begin' + #13#10 +
+    '  Result := A + B;' + #13#10 +
+    'end;';
+begin
+  BasicInitialization;
+  FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
+  FLanguageServerHost.SendCompletionRequest(CFile, 4, 12);
+  Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
+  CheckEquals('todo', Response['result'].ToString);
+  FLanguageServerHost.SendRequest('shutdown');
+end;
+
 procedure TTestLanguageServer.TestBasicHoverSequence;
 var
   Response: TdwsJSONObject;
@@ -866,25 +894,23 @@ begin
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
-procedure TTestLanguageServer.TestBasicSymbolSequence;
+procedure TTestLanguageServer.TestBasicSignatureHelpSequence;
 var
   Response: TdwsJSONObject;
 const
   CFile = 'file:///c:/Test.dws';
   CTestUnit =
-    'unit Test;' + #13#10#13#10 +
-    'interface' + #13#10#13#10 +
-    'implementation' + #13#10#13#10 +
+    'program Test;' + #13#10#13#10 +
     'function Add(A, B: Integer): Integer;' + #13#10 +
     'begin' + #13#10 +
     '  Result := A + B;' + #13#10 +
-    'end;' + #13#10#13#10 +
-    'end.';
+    'end;';
 begin
   BasicInitialization;
   FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
-  FLanguageServerHost.SendSymbolRequest(CFile);
+  FLanguageServerHost.SendSignatureHelpRequest(CFile, 4, 12);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
+  CheckEquals('todo', Response['result'].ToString);
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
@@ -904,7 +930,7 @@ begin
   FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
   FLanguageServerHost.SendRefrencesRequest(CFile, 2, 13, True);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
-  CheckEquals('{"contents":"Symbol: TUnitMainSymbol"}', Response['result'].ToString);
+  CheckEquals('todo', Response['result'].ToString);
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
@@ -924,7 +950,98 @@ begin
   FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
   FLanguageServerHost.SendDocumentHighlightRequest(CFile, 2, 13);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
-  CheckEquals('{"contents":"Symbol: TUnitMainSymbol"}', Response['result'].ToString);
+  CheckEquals('todo', Response['result'].ToString);
+  FLanguageServerHost.SendRequest('shutdown');
+end;
+
+procedure TTestLanguageServer.TestBasicSymbolSequence;
+var
+  Response: TdwsJSONObject;
+const
+  CFile = 'file:///c:/Test.dws';
+  CTestUnit =
+    'unit Test;' + #13#10#13#10 +
+    'interface' + #13#10#13#10 +
+    'implementation' + #13#10#13#10 +
+    'function Add(A, B: Integer): Integer;' + #13#10 +
+    'begin' + #13#10 +
+    '  Result := A + B;' + #13#10 +
+    'end;' + #13#10#13#10 +
+    'end.';
+begin
+  BasicInitialization;
+  FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
+  FLanguageServerHost.SendDocumentSymbolRequest(CFile);
+  Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
+  FLanguageServerHost.SendRequest('shutdown');
+end;
+
+procedure TTestLanguageServer.TestBasicFormattingSequence;
+var
+  Response: TdwsJSONObject;
+const
+  CFile = 'file:///c:/Test.dws';
+  CTestUnit =
+    'unit Test;' + #13#10#13#10 +
+    'interface' + #13#10#13#10 +
+    'implementation' + #13#10#13#10 +
+    'function Add(A, B: Integer): Integer;' + #13#10 +
+    'begin' + #13#10 +
+    '  Result := A + B;' + #13#10 +
+    'end;' + #13#10#13#10 +
+    'end.';
+begin
+  BasicInitialization;
+  FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
+  FLanguageServerHost.SendFormattingRequest(CFile, 2, True);
+  Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
+  CheckEquals('todo', Response['result'].ToString);
+  FLanguageServerHost.SendRequest('shutdown');
+end;
+
+procedure TTestLanguageServer.TestBasicRangeFormattingSequence;
+var
+  Response: TdwsJSONObject;
+const
+  CFile = 'file:///c:/Test.dws';
+  CTestUnit =
+    'unit Test;' + #13#10#13#10 +
+    'interface' + #13#10#13#10 +
+    'implementation' + #13#10#13#10 +
+    'function Add(A, B: Integer): Integer;' + #13#10 +
+    'begin' + #13#10 +
+    '  Result := A + B;' + #13#10 +
+    'end;' + #13#10#13#10 +
+    'end.';
+begin
+  BasicInitialization;
+  FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
+  FLanguageServerHost.SendRangeFormattingRequest(CFile, 2, True);
+  Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
+  CheckEquals('todo', Response['result'].ToString);
+  FLanguageServerHost.SendRequest('shutdown');
+end;
+
+procedure TTestLanguageServer.TestBasicOnTypeFormattingSequence;
+var
+  Response: TdwsJSONObject;
+const
+  CFile = 'file:///c:/Test.dws';
+  CTestUnit =
+    'unit Test;' + #13#10#13#10 +
+    'interface' + #13#10#13#10 +
+    'implementation' + #13#10#13#10 +
+    'function Add(A, B: Integer): Integer;' + #13#10 +
+    'begin' + #13#10 +
+    '  Result := A + B;' + #13#10 +
+    'end;' + #13#10#13#10 +
+    'end.';
+begin
+  BasicInitialization;
+  FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
+  FLanguageServerHost.SendOnTypeFormattingRequest(CFile, 6, 9, 'A', 2, True);
+  Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
+  CheckEquals('todo', Response['result'].ToString);
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
@@ -948,27 +1065,53 @@ begin
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
-procedure TTestLanguageServer.TestBasicSignatureHelp;
+procedure TTestLanguageServer.TestBasicCodeActionSequence;
 var
   Response: TdwsJSONObject;
 const
   CFile = 'file:///c:/Test.dws';
   CTestUnit =
-    'program Test;' + #13#10#13#10 +
+    'unit Test;' + #13#10#13#10 +
+    'interface' + #13#10#13#10 +
+    'implementation' + #13#10#13#10 +
     'function Add(A, B: Integer): Integer;' + #13#10 +
     'begin' + #13#10 +
     '  Result := A + B;' + #13#10 +
-    'end;';
+    'end;' + #13#10#13#10 +
+    'end.';
 begin
   BasicInitialization;
   FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
-  FLanguageServerHost.SendSignatureHelpRequest(CFile, 4, 12);
+  FLanguageServerHost.SendCodeActionRequest(CFile);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
   CheckEquals('todo', Response['result'].ToString);
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
-procedure TTestLanguageServer.TestBasicDocumentLink;
+procedure TTestLanguageServer.TestBasicCodeLensSequence;
+var
+  Response: TdwsJSONObject;
+const
+  CFile = 'file:///c:/Test.dws';
+  CTestUnit =
+    'unit Test;' + #13#10#13#10 +
+    'interface' + #13#10#13#10 +
+    'implementation' + #13#10#13#10 +
+    'function Add(A, B: Integer): Integer;' + #13#10 +
+    'begin' + #13#10 +
+    '  Result := A + B;' + #13#10 +
+    'end;' + #13#10#13#10 +
+    'end.';
+begin
+  BasicInitialization;
+  FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
+  FLanguageServerHost.SendCodeLensRequest(CFile);
+  Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
+  CheckEquals('todo', Response['result'].ToString);
+  FLanguageServerHost.SendRequest('shutdown');
+end;
+
+procedure TTestLanguageServer.TestBasicDocumentLinkSequence;
 var
   Response: TdwsJSONObject;
 const
@@ -983,7 +1126,30 @@ const
 begin
   BasicInitialization;
   FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
-  FLanguageServerHost.SendDocumentLink(CFile);
+  FLanguageServerHost.SendDocumentLinkRequest(CFile);
+  Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
+  CheckEquals('todo', Response['result'].ToString);
+  FLanguageServerHost.SendRequest('shutdown');
+end;
+
+procedure TTestLanguageServer.TestBasicRenameSequence;
+var
+  Response: TdwsJSONObject;
+const
+  CFile = 'file:///c:/Test.dws';
+  CTestUnit =
+    'unit Test;' + #13#10#13#10 +
+    'interface' + #13#10#13#10 +
+    'implementation' + #13#10#13#10 +
+    'function Add(A, B: Integer): Integer;' + #13#10 +
+    'begin' + #13#10 +
+    '  Result := A + B;' + #13#10 +
+    'end;' + #13#10#13#10 +
+    'end.';
+begin
+  BasicInitialization;
+  FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
+  FLanguageServerHost.SendRenameRequest(CFile, 6, 9, 'Sub');
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
   CheckEquals('todo', Response['result'].ToString);
   FLanguageServerHost.SendRequest('shutdown');
