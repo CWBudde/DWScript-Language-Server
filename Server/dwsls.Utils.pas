@@ -57,9 +57,9 @@ var
   Item: TdwsTextDocumentItem;
 begin
   Result := nil;
-  if FCount = 0 then Exit;
+  if Count = 0 then Exit;
   HashCode := SimpleStringHash(Uri);
-  for Index := 0 to FCount - 1  do
+  for Index := 0 to Count - 1  do
   begin
     Item := GetItems(Index);
     if (HashCode = Item.HashCode) and (Uri = Item.Uri) then
@@ -73,9 +73,9 @@ var
   HashCode: Cardinal;
   Item: TdwsTextDocumentItem;
 begin
-  if FCount = 0 then Exit;
+  if Count = 0 then Exit;
   HashCode := SimpleStringHash(Uri);
-  for Index := 0 to FCount - 1  do
+  for Index := 0 to Count - 1  do
   begin
     Item := GetItems(Index);
     if (HashCode = Item.HashCode) and (Uri = Item.Uri) then
