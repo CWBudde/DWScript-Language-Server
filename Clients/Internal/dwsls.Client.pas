@@ -19,19 +19,28 @@ type
     constructor Create;
     destructor Destroy; override;
 
-    procedure SendRequest(Method: string; Params: TdwsJSONObject = nil); overload;
-    procedure SendRequest(Method: string; Params: string); overload;
-    procedure SendNotification(Method: string; Params: TdwsJSONObject = nil); overload;
-    procedure SendNotification(Method: string; Params: string); overload;
+    procedure SendRequest(const Method: string; Params: TdwsJSONObject = nil); overload;
+    procedure SendRequest(const Method, Params: string); overload;
+    procedure SendNotification(const Method: string; Params: TdwsJSONObject = nil); overload;
+    procedure SendNotification(const Method, Params: string); overload;
 
     procedure SendInitialized;
-    procedure SendDidOpenNotification(Uri, Text: string; Version: Integer = 0; LanguageID: string = 'dwscript');
-    procedure SendSymbolRequest(Uri: string);
-    procedure SendHoverRequest(Uri: string; Line, Character: Integer);
-    procedure SendDefinitionRequest(Uri: string; Line, Character: Integer);
-    procedure SendSignatureHelpRequest(Uri: string; Line, Character: Integer);
-    procedure SendRefrencesRequest(Uri: string; Line, Character: Integer; includeDeclaration: Boolean = True);
-    procedure SendDocumentHighlightRequest(Uri: string; Line, Character: Integer);
+    procedure SendDidOpenNotification(const Uri, Text: string; Version: Integer = 0; LanguageID: string = 'dwscript');
+
+    procedure SendCompletionRequest(const Uri: string; Line, Character: Integer);
+    procedure SendHoverRequest(const Uri: string; Line, Character: Integer);
+    procedure SendSignatureHelpRequest(const Uri: string; Line, Character: Integer);
+    procedure SendRefrencesRequest(const Uri: string; Line, Character: Integer; includeDeclaration: Boolean = True);
+    procedure SendDocumentHighlightRequest(const Uri: string; Line, Character: Integer);
+    procedure SendSymbolRequest(const Uri: string);
+    procedure SendFormattingRequest(const Uri: string; TabSize: Integer; InsertSpaces: Boolean);
+    procedure SendRangeFormattingRequest(const Uri: string; TabSize: Integer; InsertSpaces: Boolean);
+    procedure SendOnTypeFormattingRequest(const Uri: string; Line,
+      Character: Integer; TypeCharacter: string; TabSize: Integer; InsertSpaces: Boolean);
+    procedure SendDefinitionRequest(const Uri: string; Line, Character: Integer);
+    procedure SendCodeAction(const Uri: string);
+    procedure SendCodeLens(const Uri: string);
+    procedure SendDocumentLink(const Uri: string);
 
     property LastResponse: string read FLastResponse;
     property LanguageServer: TDWScriptLanguageServer read FLanguageServer;
@@ -66,7 +75,7 @@ begin
   FLastResponse := Text;
 end;
 
-procedure TLanguageServerHost.SendNotification(Method, Params: string);
+procedure TLanguageServerHost.SendNotification(const Method, Params: string);
 begin
   if Params <> '' then
     SendNotification(Method, TdwsJSONObject(TdwsJSONValue.ParseString(Params)))
@@ -74,7 +83,7 @@ begin
     SendNotification(Method);
 end;
 
-procedure TLanguageServerHost.SendNotification(Method: string;
+procedure TLanguageServerHost.SendNotification(const Method: string;
   Params: TdwsJSONObject);
 var
   Response: TdwsJSONObject;
@@ -85,7 +94,7 @@ begin
   FLanguageServer.Input(Response.ToString);
 end;
 
-procedure TLanguageServerHost.SendRequest(Method, Params: string);
+procedure TLanguageServerHost.SendRequest(const Method, Params: string);
 begin
   if Params <> '' then
     SendRequest(Method, TdwsJSONObject(TdwsJSONValue.ParseString(Params)))
@@ -93,7 +102,7 @@ begin
     SendRequest(Method);
 end;
 
-procedure TLanguageServerHost.SendRequest(Method: string;
+procedure TLanguageServerHost.SendRequest(const Method: string;
   Params: TdwsJSONObject = nil);
 var
   Response: TdwsJSONObject;
@@ -106,7 +115,7 @@ begin
   FLanguageServer.Input(Response.ToString);
 end;
 
-procedure TLanguageServerHost.SendDidOpenNotification(Uri, Text: string; Version: Integer;
+procedure TLanguageServerHost.SendDidOpenNotification(const Uri, Text: string; Version: Integer;
   LanguageID: string);
 var
   TextDocument: TTextDocumentItem;
@@ -131,7 +140,7 @@ begin
   end;
 end;
 
-procedure TLanguageServerHost.SendDefinitionRequest(Uri: string; Line,
+procedure TLanguageServerHost.SendCompletionRequest(const Uri: string; Line,
   Character: Integer);
 var
   TextDocumentPositionParams: TTextDocumentPositionParams;
@@ -149,13 +158,61 @@ begin
       TextDocumentPositionParams.Free;
     end;
 
-    SendRequest('textDocument/definition', JsonParams);
+    SendRequest('textDocument/completion', JsonParams);
   finally
     JsonParams.Free;
   end;
 end;
 
-procedure TLanguageServerHost.SendRefrencesRequest(Uri: string; Line,
+procedure TLanguageServerHost.SendHoverRequest(const Uri: string; Line,
+  Character: Integer);
+var
+  TextDocumentPositionParams: TTextDocumentPositionParams;
+  JsonParams: TdwsJSONObject;
+begin
+  JsonParams := TdwsJSONObject.Create;
+  try
+    TextDocumentPositionParams := TTextDocumentPositionParams.Create;
+    try
+      TextDocumentPositionParams.TextDocument.Uri := Uri;
+      TextDocumentPositionParams.Position.Line := Line;
+      TextDocumentPositionParams.Position.Character := Character;
+      TextDocumentPositionParams.WriteToJson(JsonParams);
+    finally
+      TextDocumentPositionParams.Free;
+    end;
+
+    SendRequest('textDocument/hover', JsonParams);
+  finally
+    JsonParams.Free;
+  end;
+end;
+
+procedure TLanguageServerHost.SendSignatureHelpRequest(const Uri: string; Line,
+  Character: Integer);
+var
+  TextDocumentPositionParams: TTextDocumentPositionParams;
+  JsonParams: TdwsJSONObject;
+begin
+  JsonParams := TdwsJSONObject.Create;
+  try
+    TextDocumentPositionParams := TTextDocumentPositionParams.Create;
+    try
+      TextDocumentPositionParams.TextDocument.Uri := Uri;
+      TextDocumentPositionParams.Position.Line := Line;
+      TextDocumentPositionParams.Position.Character := Character;
+      TextDocumentPositionParams.WriteToJson(JsonParams);
+    finally
+      TextDocumentPositionParams.Free;
+    end;
+
+    SendRequest('textDocument/signatureHelp', JsonParams);
+  finally
+    JsonParams.Free;
+  end;
+end;
+
+procedure TLanguageServerHost.SendRefrencesRequest(const Uri: string; Line,
   Character: Integer; IncludeDeclaration: Boolean);
 var
   ReferenceParams: TReferenceParams;
@@ -180,8 +237,8 @@ begin
   end;
 end;
 
-procedure TLanguageServerHost.SendDocumentHighlightRequest(Uri: string; Line,
-  Character: Integer);
+procedure TLanguageServerHost.SendDocumentHighlightRequest(const Uri: string;
+  Line, Character: Integer);
 var
   TextDocumentPositionParams: TTextDocumentPositionParams;
   JsonParams: TdwsJSONObject;
@@ -204,55 +261,7 @@ begin
   end;
 end;
 
-procedure TLanguageServerHost.SendHoverRequest(Uri: string; Line,
-  Character: Integer);
-var
-  TextDocumentPositionParams: TTextDocumentPositionParams;
-  JsonParams: TdwsJSONObject;
-begin
-  JsonParams := TdwsJSONObject.Create;
-  try
-    TextDocumentPositionParams := TTextDocumentPositionParams.Create;
-    try
-      TextDocumentPositionParams.TextDocument.Uri := Uri;
-      TextDocumentPositionParams.Position.Line := Line;
-      TextDocumentPositionParams.Position.Character := Character;
-      TextDocumentPositionParams.WriteToJson(JsonParams);
-    finally
-      TextDocumentPositionParams.Free;
-    end;
-
-    SendRequest('textDocument/hover', JsonParams);
-  finally
-    JsonParams.Free;
-  end;
-end;
-
-procedure TLanguageServerHost.SendSignatureHelpRequest(Uri: string; Line,
-  Character: Integer);
-var
-  TextDocumentPositionParams: TTextDocumentPositionParams;
-  JsonParams: TdwsJSONObject;
-begin
-  JsonParams := TdwsJSONObject.Create;
-  try
-    TextDocumentPositionParams := TTextDocumentPositionParams.Create;
-    try
-      TextDocumentPositionParams.TextDocument.Uri := Uri;
-      TextDocumentPositionParams.Position.Line := Line;
-      TextDocumentPositionParams.Position.Character := Character;
-      TextDocumentPositionParams.WriteToJson(JsonParams);
-    finally
-      TextDocumentPositionParams.Free;
-    end;
-
-    SendRequest('textDocument/signatureHelp', JsonParams);
-  finally
-    JsonParams.Free;
-  end;
-end;
-
-procedure TLanguageServerHost.SendSymbolRequest(Uri: string);
+procedure TLanguageServerHost.SendSymbolRequest(const Uri: string);
 var
   TextDocument: TTextDocumentIdentifier;
   JsonParams: TdwsJSONObject;
@@ -268,6 +277,175 @@ begin
     end;
 
     SendRequest('textDocument/documentSymbol', JsonParams);
+  finally
+    JsonParams.Free;
+  end;
+end;
+
+procedure TLanguageServerHost.SendFormattingRequest(const Uri: string;
+  TabSize: Integer; InsertSpaces: Boolean);
+var
+  DocumentFormattingParams: TDocumentFormattingParams;
+  JsonParams: TdwsJSONObject;
+begin
+  JsonParams := TdwsJSONObject.Create;
+  try
+    DocumentFormattingParams := TDocumentFormattingParams.Create;
+    try
+      DocumentFormattingParams.TextDocument.Uri := Uri;
+      DocumentFormattingParams.Options.TabSize := TabSize;
+      DocumentFormattingParams.Options.InsertSpaces := InsertSpaces;
+      DocumentFormattingParams.WriteToJson(JsonParams);
+    finally
+      DocumentFormattingParams.Free;
+    end;
+
+    SendRequest('textDocument/formatting', JsonParams);
+  finally
+    JsonParams.Free;
+  end;
+end;
+
+procedure TLanguageServerHost.SendRangeFormattingRequest(const Uri: string;
+  TabSize: Integer; InsertSpaces: Boolean);
+var
+  DocumentRangeFormattingParams: TDocumentRangeFormattingParams;
+  JsonParams: TdwsJSONObject;
+begin
+  JsonParams := TdwsJSONObject.Create;
+  try
+    DocumentRangeFormattingParams := TDocumentRangeFormattingParams.Create;
+    try
+      DocumentRangeFormattingParams.TextDocument.Uri := Uri;
+      DocumentRangeFormattingParams.Options.TabSize := TabSize;
+      DocumentRangeFormattingParams.Options.InsertSpaces := InsertSpaces;
+      DocumentRangeFormattingParams.WriteToJson(JsonParams);
+    finally
+      DocumentRangeFormattingParams.Free;
+    end;
+
+    SendRequest('textDocument/rangeFormatting', JsonParams);
+  finally
+    JsonParams.Free;
+  end;
+end;
+
+procedure TLanguageServerHost.SendOnTypeFormattingRequest(const Uri: string;
+  Line, Character: Integer; TypeCharacter: string; TabSize: Integer;
+  InsertSpaces: Boolean);
+var
+  DocumentOnTypeFormattingParams: TDocumentOnTypeFormattingParams;
+  JsonParams: TdwsJSONObject;
+begin
+  JsonParams := TdwsJSONObject.Create;
+  try
+    DocumentOnTypeFormattingParams := TDocumentOnTypeFormattingParams.Create;
+    try
+      DocumentOnTypeFormattingParams.TextDocument.Uri := Uri;
+      DocumentOnTypeFormattingParams.Options.TabSize := TabSize;
+      DocumentOnTypeFormattingParams.Options.InsertSpaces := InsertSpaces;
+      DocumentOnTypeFormattingParams.Position.Line := Line;
+      DocumentOnTypeFormattingParams.Position.Character := Character;
+      DocumentOnTypeFormattingParams.Character := TypeCharacter;
+      DocumentOnTypeFormattingParams.WriteToJson(JsonParams);
+    finally
+      DocumentOnTypeFormattingParams.Free;
+    end;
+
+    SendRequest('textDocument/onTypeFormatting', JsonParams);
+  finally
+    JsonParams.Free;
+  end;
+end;
+
+procedure TLanguageServerHost.SendDefinitionRequest(const Uri: string; Line,
+  Character: Integer);
+var
+  TextDocumentPositionParams: TTextDocumentPositionParams;
+  JsonParams: TdwsJSONObject;
+begin
+  JsonParams := TdwsJSONObject.Create;
+  try
+    TextDocumentPositionParams := TTextDocumentPositionParams.Create;
+    try
+      TextDocumentPositionParams.TextDocument.Uri := Uri;
+      TextDocumentPositionParams.Position.Line := Line;
+      TextDocumentPositionParams.Position.Character := Character;
+      TextDocumentPositionParams.WriteToJson(JsonParams);
+    finally
+      TextDocumentPositionParams.Free;
+    end;
+
+    SendRequest('textDocument/definition', JsonParams);
+  finally
+    JsonParams.Free;
+  end;
+end;
+
+procedure TLanguageServerHost.SendCodeAction(const Uri: string);
+var
+  CodeActionParams: TCodeActionParams;
+  JsonParams: TdwsJSONObject;
+begin
+  JsonParams := TdwsJSONObject.Create;
+  try
+    CodeActionParams := TCodeActionParams.Create;
+    try
+      CodeActionParams.TextDocument.Uri := Uri;
+
+      // yet todo
+
+      CodeActionParams.WriteToJson(JsonParams);
+    finally
+      CodeActionParams.Free;
+    end;
+
+    SendRequest('textDocument/codeAction', JsonParams);
+  finally
+    JsonParams.Free;
+  end;
+end;
+
+procedure TLanguageServerHost.SendCodeLens(const Uri: string);
+var
+  CodeLensParams: TCodeLensParams;
+  JsonParams: TdwsJSONObject;
+begin
+  JsonParams := TdwsJSONObject.Create;
+  try
+    CodeLensParams := TCodeLensParams.Create;
+    try
+      CodeLensParams.TextDocument.Uri := Uri;
+
+      // yet todo
+
+      CodeLensParams.WriteToJson(JsonParams);
+    finally
+      CodeLensParams.Free;
+    end;
+
+    SendRequest('textDocument/codeLens', JsonParams);
+  finally
+    JsonParams.Free;
+  end;
+end;
+
+procedure TLanguageServerHost.SendDocumentLink(const Uri: string);
+var
+  DocumentLinkParams: TDocumentLinkParams;
+  JsonParams: TdwsJSONObject;
+begin
+  JsonParams := TdwsJSONObject.Create;
+  try
+    DocumentLinkParams := TDocumentLinkParams.Create;
+    try
+      DocumentLinkParams.TextDocument.Uri := Uri;
+      DocumentLinkParams.WriteToJson(JsonParams);
+    finally
+      DocumentLinkParams.Free;
+    end;
+
+    SendRequest('textDocument/documentLink', JsonParams);
   finally
     JsonParams.Free;
   end;

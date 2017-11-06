@@ -27,6 +27,7 @@ type
     procedure TestJsonCodeActionParams;
     procedure TestJsonCodeLensParams;
     procedure TestJsonDocumentLinkParams;
+    procedure TestJsonDocumentLinkResponse;
     procedure TestJsonDocumentHighlight;
     procedure TestJsonDocumentFormattingParams;
     procedure TestJsonDocumentRangeFormattingParams;
@@ -55,6 +56,7 @@ type
     procedure TestBasicFindReferenceSequence;
     procedure TestBasicDocumentHightlightSequence;
     procedure TestBasicSignatureHelp;
+    procedure TestBasicDocumentLink;
   end;
 
 implementation
@@ -440,6 +442,41 @@ begin
       CheckEquals('c:\Test.dws', DocumentLinkParams.TextDocument.Uri);
     finally
       DocumentLinkParams.Free;
+    end;
+  finally
+    Params.Free;
+  end;
+end;
+
+procedure TTestLanguageServerClasses.TestJsonDocumentLinkResponse;
+var
+  DocumentLinkResponse: TDocumentLinkResponse;
+  Params: TdwsJSONObject;
+begin
+  Params := TdwsJSONObject.Create;
+  try
+    DocumentLinkResponse := TDocumentLinkResponse.Create;
+    try
+      DocumentLinkResponse.Range.Start.Line := 42;
+      DocumentLinkResponse.Range.Start.Character := 57;
+      DocumentLinkResponse.Range.&End.Line := 47;
+      DocumentLinkResponse.Range.&End.Character := 52;
+      DocumentLinkResponse.Target := 'https://github.com/CWBudde/DWScript-Language-Server';
+      DocumentLinkResponse.WriteToJson(Params);
+    finally
+      DocumentLinkResponse.Free;
+    end;
+
+    DocumentLinkResponse := TDocumentLinkResponse.Create;
+    try
+      DocumentLinkResponse.ReadFromJson(Params);
+      CheckEquals(42, DocumentLinkResponse.Range.Start.Line);
+      CheckEquals(57, DocumentLinkResponse.Range.Start.Character);
+      CheckEquals(47, DocumentLinkResponse.Range.&End.Line);
+      CheckEquals(52, DocumentLinkResponse.Range.&End.Character);
+      CheckEquals('https://github.com/CWBudde/DWScript-Language-Server', DocumentLinkResponse.Target);
+    finally
+      DocumentLinkResponse.Free;
     end;
   finally
     Params.Free;
@@ -907,7 +944,7 @@ begin
   FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
   FLanguageServerHost.SendDefinitionRequest(CFile, 4, 12);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
-  CheckEquals('{"contents":"Symbol: TUnitMainSymbol"}', Response['result'].ToString);
+  CheckEquals('todo', Response['result'].ToString);
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
@@ -927,7 +964,28 @@ begin
   FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
   FLanguageServerHost.SendSignatureHelpRequest(CFile, 4, 12);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
-  CheckEquals('{"contents":"Symbol: TUnitMainSymbol"}', Response['result'].ToString);
+  CheckEquals('todo', Response['result'].ToString);
+  FLanguageServerHost.SendRequest('shutdown');
+end;
+
+procedure TTestLanguageServer.TestBasicDocumentLink;
+var
+  Response: TdwsJSONObject;
+const
+  CFile = 'file:///c:/Test.dws';
+  CTestUnit =
+    'program Test;' + #13#10#13#10 +
+    '// see: https://github.com/CWBudde/DWScript-Language-Server' + #13#10#13#10 +
+    'function Add(A, B: Integer): Integer;' + #13#10 +
+    'begin' + #13#10 +
+    '  Result := A + B;' + #13#10 +
+    'end;';
+begin
+  BasicInitialization;
+  FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
+  FLanguageServerHost.SendDocumentLink(CFile);
+  Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
+  CheckEquals('todo', Response['result'].ToString);
   FLanguageServerHost.SendRequest('shutdown');
 end;
 

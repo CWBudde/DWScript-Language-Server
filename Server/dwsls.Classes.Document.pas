@@ -308,64 +308,6 @@ type
     property ContainerName: string read FContainerName write FContainerName;
   end;
 
-  TCodeActionContext = class(TJsonClass)
-  type
-    TDiagnostics = TObjectList<TDiagnostic>;
-  private
-    FDiagnostics: TDiagnostics;
-  public
-    constructor Create;
-    destructor Destroy; override;
-
-    procedure ReadFromJson(const Value: TdwsJSONValue); override;
-    procedure WriteToJson(const Value: TdwsJSONObject); override;
-
-    property Diagnostics: TDiagnostics read FDiagnostics;
-  end;
-
-  TCodeActionParams = class(TJsonClass)
-  private
-    FTextDocument: TTextDocumentIdentifier;
-    FContext: TCodeActionContext;
-    FRange: TRange;
-  public
-    constructor Create;
-    destructor Destroy; override;
-
-    procedure ReadFromJson(const Value: TdwsJSONValue); override;
-    procedure WriteToJson(const Value: TdwsJSONObject); override;
-
-    property TextDocument: TTextDocumentIdentifier read FTextDocument;
-    property Range: TRange read FRange;
-    property Context: TCodeActionContext read FContext;
-  end;
-
-  TCodeLensParams = class(TJsonClass)
-  private
-    FTextDocument: TTextDocumentIdentifier;
-  public
-    constructor Create;
-    destructor Destroy; override;
-
-    procedure ReadFromJson(const Value: TdwsJSONValue); override;
-    procedure WriteToJson(const Value: TdwsJSONObject); override;
-
-    property TextDocument: TTextDocumentIdentifier read FTextDocument;
-  end;
-
-  TDocumentLinkParams = class(TJsonClass)
-  private
-    FTextDocument: TTextDocumentIdentifier;
-  public
-    constructor Create;
-    destructor Destroy; override;
-
-    procedure ReadFromJson(const Value: TdwsJSONValue); override;
-    procedure WriteToJson(const Value: TdwsJSONObject); override;
-
-    property TextDocument: TTextDocumentIdentifier read FTextDocument;
-  end;
-
   TFormattingOptions = class(TJsonClass)
   private
     FTabSize: Integer;
@@ -428,6 +370,79 @@ type
     property Position: TPosition read FPosition;
     property Character: string read FCharacter write FCharacter;
     property Options: TFormattingOptions read FOptions;
+  end;
+
+  TCodeActionContext = class(TJsonClass)
+  type
+    TDiagnostics = TObjectList<TDiagnostic>;
+  private
+    FDiagnostics: TDiagnostics;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Diagnostics: TDiagnostics read FDiagnostics;
+  end;
+
+  TCodeActionParams = class(TJsonClass)
+  private
+    FTextDocument: TTextDocumentIdentifier;
+    FContext: TCodeActionContext;
+    FRange: TRange;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property TextDocument: TTextDocumentIdentifier read FTextDocument;
+    property Range: TRange read FRange;
+    property Context: TCodeActionContext read FContext;
+  end;
+
+  TCodeLensParams = class(TJsonClass)
+  private
+    FTextDocument: TTextDocumentIdentifier;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property TextDocument: TTextDocumentIdentifier read FTextDocument;
+  end;
+
+  TDocumentLinkParams = class(TJsonClass)
+  private
+    FTextDocument: TTextDocumentIdentifier;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property TextDocument: TTextDocumentIdentifier read FTextDocument;
+  end;
+
+  TDocumentLinkResponse = class(TJsonClass)
+  private
+    FTarget: string;
+    FRange: TRange;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Range: TRange read FRange;
+    property Target: string read FTarget write FTarget;
   end;
 
   TRenameParams = class(TJsonClass)
@@ -1026,6 +1041,32 @@ end;
 procedure TDocumentLinkParams.WriteToJson(const Value: TdwsJSONObject);
 begin
   FTextDocument.WriteToJson(Value.AddObject('textDocument'));
+end;
+
+
+{ TDocumentLinkResponse }
+
+constructor TDocumentLinkResponse.Create;
+begin
+  FRange := TRange.Create;
+end;
+
+destructor TDocumentLinkResponse.Destroy;
+begin
+  FRange.Free;
+  inherited;
+end;
+
+procedure TDocumentLinkResponse.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FRange.ReadFromJson(Value['range']);
+  FTarget := Value['target'].AsString;
+end;
+
+procedure TDocumentLinkResponse.WriteToJson(const Value: TdwsJSONObject);
+begin
+  FRange.WriteToJson(Value.AddObject('range'));
+  Value.AddValue('target', FTarget);
 end;
 
 

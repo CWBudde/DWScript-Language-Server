@@ -35,6 +35,8 @@ type
     procedure Log(const Text: string);
     {$ENDIF}
 
+    function GetSourceCodeForUri(Uri: string): string;
+
     procedure EvaluateClientCapabilities(Params: TdwsJSONObject);
     procedure LogMessage(Text: string; MessageType: TMessageType = msLog);
     procedure RegisterCapability(Method, Id: string);
@@ -106,7 +108,8 @@ type
 implementation
 
 uses
-  SysUtils, dwsStrings, dwsSymbols;
+  SysUtils, dwsStrings, dwsSymbols, dwsPascalTokenizer, dwsTokenizer,
+  dwsScriptSource;
 
 { TDWScriptLanguageServer }
 
@@ -273,6 +276,22 @@ end;
 procedure TDWScriptLanguageServer.EvaluateClientCapabilities(Params: TdwsJSONObject);
 begin
   FClientCapabilities.ReadFromJson(Params);
+end;
+
+function TDWScriptLanguageServer.GetSourceCodeForUri(Uri: string): string;
+var
+  TextDocumentItem: TdwsTextDocumentItem;
+begin
+  TextDocumentItem := FTextDocumentItemList[Uri];
+
+  if Assigned(TextDocumentItem) then
+    Result := TextDocumentItem.Text
+  else
+    if StrBeginsWith(Uri, 'file:///') then
+    begin
+      Delete(Uri, 1, 8);
+      Result := LoadTextFromFile(Uri);
+    end;
 end;
 
 procedure TDWScriptLanguageServer.HandleInitialize(Params: TdwsJSONObject);
@@ -598,8 +617,88 @@ begin
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentLink(Params: TdwsJSONObject);
+var
+  DocumentLinkParams: TDocumentLinkParams;
+  DocumentLinkResponse: TDocumentLinkResponse;
+  TokenizerRules: TPascalTokenizerStateRules;
+  Tokenizer: TTokenizer;
+  Messages: TdwsCompileMessageList;
+  SourceFile: TSourceFile;
+  Result: TdwsJSONArray;
+  ProtocolPos: Integer;
+  SourceCode, Text: string;
+  Token: TToken;
 begin
-  // not yet implemented
+  DocumentLinkParams := TDocumentLinkParams.Create;
+  try
+    DocumentLinkParams.ReadFromJson(Params);
+  finally
+    DocumentLinkParams.Free;
+  end;
+
+  Result := TdwsJSONArray.Create;
+
+  // create pascal tokenizer rules
+  TokenizerRules := TPascalTokenizerStateRules.Create;
+  try
+    // create message list (needed for tokenizer)
+    Messages := TdwsCompileMessageList.Create;
+    try
+      // create tokenizer
+      Tokenizer := TTokenizer.Create(TokenizerRules, Messages);
+      try
+        // create source file
+        SourceFile := TSourceFile.Create;
+        try
+          // use current code in source file
+          SourceFile.Code := SourceCode;
+          Tokenizer.BeginSourceFile(SourceFile);
+          try
+
+            while Tokenizer.HasTokens do
+            begin
+              Token := Tokenizer.GetToken;
+              Tokenizer.KillToken;
+              if Token.FTyp = ttStrVal then
+              begin
+                Text := Token.AsString;
+                ProtocolPos := Pos('http://', Text);
+
+  // TODO: proper implementation of a link parser
+
+                if ProtocolPos > 0 then
+                begin
+                  DocumentLinkResponse := TDocumentLinkResponse.Create;
+                  try
+                    DocumentLinkResponse.Range.Start.Line := Token.FScriptPos.Line;
+                    DocumentLinkResponse.Range.Start.Character := Token.FScriptPos.Col + ProtocolPos;
+                    DocumentLinkResponse.Range.&End.Line := Token.FScriptPos.Line;
+                    DocumentLinkResponse.Range.&End.Character := Token.FScriptPos.Col + ProtocolPos + 7;
+                    DocumentLinkResponse.Target := Copy(Text, ProtocolPos, 7);
+                    DocumentLinkResponse.WriteToJson(Result.AddObject);
+                  finally
+                    DocumentLinkResponse.Free;
+                  end;
+                end;
+              end;
+            end;
+          finally
+            Tokenizer.EndSourceFile;
+          end;
+        finally
+          SourceFile.Free;
+        end;
+      finally
+        Tokenizer.Free;
+      end;
+    finally
+      Messages.Free;
+    end;
+  finally
+    TokenizerRules.Free;
+  end;
+
+  SendResponse(Result);
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentOnTypeFormatting;
@@ -608,7 +707,11 @@ var
   Result: TdwsJSONObject;
 begin
   DocumentOnTypeFormattingParams := TDocumentOnTypeFormattingParams.Create;
-  DocumentOnTypeFormattingParams.ReadFromJson(Params);
+  try
+    DocumentOnTypeFormattingParams.ReadFromJson(Params);
+  finally
+    DocumentOnTypeFormattingParams.Free;
+  end;
 
   Result := TdwsJSONObject.Create;
 
