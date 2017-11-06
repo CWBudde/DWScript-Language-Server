@@ -825,12 +825,10 @@ end;
 procedure TTestLanguageServer.TestBasicStartUpSequence;
 begin
   FLanguageServerHost.LanguageServer.Input('{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"processId":0,"rootPath":"c:\\","rootUri":"file:///c%3A/","capabilities":{"workspace":{"didChangeConfiguration":{"dynamicRegistration":true}}},"trace":"verbose"}}');
-(*
   FLanguageServerHost.LanguageServer.Input('{"jsonrpc":"2.0","method":"initialized","params":{}}');
   FLanguageServerHost.LanguageServer.Input('{"jsonrpc":"2.0","method":"workspace/didChangeConfiguration","params":{"settings":{"dwsls":{"path":"dwsls","trace":{"server":"verbose"}}}}}');
   FLanguageServerHost.LanguageServer.Input('{"jsonrpc":"2.0","id":1,"method":"shutdown","params":null}');
   CheckEquals('{"jsonrpc":"2.0","id":1}', FLanguageServerHost.LastResponse);
-*)
 end;
 
 procedure TTestLanguageServer.TestBasicCompileSequence;
@@ -869,7 +867,11 @@ begin
   FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
   FLanguageServerHost.SendCompletionRequest(CFile, 4, 12);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
-  CheckEquals('todo', Response['result'].ToString);
+  try
+    CheckEquals('todo', Response['result'].ToString);
+  finally
+    Response.Free;
+  end;
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
@@ -892,7 +894,11 @@ begin
   FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
   FLanguageServerHost.SendHoverRequest(CFile, 0, 5);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
-  CheckEquals('{"contents":"Symbol: TUnitMainSymbol"}', Response['result'].ToString);
+  try
+    CheckEquals('{"contents":"Symbol: TUnitMainSymbol"}', Response['result'].ToString);
+  finally
+    Response.Free;
+  end;
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
@@ -912,7 +918,11 @@ begin
   FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
   FLanguageServerHost.SendSignatureHelpRequest(CFile, 4, 12);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
-  CheckEquals('todo', Response['result'].ToString);
+  try
+    CheckEquals('todo', Response['result'].ToString);
+  finally
+    Response.Free;
+  end;
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
@@ -932,7 +942,11 @@ begin
   FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
   FLanguageServerHost.SendRefrencesRequest(CFile, 2, 13, True);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
-  CheckEquals('todo', Response['result'].ToString);
+  try
+    CheckEquals('todo', Response['result'].ToString);
+  finally
+    Response.Free;
+  end;
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
@@ -952,7 +966,11 @@ begin
   FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
   FLanguageServerHost.SendDocumentHighlightRequest(CFile, 2, 13);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
-  CheckEquals('todo', Response['result'].ToString);
+  try
+    CheckEquals('todo', Response['result'].ToString);
+  finally
+    Response.Free;
+  end;
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
@@ -975,6 +993,10 @@ begin
   FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
   FLanguageServerHost.SendDocumentSymbolRequest(CFile);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
+  try
+  finally
+    Response.Free;
+  end;
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
@@ -997,7 +1019,11 @@ begin
   FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
   FLanguageServerHost.SendFormattingRequest(CFile, 2, True);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
-  CheckEquals('todo', Response['result'].ToString);
+  try
+    CheckEquals('todo', Response['result'].ToString);
+  finally
+    Response.Free;
+  end;
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
@@ -1020,7 +1046,11 @@ begin
   FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
   FLanguageServerHost.SendRangeFormattingRequest(CFile, 2, True);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
-  CheckEquals('todo', Response['result'].ToString);
+  try
+    CheckEquals('todo', Response['result'].ToString);
+  finally
+    Response.Free;
+  end;
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
@@ -1043,7 +1073,11 @@ begin
   FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
   FLanguageServerHost.SendOnTypeFormattingRequest(CFile, 6, 9, 'A', 2, True);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
-  CheckEquals('todo', Response['result'].ToString);
+  try
+    CheckEquals('todo', Response['result'].ToString);
+  finally
+    Response.Free;
+  end;
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
@@ -1063,7 +1097,11 @@ begin
   FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
   FLanguageServerHost.SendDefinitionRequest(CFile, 4, 12);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
-  CheckEquals('todo', Response['result'].ToString);
+  try
+    CheckEquals('todo', Response['result'].ToString);
+  finally
+    Response.Free;
+  end;
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
@@ -1086,7 +1124,11 @@ begin
   FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
   FLanguageServerHost.SendCodeActionRequest(CFile);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
-  CheckEquals('todo', Response['result'].ToString);
+  try
+    CheckEquals('todo', Response['result'].ToString);
+  finally
+    Response.Free;
+  end;
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
@@ -1109,7 +1151,11 @@ begin
   FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
   FLanguageServerHost.SendCodeLensRequest(CFile);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
-  CheckEquals('todo', Response['result'].ToString);
+  try
+    CheckEquals('todo', Response['result'].ToString);
+  finally
+    Response.Free;
+  end;
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
@@ -1130,7 +1176,11 @@ begin
   FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
   FLanguageServerHost.SendDocumentLinkRequest(CFile);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
-  CheckEquals('todo', Response['result'].ToString);
+  try
+    CheckEquals('todo', Response['result'].ToString);
+  finally
+    Response.Free;
+  end;
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
@@ -1153,7 +1203,11 @@ begin
   FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
   FLanguageServerHost.SendRenameRequest(CFile, 6, 9, 'Sub');
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
-  CheckEquals('todo', Response['result'].ToString);
+  try
+    CheckEquals('todo', Response['result'].ToString);
+  finally
+    Response.Free;
+  end;
   FLanguageServerHost.SendRequest('shutdown');
 end;
 

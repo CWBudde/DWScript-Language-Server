@@ -85,6 +85,8 @@ end;
 
 destructor TLanguageServerHost.Destroy;
 begin
+  FDiagnosticMessages.Free;
+
   FLanguageServer.Free;
   inherited;
 end;
@@ -192,9 +194,13 @@ var
   Response: TdwsJSONObject;
 begin
   Response := CreateJSONRPC(Method);
-  if Assigned(Params) then
-    Response.Add('params', Params);
-  FLanguageServer.Input(Response.ToString);
+  try
+    if Assigned(Params) then
+      Response.Add('params', Params);
+    FLanguageServer.Input(Response.ToString);
+  finally
+    Response.Free;
+  end;
 end;
 
 procedure TLanguageServerHost.SendRequest(const Method, Params: string);
@@ -211,11 +217,15 @@ var
   Response: TdwsJSONObject;
 begin
   Response := CreateJSONRPC(Method);
-  if Assigned(Params) then
-    Response.Add('params', Params);
-  Response.AddValue('id', FRequestIndex);
-  Inc(FRequestIndex);
-  FLanguageServer.Input(Response.ToString);
+  try
+    if Assigned(Params) then
+      Response.Add('params', Params);
+    Response.AddValue('id', FRequestIndex);
+    Inc(FRequestIndex);
+    FLanguageServer.Input(Response.ToString);
+  finally
+    Response.Free;
+  end;
 end;
 
 procedure TLanguageServerHost.SendWorkspaceSymbol(Query: string);
@@ -246,22 +256,18 @@ var
   JsonParams: TdwsJSONObject;
 begin
   JsonParams := TdwsJSONObject.Create;
+  DidOpenTextDocumentParams := TDidOpenTextDocumentParams.Create;
   try
-    DidOpenTextDocumentParams := TDidOpenTextDocumentParams.Create;
-    try
-      DidOpenTextDocumentParams.TextDocument.Uri := Uri;
-      DidOpenTextDocumentParams.TextDocument.LanguageId := LanguageID;
-      DidOpenTextDocumentParams.TextDocument.Version := Version;
-      DidOpenTextDocumentParams.TextDocument.Text := Text;
-      DidOpenTextDocumentParams.WriteToJson(JsonParams);
-    finally
-      DidOpenTextDocumentParams.Free;
-    end;
-
-    SendNotification('textDocument/didOpen', JsonParams);
+    DidOpenTextDocumentParams.TextDocument.Uri := Uri;
+    DidOpenTextDocumentParams.TextDocument.LanguageId := LanguageID;
+    DidOpenTextDocumentParams.TextDocument.Version := Version;
+    DidOpenTextDocumentParams.TextDocument.Text := Text;
+    DidOpenTextDocumentParams.WriteToJson(JsonParams);
   finally
-    JsonParams.Free;
+    DidOpenTextDocumentParams.Free;
   end;
+
+  SendNotification('textDocument/didOpen', JsonParams);
 end;
 
 procedure TLanguageServerHost.SendDidChangeNotification(const Uri, Text: string;
@@ -272,23 +278,19 @@ var
   JsonParams: TdwsJSONObject;
 begin
   JsonParams := TdwsJSONObject.Create;
+  DidChangeTextDocumentParams := TDidChangeTextDocumentParams.Create;
   try
-    DidChangeTextDocumentParams := TDidChangeTextDocumentParams.Create;
-    try
-      DidChangeTextDocumentParams.TextDocument.Uri := Uri;
-      DidChangeTextDocumentParams.TextDocument.Version := Version;
-      TextDocumentContentChangeEvent := TTextDocumentContentChangeEvent.Create;
-      TextDocumentContentChangeEvent.Text := Text;
-      DidChangeTextDocumentParams.ContentChanges.Add(TextDocumentContentChangeEvent);
-      DidChangeTextDocumentParams.WriteToJson(JsonParams);
-    finally
-      DidChangeTextDocumentParams.Free;
-    end;
-
-    SendNotification('textDocument/didChange', JsonParams);
+    DidChangeTextDocumentParams.TextDocument.Uri := Uri;
+    DidChangeTextDocumentParams.TextDocument.Version := Version;
+    TextDocumentContentChangeEvent := TTextDocumentContentChangeEvent.Create;
+    TextDocumentContentChangeEvent.Text := Text;
+    DidChangeTextDocumentParams.ContentChanges.Add(TextDocumentContentChangeEvent);
+    DidChangeTextDocumentParams.WriteToJson(JsonParams);
   finally
-    JsonParams.Free;
+    DidChangeTextDocumentParams.Free;
   end;
+
+  SendNotification('textDocument/didChange', JsonParams);
 end;
 
 procedure TLanguageServerHost.SendWillSaveNotification(const Uri: string;
@@ -298,20 +300,16 @@ var
   JsonParams: TdwsJSONObject;
 begin
   JsonParams := TdwsJSONObject.Create;
+  WillSaveTextDocumentParams := TWillSaveTextDocumentParams.Create;
   try
-    WillSaveTextDocumentParams := TWillSaveTextDocumentParams.Create;
-    try
-      WillSaveTextDocumentParams.TextDocument.Uri := Uri;
-      WillSaveTextDocumentParams.Reason := Reason;
-      WillSaveTextDocumentParams.WriteToJson(JsonParams);
-    finally
-      WillSaveTextDocumentParams.Free;
-    end;
-
-    SendNotification('textDocument/willSave', JsonParams);
+    WillSaveTextDocumentParams.TextDocument.Uri := Uri;
+    WillSaveTextDocumentParams.Reason := Reason;
+    WillSaveTextDocumentParams.WriteToJson(JsonParams);
   finally
-    JsonParams.Free;
+    WillSaveTextDocumentParams.Free;
   end;
+
+  SendNotification('textDocument/willSave', JsonParams);
 end;
 
 procedure TLanguageServerHost.SendWillSaveWaitUntilRequest(const Uri: string;
@@ -321,20 +319,16 @@ var
   JsonParams: TdwsJSONObject;
 begin
   JsonParams := TdwsJSONObject.Create;
+  WillSaveTextDocumentParams := TWillSaveTextDocumentParams.Create;
   try
-    WillSaveTextDocumentParams := TWillSaveTextDocumentParams.Create;
-    try
-      WillSaveTextDocumentParams.TextDocument.Uri := Uri;
-      WillSaveTextDocumentParams.Reason := Reason;
-      WillSaveTextDocumentParams.WriteToJson(JsonParams);
-    finally
-      WillSaveTextDocumentParams.Free;
-    end;
-
-    SendNotification('textDocument/willSaveWaitUntil', JsonParams);
+    WillSaveTextDocumentParams.TextDocument.Uri := Uri;
+    WillSaveTextDocumentParams.Reason := Reason;
+    WillSaveTextDocumentParams.WriteToJson(JsonParams);
   finally
-    JsonParams.Free;
+    WillSaveTextDocumentParams.Free;
   end;
+
+  SendNotification('textDocument/willSaveWaitUntil', JsonParams);
 end;
 
 procedure TLanguageServerHost.SendDidSaveNotification(const Uri, Text: string);
@@ -343,20 +337,16 @@ var
   JsonParams: TdwsJSONObject;
 begin
   JsonParams := TdwsJSONObject.Create;
+  DidSaveTextDocumentParams := TDidSaveTextDocumentParams.Create;
   try
-    DidSaveTextDocumentParams := TDidSaveTextDocumentParams.Create;
-    try
-      DidSaveTextDocumentParams.TextDocument.Uri := Uri;
-      DidSaveTextDocumentParams.Text := Text;
-      DidSaveTextDocumentParams.WriteToJson(JsonParams);
-    finally
-      DidSaveTextDocumentParams.Free;
-    end;
-
-    SendNotification('textDocument/didSave', JsonParams);
+    DidSaveTextDocumentParams.TextDocument.Uri := Uri;
+    DidSaveTextDocumentParams.Text := Text;
+    DidSaveTextDocumentParams.WriteToJson(JsonParams);
   finally
-    JsonParams.Free;
+    DidSaveTextDocumentParams.Free;
   end;
+
+  SendNotification('textDocument/didSave', JsonParams);
 end;
 
 procedure TLanguageServerHost.SendCompletionRequest(const Uri: string; Line,
@@ -366,21 +356,17 @@ var
   JsonParams: TdwsJSONObject;
 begin
   JsonParams := TdwsJSONObject.Create;
+  TextDocumentPositionParams := TTextDocumentPositionParams.Create;
   try
-    TextDocumentPositionParams := TTextDocumentPositionParams.Create;
-    try
-      TextDocumentPositionParams.TextDocument.Uri := Uri;
-      TextDocumentPositionParams.Position.Line := Line;
-      TextDocumentPositionParams.Position.Character := Character;
-      TextDocumentPositionParams.WriteToJson(JsonParams);
-    finally
-      TextDocumentPositionParams.Free;
-    end;
-
-    SendRequest('textDocument/completion', JsonParams);
+    TextDocumentPositionParams.TextDocument.Uri := Uri;
+    TextDocumentPositionParams.Position.Line := Line;
+    TextDocumentPositionParams.Position.Character := Character;
+    TextDocumentPositionParams.WriteToJson(JsonParams);
   finally
-    JsonParams.Free;
+    TextDocumentPositionParams.Free;
   end;
+
+  SendRequest('textDocument/completion', JsonParams);
 end;
 
 procedure TLanguageServerHost.SendHoverRequest(const Uri: string; Line,
@@ -390,21 +376,17 @@ var
   JsonParams: TdwsJSONObject;
 begin
   JsonParams := TdwsJSONObject.Create;
+  TextDocumentPositionParams := TTextDocumentPositionParams.Create;
   try
-    TextDocumentPositionParams := TTextDocumentPositionParams.Create;
-    try
-      TextDocumentPositionParams.TextDocument.Uri := Uri;
-      TextDocumentPositionParams.Position.Line := Line;
-      TextDocumentPositionParams.Position.Character := Character;
-      TextDocumentPositionParams.WriteToJson(JsonParams);
-    finally
-      TextDocumentPositionParams.Free;
-    end;
-
-    SendRequest('textDocument/hover', JsonParams);
+    TextDocumentPositionParams.TextDocument.Uri := Uri;
+    TextDocumentPositionParams.Position.Line := Line;
+    TextDocumentPositionParams.Position.Character := Character;
+    TextDocumentPositionParams.WriteToJson(JsonParams);
   finally
-    JsonParams.Free;
+    TextDocumentPositionParams.Free;
   end;
+
+  SendRequest('textDocument/hover', JsonParams);
 end;
 
 procedure TLanguageServerHost.SendSignatureHelpRequest(const Uri: string; Line,
@@ -414,21 +396,17 @@ var
   JsonParams: TdwsJSONObject;
 begin
   JsonParams := TdwsJSONObject.Create;
+  TextDocumentPositionParams := TTextDocumentPositionParams.Create;
   try
-    TextDocumentPositionParams := TTextDocumentPositionParams.Create;
-    try
-      TextDocumentPositionParams.TextDocument.Uri := Uri;
-      TextDocumentPositionParams.Position.Line := Line;
-      TextDocumentPositionParams.Position.Character := Character;
-      TextDocumentPositionParams.WriteToJson(JsonParams);
-    finally
-      TextDocumentPositionParams.Free;
-    end;
-
-    SendRequest('textDocument/signatureHelp', JsonParams);
+    TextDocumentPositionParams.TextDocument.Uri := Uri;
+    TextDocumentPositionParams.Position.Line := Line;
+    TextDocumentPositionParams.Position.Character := Character;
+    TextDocumentPositionParams.WriteToJson(JsonParams);
   finally
-    JsonParams.Free;
+    TextDocumentPositionParams.Free;
   end;
+
+  SendRequest('textDocument/signatureHelp', JsonParams);
 end;
 
 procedure TLanguageServerHost.SendRefrencesRequest(const Uri: string; Line,
@@ -438,22 +416,18 @@ var
   JsonParams: TdwsJSONObject;
 begin
   JsonParams := TdwsJSONObject.Create;
+  ReferenceParams := TReferenceParams.Create;
   try
-    ReferenceParams := TReferenceParams.Create;
-    try
-      ReferenceParams.TextDocument.Uri := Uri;
-      ReferenceParams.Position.Line := Line;
-      ReferenceParams.Position.Character := Character;
-      ReferenceParams.Context.IncludeDeclaration := includeDeclaration;
-      ReferenceParams.WriteToJson(JsonParams);
-    finally
-      ReferenceParams.Free;
-    end;
-
-    SendRequest('textDocument/references', JsonParams);
+    ReferenceParams.TextDocument.Uri := Uri;
+    ReferenceParams.Position.Line := Line;
+    ReferenceParams.Position.Character := Character;
+    ReferenceParams.Context.IncludeDeclaration := includeDeclaration;
+    ReferenceParams.WriteToJson(JsonParams);
   finally
-    JsonParams.Free;
+    ReferenceParams.Free;
   end;
+
+  SendRequest('textDocument/references', JsonParams);
 end;
 
 procedure TLanguageServerHost.SendDocumentHighlightRequest(const Uri: string;
@@ -463,21 +437,17 @@ var
   JsonParams: TdwsJSONObject;
 begin
   JsonParams := TdwsJSONObject.Create;
+  TextDocumentPositionParams := TTextDocumentPositionParams.Create;
   try
-    TextDocumentPositionParams := TTextDocumentPositionParams.Create;
-    try
-      TextDocumentPositionParams.TextDocument.Uri := Uri;
-      TextDocumentPositionParams.Position.Line := Line;
-      TextDocumentPositionParams.Position.Character := Character;
-      TextDocumentPositionParams.WriteToJson(JsonParams);
-    finally
-      TextDocumentPositionParams.Free;
-    end;
-
-    SendRequest('textDocument/documentHighlight', JsonParams);
+    TextDocumentPositionParams.TextDocument.Uri := Uri;
+    TextDocumentPositionParams.Position.Line := Line;
+    TextDocumentPositionParams.Position.Character := Character;
+    TextDocumentPositionParams.WriteToJson(JsonParams);
   finally
-    JsonParams.Free;
+    TextDocumentPositionParams.Free;
   end;
+
+  SendRequest('textDocument/documentHighlight', JsonParams);
 end;
 
 procedure TLanguageServerHost.SendDocumentSymbolRequest(const Uri: string);
@@ -486,19 +456,15 @@ var
   JsonParams: TdwsJSONObject;
 begin
   JsonParams := TdwsJSONObject.Create;
+  TextDocument := TTextDocumentIdentifier.Create;
   try
-    TextDocument := TTextDocumentIdentifier.Create;
-    try
-      TextDocument.Uri := Uri;
-      TextDocument.WriteToJson(JsonParams.AddObject('textDocument'));
-    finally
-      TextDocument.Free;
-    end;
-
-    SendRequest('textDocument/documentSymbol', JsonParams);
+    TextDocument.Uri := Uri;
+    TextDocument.WriteToJson(JsonParams.AddObject('textDocument'));
   finally
-    JsonParams.Free;
+    TextDocument.Free;
   end;
+
+  SendRequest('textDocument/documentSymbol', JsonParams);
 end;
 
 procedure TLanguageServerHost.SendFormattingRequest(const Uri: string;
@@ -508,21 +474,17 @@ var
   JsonParams: TdwsJSONObject;
 begin
   JsonParams := TdwsJSONObject.Create;
+  DocumentFormattingParams := TDocumentFormattingParams.Create;
   try
-    DocumentFormattingParams := TDocumentFormattingParams.Create;
-    try
-      DocumentFormattingParams.TextDocument.Uri := Uri;
-      DocumentFormattingParams.Options.TabSize := TabSize;
-      DocumentFormattingParams.Options.InsertSpaces := InsertSpaces;
-      DocumentFormattingParams.WriteToJson(JsonParams);
-    finally
-      DocumentFormattingParams.Free;
-    end;
-
-    SendRequest('textDocument/formatting', JsonParams);
+    DocumentFormattingParams.TextDocument.Uri := Uri;
+    DocumentFormattingParams.Options.TabSize := TabSize;
+    DocumentFormattingParams.Options.InsertSpaces := InsertSpaces;
+    DocumentFormattingParams.WriteToJson(JsonParams);
   finally
-    JsonParams.Free;
+    DocumentFormattingParams.Free;
   end;
+
+  SendRequest('textDocument/formatting', JsonParams);
 end;
 
 procedure TLanguageServerHost.SendRangeFormattingRequest(const Uri: string;
@@ -532,21 +494,17 @@ var
   JsonParams: TdwsJSONObject;
 begin
   JsonParams := TdwsJSONObject.Create;
+  DocumentRangeFormattingParams := TDocumentRangeFormattingParams.Create;
   try
-    DocumentRangeFormattingParams := TDocumentRangeFormattingParams.Create;
-    try
-      DocumentRangeFormattingParams.TextDocument.Uri := Uri;
-      DocumentRangeFormattingParams.Options.TabSize := TabSize;
-      DocumentRangeFormattingParams.Options.InsertSpaces := InsertSpaces;
-      DocumentRangeFormattingParams.WriteToJson(JsonParams);
-    finally
-      DocumentRangeFormattingParams.Free;
-    end;
-
-    SendRequest('textDocument/rangeFormatting', JsonParams);
+    DocumentRangeFormattingParams.TextDocument.Uri := Uri;
+    DocumentRangeFormattingParams.Options.TabSize := TabSize;
+    DocumentRangeFormattingParams.Options.InsertSpaces := InsertSpaces;
+    DocumentRangeFormattingParams.WriteToJson(JsonParams);
   finally
-    JsonParams.Free;
+    DocumentRangeFormattingParams.Free;
   end;
+
+  SendRequest('textDocument/rangeFormatting', JsonParams);
 end;
 
 procedure TLanguageServerHost.SendOnTypeFormattingRequest(const Uri: string;
@@ -557,24 +515,20 @@ var
   JsonParams: TdwsJSONObject;
 begin
   JsonParams := TdwsJSONObject.Create;
+  DocumentOnTypeFormattingParams := TDocumentOnTypeFormattingParams.Create;
   try
-    DocumentOnTypeFormattingParams := TDocumentOnTypeFormattingParams.Create;
-    try
-      DocumentOnTypeFormattingParams.TextDocument.Uri := Uri;
-      DocumentOnTypeFormattingParams.Options.TabSize := TabSize;
-      DocumentOnTypeFormattingParams.Options.InsertSpaces := InsertSpaces;
-      DocumentOnTypeFormattingParams.Position.Line := Line;
-      DocumentOnTypeFormattingParams.Position.Character := Character;
-      DocumentOnTypeFormattingParams.Character := TypeCharacter;
-      DocumentOnTypeFormattingParams.WriteToJson(JsonParams);
-    finally
-      DocumentOnTypeFormattingParams.Free;
-    end;
-
-    SendRequest('textDocument/onTypeFormatting', JsonParams);
+    DocumentOnTypeFormattingParams.TextDocument.Uri := Uri;
+    DocumentOnTypeFormattingParams.Options.TabSize := TabSize;
+    DocumentOnTypeFormattingParams.Options.InsertSpaces := InsertSpaces;
+    DocumentOnTypeFormattingParams.Position.Line := Line;
+    DocumentOnTypeFormattingParams.Position.Character := Character;
+    DocumentOnTypeFormattingParams.Character := TypeCharacter;
+    DocumentOnTypeFormattingParams.WriteToJson(JsonParams);
   finally
-    JsonParams.Free;
+    DocumentOnTypeFormattingParams.Free;
   end;
+
+  SendRequest('textDocument/onTypeFormatting', JsonParams);
 end;
 
 procedure TLanguageServerHost.SendDefinitionRequest(const Uri: string; Line,
@@ -584,21 +538,17 @@ var
   JsonParams: TdwsJSONObject;
 begin
   JsonParams := TdwsJSONObject.Create;
+  TextDocumentPositionParams := TTextDocumentPositionParams.Create;
   try
-    TextDocumentPositionParams := TTextDocumentPositionParams.Create;
-    try
-      TextDocumentPositionParams.TextDocument.Uri := Uri;
-      TextDocumentPositionParams.Position.Line := Line;
-      TextDocumentPositionParams.Position.Character := Character;
-      TextDocumentPositionParams.WriteToJson(JsonParams);
-    finally
-      TextDocumentPositionParams.Free;
-    end;
-
-    SendRequest('textDocument/definition', JsonParams);
+    TextDocumentPositionParams.TextDocument.Uri := Uri;
+    TextDocumentPositionParams.Position.Line := Line;
+    TextDocumentPositionParams.Position.Character := Character;
+    TextDocumentPositionParams.WriteToJson(JsonParams);
   finally
-    JsonParams.Free;
+    TextDocumentPositionParams.Free;
   end;
+
+  SendRequest('textDocument/definition', JsonParams);
 end;
 
 procedure TLanguageServerHost.SendCodeActionRequest(const Uri: string);
@@ -607,22 +557,18 @@ var
   JsonParams: TdwsJSONObject;
 begin
   JsonParams := TdwsJSONObject.Create;
+  CodeActionParams := TCodeActionParams.Create;
   try
-    CodeActionParams := TCodeActionParams.Create;
-    try
-      CodeActionParams.TextDocument.Uri := Uri;
+    CodeActionParams.TextDocument.Uri := Uri;
 
-      // yet todo
+    // yet todo
 
-      CodeActionParams.WriteToJson(JsonParams);
-    finally
-      CodeActionParams.Free;
-    end;
-
-    SendRequest('textDocument/codeAction', JsonParams);
+    CodeActionParams.WriteToJson(JsonParams);
   finally
-    JsonParams.Free;
+    CodeActionParams.Free;
   end;
+
+  SendRequest('textDocument/codeAction', JsonParams);
 end;
 
 procedure TLanguageServerHost.SendCodeLensRequest(const Uri: string);
@@ -631,22 +577,18 @@ var
   JsonParams: TdwsJSONObject;
 begin
   JsonParams := TdwsJSONObject.Create;
+  CodeLensParams := TCodeLensParams.Create;
   try
-    CodeLensParams := TCodeLensParams.Create;
-    try
-      CodeLensParams.TextDocument.Uri := Uri;
+    CodeLensParams.TextDocument.Uri := Uri;
 
-      // yet todo
+    // yet todo
 
-      CodeLensParams.WriteToJson(JsonParams);
-    finally
-      CodeLensParams.Free;
-    end;
-
-    SendRequest('textDocument/codeLens', JsonParams);
+    CodeLensParams.WriteToJson(JsonParams);
   finally
-    JsonParams.Free;
+    CodeLensParams.Free;
   end;
+
+  SendRequest('textDocument/codeLens', JsonParams);
 end;
 
 procedure TLanguageServerHost.SendDocumentLinkRequest(const Uri: string);
@@ -655,19 +597,15 @@ var
   JsonParams: TdwsJSONObject;
 begin
   JsonParams := TdwsJSONObject.Create;
+  DocumentLinkParams := TDocumentLinkParams.Create;
   try
-    DocumentLinkParams := TDocumentLinkParams.Create;
-    try
-      DocumentLinkParams.TextDocument.Uri := Uri;
-      DocumentLinkParams.WriteToJson(JsonParams);
-    finally
-      DocumentLinkParams.Free;
-    end;
-
-    SendRequest('textDocument/documentLink', JsonParams);
+    DocumentLinkParams.TextDocument.Uri := Uri;
+    DocumentLinkParams.WriteToJson(JsonParams);
   finally
-    JsonParams.Free;
+    DocumentLinkParams.Free;
   end;
+
+  SendRequest('textDocument/documentLink', JsonParams);
 end;
 
 procedure TLanguageServerHost.SendRenameRequest(const Uri: string; Line,
@@ -677,22 +615,18 @@ var
   JsonParams: TdwsJSONObject;
 begin
   JsonParams := TdwsJSONObject.Create;
+  RenameParams := TRenameParams.Create;
   try
-    RenameParams := TRenameParams.Create;
-    try
-      RenameParams.TextDocument.Uri := Uri;
-      RenameParams.Position.Line := Line;
-      RenameParams.Position.Character := Character;
-      RenameParams.NewName := NewName;
-      RenameParams.WriteToJson(JsonParams);
-    finally
-      RenameParams.Free;
-    end;
-
-    SendRequest('textDocument/rename', JsonParams);
+    RenameParams.TextDocument.Uri := Uri;
+    RenameParams.Position.Line := Line;
+    RenameParams.Position.Character := Character;
+    RenameParams.NewName := NewName;
+    RenameParams.WriteToJson(JsonParams);
   finally
-    JsonParams.Free;
+    RenameParams.Free;
   end;
+
+  SendRequest('textDocument/rename', JsonParams);
 end;
 
 procedure TLanguageServerHost.SendInitialized;

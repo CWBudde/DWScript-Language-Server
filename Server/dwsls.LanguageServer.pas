@@ -125,7 +125,7 @@ begin
   FClientCapabilities := TClientCapabilities.Create;
   FServerCapabilities := TServerCapabilities.Create;
 
-  FTextDocumentItemList := TdwsTextDocumentItemList.Create
+  FTextDocumentItemList := TdwsTextDocumentItemList.Create;
 end;
 
 destructor TDWScriptLanguageServer.Destroy;
@@ -367,7 +367,11 @@ var
   Result: TdwsJSONObject;
 begin
   TextDocumentPositionParams := TTextDocumentPositionParams.Create;
-  TextDocumentPositionParams.ReadFromJson(Params);
+  try
+    TextDocumentPositionParams.ReadFromJson(Params);
+  finally
+    TextDocumentPositionParams.Free;
+  end;
 
   Result := TdwsJSONObject.Create;
 
@@ -1282,11 +1286,11 @@ begin
   Capabilities.AddValue('codeActionProvider', true);
 
   // Code Lens options
-	CodeLensOptions := Capabilities.AddObject('codeLensProvider');
+  CodeLensOptions := Capabilities.AddObject('codeLensProvider');
   CodeLensOptions.AddValue('resolveProvider', true);
 
-	Capabilities.AddValue('documentFormattingProvider', true);
-	Capabilities.AddValue('documentRangeFormattingProvider', true);
+  Capabilities.AddValue('documentFormattingProvider', true);
+  Capabilities.AddValue('documentRangeFormattingProvider', true);
 
 {
   // Format document on type options
@@ -1295,12 +1299,12 @@ begin
   TriggerCharacters := CompletionOptions.AddArray('moreTriggerCharacter');
 }
 
-	Capabilities.AddValue('renameProvider', true);
+  Capabilities.AddValue('renameProvider', true);
 
-	DocumentLinkOptions := Capabilities.AddObject('documentLinkProvider');
+  DocumentLinkOptions := Capabilities.AddObject('documentLinkProvider');
   DocumentLinkOptions.AddValue('resolveProvider', true);
 
-	ExecuteCommandOptions := Capabilities.AddObject('executeCommandProvider');
+  ExecuteCommandOptions := Capabilities.AddObject('executeCommandProvider');
   Commands := ExecuteCommandOptions.AddArray('commands');
   Commands.Add('DwsTest');
 *)
@@ -1315,12 +1319,16 @@ var
   Response: TdwsJSONObject;
 begin
   Response := CreateJsonRpc;
-  Response.AddValue('id', FCurrentId);
-  Response.AddObject('error');
-  Error := Response.AddObject('error');
-  Error.AddValue('code', Integer(ErrorCode));
-  Error.AddValue('message', ErrorMessage);
-  WriteOutput(Response.ToString);
+  try
+    Response.AddValue('id', FCurrentId);
+    Response.AddObject('error');
+    Error := Response.AddObject('error');
+    Error.AddValue('code', Integer(ErrorCode));
+    Error.AddValue('message', ErrorMessage);
+    WriteOutput(Response.ToString);
+  finally
+    Response.Free;
+  end;
 end;
 
 procedure TDWScriptLanguageServer.SendResponse;
@@ -1328,8 +1336,12 @@ var
   Response: TdwsJSONObject;
 begin
   Response := CreateJsonRpc;
-  Response.AddValue('id', FCurrentId);
-  WriteOutput(Response.ToString);
+  try
+    Response.AddValue('id', FCurrentId);
+    WriteOutput(Response.ToString);
+  finally
+    Response.Free;
+  end;
 end;
 
 procedure TDWScriptLanguageServer.SendResponse(Result: string; Error: TdwsJSONObject = nil);
@@ -1337,13 +1349,17 @@ var
   Response: TdwsJSONObject;
 begin
   Response := CreateJsonRpc;
-  Response.AddValue('id', FCurrentId);
-  Response.AddValue('result', Result);
+  try
+    Response.AddValue('id', FCurrentId);
+    Response.AddValue('result', Result);
 
-  if Assigned(Error) then
-    Response.Add('error', Error);
+    if Assigned(Error) then
+      Response.Add('error', Error);
 
-  WriteOutput(Response.ToString);
+    WriteOutput(Response.ToString);
+  finally
+    Response.Free;
+  end;
 end;
 
 procedure TDWScriptLanguageServer.SendResponse(Result: Integer; Error: TdwsJSONObject = nil);
@@ -1351,13 +1367,17 @@ var
   Response: TdwsJSONObject;
 begin
   Response := CreateJsonRpc;
-  Response.AddValue('id', FCurrentId);
-  Response.AddValue('result', Result);
+  try
+    Response.AddValue('id', FCurrentId);
+    Response.AddValue('result', Result);
 
-  if Assigned(Error) then
-    Response.Add('error', Error);
+    if Assigned(Error) then
+      Response.Add('error', Error);
 
-  WriteOutput(Response.ToString);
+    WriteOutput(Response.ToString);
+  finally
+    Response.Free;
+  end;
 end;
 
 procedure TDWScriptLanguageServer.SendResponse(Result: Boolean; Error: TdwsJSONObject = nil);
@@ -1365,13 +1385,17 @@ var
   Response: TdwsJSONObject;
 begin
   Response := CreateJsonRpc;
-  Response.AddValue('id', FCurrentId);
-  Response.AddValue('result', Result);
+  try
+    Response.AddValue('id', FCurrentId);
+    Response.AddValue('result', Result);
 
-  if Assigned(Error) then
-    Response.Add('error', Error);
+    if Assigned(Error) then
+      Response.Add('error', Error);
 
-  WriteOutput(Response.ToString);
+    WriteOutput(Response.ToString);
+  finally
+    Response.Free;
+  end;
 end;
 
 procedure TDWScriptLanguageServer.SendNotification(Method: string;
@@ -1380,9 +1404,13 @@ var
   Response: TdwsJSONObject;
 begin
   Response := CreateJsonRpc(Method);
-  if Assigned(Params) then
-    Response.Add('params', Params);
-  WriteOutput(Response.ToString);
+  try
+    if Assigned(Params) then
+      Response.Add('params', Params);
+    WriteOutput(Response.ToString);
+  finally
+    Response.Free;
+  end;
 end;
 
 procedure TDWScriptLanguageServer.SendRequest(Method: string;
@@ -1391,9 +1419,13 @@ var
   Response: TdwsJSONObject;
 begin
   Response := CreateJsonRpc(Method);
-  if Assigned(Params) then
-    Response.Add('params', Params);
-  WriteOutput(Response.ToString);
+  try
+    if Assigned(Params) then
+      Response.Add('params', Params);
+    WriteOutput(Response.ToString);
+  finally
+    Response.Free;
+  end;
 end;
 
 procedure TDWScriptLanguageServer.SendResponse(Result: TdwsJSONValue;
@@ -1402,11 +1434,15 @@ var
   Response: TdwsJSONObject;
 begin
   Response := CreateJsonRpc;
-  Response.AddValue('id', FCurrentId);
-  Response.Add('result', Result);
-  if Assigned(Error) then
-    Response.Add('error', Error);
-  WriteOutput(Response.ToString);
+  try
+    Response.AddValue('id', FCurrentId);
+    Response.Add('result', Result);
+    if Assigned(Error) then
+      Response.Add('error', Error);
+    WriteOutput(Response.ToString);
+  finally
+    Response.Free;
+  end;
 end;
 
 procedure TDWScriptLanguageServer.WriteOutput(const Text: string);
