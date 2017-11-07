@@ -40,6 +40,16 @@ type
 	  ecRequestCancelled = -32800
   );
 
+  TDynamicRegistration = class(TJsonClass)
+  private
+    FDynamicRegistration: Boolean;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property DynamicRegistration: Boolean read FDynamicRegistration write FDynamicRegistration;
+  end;
+
   TPosition = class(TJsonClass)
   private
     FLine: Integer;
@@ -250,6 +260,19 @@ implementation
 
 uses
   dwsWebUtils;
+
+{ TDynamicRegistration }
+
+procedure TDynamicRegistration.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FDynamicRegistration := Value['dynamicRegistration'].AsBoolean;
+end;
+
+procedure TDynamicRegistration.WriteToJson(const Value: TdwsJSONObject);
+begin
+  Value.AddValue('dynamicRegistration', FDynamicRegistration);
+end;
+
 
 { TPosition }
 

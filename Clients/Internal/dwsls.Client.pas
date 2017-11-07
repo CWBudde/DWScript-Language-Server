@@ -30,6 +30,7 @@ type
     procedure SendInitialized;
 
     procedure SendWorkspaceSymbol(Query: string);
+    procedure SendDidChangeConfiguration(Settings: TdwsJSONObject);
 
     procedure SendDidOpenNotification(const Uri, Text: string;
       Version: Integer = 0; LanguageID: string = 'dwscript');
@@ -65,6 +66,7 @@ type
       NewName: string);
 
     property LastResponse: string read FLastResponse;
+    property DiagnosticMessages: TDiagnostics read FDiagnosticMessages;
     property LanguageServer: TDWScriptLanguageServer read FLanguageServer;
   end;
 
@@ -271,6 +273,16 @@ begin
   end;
 
   SendNotification('textDocument/didOpen', JsonParams);
+end;
+
+procedure TLanguageServerHost.SendDidChangeConfiguration(
+  Settings: TdwsJSONObject);
+var
+  JsonParams: TdwsJSONObject;
+begin
+  JsonParams := TdwsJSONObject.Create;
+  JsonParams.Add('settings', Settings);
+  SendNotification('workspace/didChangeConfiguration', JsonParams);
 end;
 
 procedure TLanguageServerHost.SendDidChangeNotification(const Uri, Text: string;

@@ -816,10 +816,17 @@ begin
 end;
 
 procedure TTestLanguageServer.BasicInitialization;
+var
+  JsonObject: TdwsJSONObject;
+  LanguageServerOptions: TdwsJSONObject;
 begin
   FLanguageServerHost.SendRequest('initialize', '{"processId":0,"rootPath":"c:\\","rootUri":"file:///c%3A/","capabilities":{"workspace":{"didChangeConfiguration":{"dynamicRegistration":true}}},"trace":"verbose"}}');
   FLanguageServerHost.SendInitialized;
-  FLanguageServerHost.SendNotification('workspace/didChangeConfiguration', '{"settings":{"dwsls":{"path":"dwsls","trace":{"server":"verbose"}}}}');
+
+  JsonObject := TdwsJSONObject.Create;
+  LanguageServerOptions := JsonObject.AddObject('dwsls');
+  LanguageServerOptions.AddValue('path', 'dwsls');
+  FLanguageServerHost.SendDidChangeConfiguration(JsonObject);
 end;
 
 procedure TTestLanguageServer.TestBasicStartUpSequence;
@@ -848,6 +855,9 @@ begin
   BasicInitialization;
   FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
   FLanguageServerHost.SendHoverRequest(CFile, 1, 2);
+  CheckEquals(2, FLanguageServerHost.DiagnosticMessages.Count);
+  CheckEquals('Unexpected statement', FLanguageServerHost.DiagnosticMessages[0].Message);
+  CheckEquals('Unknown name "error"', FLanguageServerHost.DiagnosticMessages[1].Message);
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
