@@ -190,17 +190,7 @@ var
 begin
   SourceCode := '';
 
-  TextDocumentItem := FTextDocumentItemList[Uri];
-
-  if Assigned(TextDocumentItem) then
-    SourceCode := TextDocumentItem.Text
-  else
-    if StrBeginsWith(Uri, 'file:///') then
-    begin
-      Delete(Uri, 1, 8);
-      SourceCode := LoadTextFromFile(Uri);
-    end;
-
+  SourceCode := GetSourceCodeForUri(Uri);
   if SourceCode <> '' then
     Result := FDelphiWebScript.Compile(SourceCode);
 
@@ -520,7 +510,11 @@ var
   Result: TdwsJSONObject;
 begin
   DocumentFormattingParams := TDocumentFormattingParams.Create;
-  DocumentFormattingParams.ReadFromJson(Params);
+  try
+    DocumentFormattingParams.ReadFromJson(Params);
+  finally
+    DocumentFormattingParams.Free;
+  end;
 
   Result := TdwsJSONObject.Create;
 
@@ -738,7 +732,11 @@ var
   Result: TdwsJSONObject;
 begin
   DocumentRangeFormattingParams := TDocumentRangeFormattingParams.Create;
-  DocumentRangeFormattingParams.ReadFromJson(Params);
+  try
+    DocumentRangeFormattingParams.ReadFromJson(Params);
+  finally
+    DocumentRangeFormattingParams.Free;
+  end;
 
   Result := TdwsJSONObject.Create;
 

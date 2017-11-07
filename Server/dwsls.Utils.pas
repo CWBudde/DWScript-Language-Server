@@ -25,6 +25,7 @@ type
   private
     function GetUriItems(const Uri: string): TdwsTextDocumentItem; inline;
   public
+    destructor Destroy; override;
     function RemoveUri(const Uri: string): Boolean;
 
     property Items[const Uri: string]: TdwsTextDocumentItem read GetUriItems; default;
@@ -48,6 +49,17 @@ end;
 
 
 { TdwsTextDocumentItemList }
+
+destructor TdwsTextDocumentItemList.Destroy;
+begin
+  while Count > 0 do
+  begin
+    TObject(GetItems(0)).Free;
+    Extract(0);
+  end;
+
+  inherited;
+end;
 
 function TdwsTextDocumentItemList.GetUriItems(
   const Uri: string): TdwsTextDocumentItem;

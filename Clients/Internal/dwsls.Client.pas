@@ -173,8 +173,11 @@ begin
   PublishDiagnosticsParams := TPublishDiagnosticsParams.Create;
   try
     PublishDiagnosticsParams.ReadFromJson(Params);
-    for Index := 0 to PublishDiagnosticsParams.Diagnostics.Count - 1 do
+    while PublishDiagnosticsParams.Diagnostics.Count > 0 do
+    begin
       FDiagnosticMessages.Add(PublishDiagnosticsParams.Diagnostics[Index]);
+      PublishDiagnosticsParams.Diagnostics.Extract(Index);
+    end;
   finally
     PublishDiagnosticsParams.Free;
   end;
