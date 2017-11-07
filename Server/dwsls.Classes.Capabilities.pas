@@ -9,9 +9,9 @@ type
   TWorkspaceCapabilities = class(TJsonClass)
   private
     FApplyEdit: Boolean;
-	  FWorkspaceEdit: Boolean;
-	  FDidChangeConfiguration: TDynamicRegistration;
-	  FDidChangeWatchedFiles: TDynamicRegistration;
+    FWorkspaceEdit: Boolean;
+    FDidChangeConfiguration: TDynamicRegistration;
+    FDidChangeWatchedFiles: TDynamicRegistration;
     FSymbol: TDynamicRegistration;
     FExecuteCommand: TDynamicRegistration;
   public
@@ -21,36 +21,36 @@ type
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
 
-    property ApplyEdit: Boolean read FApplyEdit;
-	  property WorkspaceEditDocumentChanges: Boolean read FWorkspaceEdit write FWorkspaceEdit;
-	  property DidChangeConfigurationDynamicRegistration: TDynamicRegistration read FDidChangeConfiguration;
-	  property DidChangeWatchedFilesDynamicRegistration: TDynamicRegistration read FDidChangeWatchedFiles;
-    property SymbolDynamicRegistration: TDynamicRegistration read FSymbol;
-    property ExecuteCommandDynamicRegistration: TDynamicRegistration read FExecuteCommand;
+    property ApplyEdit: Boolean read FApplyEdit write FApplyEdit;
+    property WorkspaceEditDocumentChanges: Boolean read FWorkspaceEdit write FWorkspaceEdit;
+    property DidChangeConfiguration: TDynamicRegistration read FDidChangeConfiguration;
+    property DidChangeWatchedFiles: TDynamicRegistration read FDidChangeWatchedFiles;
+    property Symbol: TDynamicRegistration read FSymbol;
+    property ExecuteCommand: TDynamicRegistration read FExecuteCommand;
   end;
 
   TSynchronizationCapabilities = class(TDynamicRegistration)
   private
-		FWillSave: Boolean;
-		FWillSaveWaitUntil: Boolean;
-		FDidSave: Boolean;
+    FWillSave: Boolean;
+    FWillSaveWaitUntil: Boolean;
+    FDidSave: Boolean;
   public
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
 
-		property WillSave: Boolean read FWillSave write FWillSave;
-		property WillSaveWaitUntil: Boolean read FWillSaveWaitUntil write FWillSaveWaitUntil;
-		property DidSave: Boolean read FDidSave;
+    property WillSave: Boolean read FWillSave write FWillSave;
+    property WillSaveWaitUntil: Boolean read FWillSaveWaitUntil write FWillSaveWaitUntil;
+    property DidSave: Boolean read FDidSave write FDidSave;
   end;
 
   TCompletionCapabilities = class(TDynamicRegistration)
   private
-		FSnippetSupport: Boolean;
+    FSnippetSupport: Boolean;
   public
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
 
-		property SnippetSupport: Boolean read FSnippetSupport;
+    property SnippetSupport: Boolean read FSnippetSupport write FSnippetSupport;
   end;
 
   TTextDocumentCapabilities = class(TJsonClass)
@@ -79,7 +79,7 @@ type
 
     property Synchronization: TSynchronizationCapabilities read FSynchronization;
     property Completion: TCompletionCapabilities read FCompletion;
-    property Hover: TDynamicRegistration read FHover;
+    property Hover: TDynamicRegistration read FHover write FHover;
     property SignatureHelp: TDynamicRegistration read FSignatureHelp;
     property References: TDynamicRegistration read FReferences;
     property DocumentHighlight: TDynamicRegistration read FDocumentHighlight;
@@ -109,42 +109,151 @@ type
     property TextDocumentCapabilities: TTextDocumentCapabilities read FTextDocumentCapabilities;
   end;
 
-  TServerCapabilities = class(TJsonClass)
+  TSaveOptions = class(TJsonClass)
   private
-//    FTextDocumentSync:
-    FHoverProvider: Boolean;
-//    completionProvider?: CompletionOptions;
-//    signatureHelpProvider?: SignatureHelpOptions;
-    FDefinitionProvider: Boolean;
-    FReferencesProvider: Boolean;
-    FDocumentHighlightProvider: Boolean;
-    FDocumentSymbolProvider: Boolean;
-    FWorkspaceSymbolProvider: Boolean;
-    FCodeActionProvider: Boolean;
-//    FCodeLensProvider?: CodeLensOptions;
-    FDocumentFormattingProvider: Boolean;
-    FDocumentRangeFormattingProvider: Boolean;
-//    FDocumentOnTypeFormattingProvider?: DocumentOnTypeFormattingOptions;
-    FRenameProvider: Boolean;
-//    FDocumentLinkProvider: DocumentLinkOptions;
-//    FExecuteCommandProvider: ExecuteCommandOptions;
-//    FExperimental: any;
+    FIncludeText: Boolean;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property IncludeText: Boolean read FIncludeText write FIncludeText;
+  end;
+
+  TTextDocumentSyncOptions = class(TJsonClass)
+  private
+    FOpenClose: Boolean;
+    FSave: TSaveOptions;
+    FChange: TTextDocumentSyncKind;
+    FWillSave: Boolean;
+    FWillSaveWaitUntil: Boolean;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property OpenClose: Boolean read FOpenClose write FOpenClose;
+    property Change: TTextDocumentSyncKind read FChange write FChange;
+    property WillSave: Boolean read FWillSave write FWillSave;
+    property WillSaveWaitUntil: Boolean read FWillSaveWaitUntil write FWillSaveWaitUntil;
+    property Save: TSaveOptions read FSave;
+  end;
+
+  TCompletionOptions = class(TJsonClass)
+  private
+    FResolveProvider: Boolean;
+    FTriggerChars: TStringList;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property ResolveProvider: Boolean read FResolveProvider write FResolveProvider;
+  end;
+
+  TSignatureHelpOptions = class(TJsonClass)
+  private
+    FTriggerChars: TStringList;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+  end;
+
+  TCodeLensOptions = class(TJsonClass)
+  private
+    FResolveProvider: Boolean;
   public
     constructor Create;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
 
+    property ResolveProvider: Boolean read FResolveProvider write FResolveProvider;
+  end;
+
+  TDocumentOnTypeFormattingOptions = class(TJsonClass)
+  private
+    FFirstTriggerCharacter: string;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+  end;
+
+  TDocumentLinkOptions = class(TJsonClass)
+  private
+    FResolveProvider: Boolean;
+  public
+    constructor Create;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property ResolveProvider: Boolean read FResolveProvider write FResolveProvider;
+  end;
+
+  TExecuteCommandOptions = class(TJsonClass)
+  private
+    FCommands: TStringList;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Commands: TStringList read FCommands;
+  end;
+
+  TServerCapabilities = class(TJsonClass)
+  private
+    FTextDocumentSyncOptions: TTextDocumentSyncOptions;
+    FHoverProvider: Boolean;
+    FCompletionProvider: TCompletionOptions;
+    FSignatureHelpProvider: TSignatureHelpOptions;
+    FDefinitionProvider: Boolean;
+    FReferencesProvider: Boolean;
+    FDocumentHighlightProvider: Boolean;
+    FDocumentSymbolProvider: Boolean;
+    FWorkspaceSymbolProvider: Boolean;
+    FCodeActionProvider: Boolean;
+    FCodeLensProvider: TCodeLensOptions;
+    FDocumentFormattingProvider: Boolean;
+    FDocumentRangeFormattingProvider: Boolean;
+    FDocumentOnTypeFormattingProvider: TDocumentOnTypeFormattingOptions;
+    FRenameProvider: Boolean;
+    FDocumentLinkProvider: TDocumentLinkOptions;
+    FExecuteCommandProvider: TExecuteCommandOptions;
+//    FExperimental: TdwsJsonObject;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property TextDocumentSyncOptions: TTextDocumentSyncOptions read FTextDocumentSyncOptions;
     property HoverProvider: Boolean read FHoverProvider write FHoverProvider;
+    property CompletionProvider: TCompletionOptions read FCompletionProvider;
+    property SignatureHelpProvider: TSignatureHelpOptions read FSignatureHelpProvider;
     property DefinitionProvider: Boolean read FDefinitionProvider write FDefinitionProvider;
     property ReferencesProvider: Boolean read FReferencesProvider write FReferencesProvider;
     property DocumentHighlightProvider: Boolean read FDocumentHighlightProvider write FDocumentHighlightProvider;
     property DocumentSymbolProvider: Boolean read FDocumentSymbolProvider write FDocumentSymbolProvider;
     property WorkspaceSymbolProvider: Boolean read FWorkspaceSymbolProvider write FWorkspaceSymbolProvider;
     property CodeActionProvider: Boolean read FCodeActionProvider write FCodeActionProvider;
+    property CodeLensProvider: TCodeLensOptions read FCodeLensProvider;
     property DocumentFormattingProvider: Boolean read FDocumentFormattingProvider write FDocumentFormattingProvider;
     property DocumentRangeFormattingProvider: Boolean read FDocumentRangeFormattingProvider write FDocumentRangeFormattingProvider;
+    property DocumentOnTypeFormattingProvider: TDocumentOnTypeFormattingOptions read FDocumentOnTypeFormattingProvider;
     property RenameProvider: Boolean read FRenameProvider write FRenameProvider;
+    property DocumentLinkProvider: TDocumentLinkOptions read FDocumentLinkProvider;
+    property ExecuteCommandProvider: TExecuteCommandOptions read FExecuteCommandProvider;
   end;
 
 implementation
@@ -353,11 +462,243 @@ begin
 end;
 
 
+{ TSaveOptions }
+
+procedure TSaveOptions.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FIncludeText := Value['resolveProvider'].AsBoolean;
+end;
+
+procedure TSaveOptions.WriteToJson(const Value: TdwsJSONObject);
+begin
+  Value.AddValue('resolveProvider', FIncludeText)
+end;
+
+
+{ TTextDocumentSyncOptions }
+
+constructor TTextDocumentSyncOptions.Create;
+begin
+  FSave := TSaveOptions.Create;
+  FSave.IncludeText := False;
+  FOpenClose := True;
+  FChange := dsFull;
+  FWillSave := False;
+  FWillSaveWaitUntil := False;
+end;
+
+destructor TTextDocumentSyncOptions.Destroy;
+begin
+  FSave.Free;
+
+  inherited;
+end;
+
+procedure TTextDocumentSyncOptions.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FSave.ReadFromJson(Value['save']);
+  FOpenClose := Value['openClose'].AsBoolean;
+  FWillSave := Value['willSave'].AsBoolean;
+  FWillSaveWaitUntil := Value['willSaveWaitUntil'].AsBoolean;
+  FChange := TTextDocumentSyncKind(Value['change'].AsInteger);
+end;
+
+procedure TTextDocumentSyncOptions.WriteToJson(const Value: TdwsJSONObject);
+begin
+  FSave.WriteToJson(Value.AddObject('save'));
+  Value.AddValue('openClose', FOpenClose);
+  Value.AddValue('willSave', FWillSave);
+  Value.AddValue('willSaveWaitUntil', FWillSaveWaitUntil);
+  Value.AddValue('change', Integer(FChange));
+end;
+
+
+{ TCompletionOptions }
+
+constructor TCompletionOptions.Create;
+begin
+  FResolveProvider := True;
+  FTriggerChars := TStringList.Create;
+  FTriggerChars.Add('.');
+end;
+
+destructor TCompletionOptions.Destroy;
+begin
+  FTriggerChars.Free;
+  inherited;
+end;
+
+procedure TCompletionOptions.ReadFromJson(const Value: TdwsJSONValue);
+var
+  TriggerChars: TdwsJSONArray;
+  Index: Integer;
+begin
+  FResolveProvider := Value['resolveProvider'].AsBoolean;
+  if Assigned(Value['triggerCharacters']) then
+  begin
+    TriggerChars := TdwsJSONArray(Value['triggerCharacters']);
+    FTriggerChars.Clear;
+    for Index := 0 to TriggerChars.ElementCount - 1 do
+      FTriggerChars.Add(TriggerChars.Elements[Index].AsString);
+  end;
+end;
+
+procedure TCompletionOptions.WriteToJson(const Value: TdwsJSONObject);
+var
+  TriggerChars: TdwsJSONArray;
+  Index: Integer;
+begin
+  Value.AddValue('resolveProvider', FResolveProvider);
+  TriggerChars := TdwsJSONArray(Value.AddArray('triggerCharacters'));
+  for Index := 0 to FTriggerChars.Count - 1 do
+    TriggerChars.Add(FTriggerChars[Index]);
+end;
+
+
+{ TSignatureHelpOptions }
+
+constructor TSignatureHelpOptions.Create;
+begin
+  FTriggerChars := TStringList.Create;
+  FTriggerChars.Add('(');
+  FTriggerChars.Add('.');
+end;
+
+destructor TSignatureHelpOptions.Destroy;
+begin
+  FTriggerChars.Free;
+
+  inherited;
+end;
+
+procedure TSignatureHelpOptions.ReadFromJson(const Value: TdwsJSONValue);
+var
+  TriggerChars: TdwsJSONArray;
+  Index: Integer;
+begin
+  if Assigned(Value['triggerCharacters']) then
+  begin
+    TriggerChars := TdwsJSONArray(Value['triggerCharacters']);
+    FTriggerChars.Clear;
+    for Index := 0 to TriggerChars.ElementCount - 1 do
+      FTriggerChars.Add(TriggerChars.Elements[Index].AsString);
+  end;
+end;
+
+procedure TSignatureHelpOptions.WriteToJson(const Value: TdwsJSONObject);
+var
+  TriggerChars: TdwsJSONArray;
+  Index: Integer;
+begin
+  TriggerChars := TdwsJSONArray(Value.AddArray('triggerCharacters'));
+  for Index := 0 to FTriggerChars.Count - 1 do
+    TriggerChars.Add(FTriggerChars[Index]);
+end;
+
+
+{ TCodeLensOptions }
+
+constructor TCodeLensOptions.Create;
+begin
+  FResolveProvider := True;
+end;
+
+procedure TCodeLensOptions.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FResolveProvider := Value['resolveProvider'].AsBoolean;
+end;
+
+procedure TCodeLensOptions.WriteToJson(const Value: TdwsJSONObject);
+begin
+  Value.AddValue('resolveProvider', FResolveProvider);
+end;
+
+
+{ TDocumentOnTypeFormattingOptions }
+
+procedure TDocumentOnTypeFormattingOptions.ReadFromJson(
+  const Value: TdwsJSONValue);
+begin
+  FFirstTriggerCharacter := Value['firstTriggerCharacter'].AsString;
+end;
+
+procedure TDocumentOnTypeFormattingOptions.WriteToJson(
+  const Value: TdwsJSONObject);
+begin
+  Value.AddValue('firstTriggerCharacter', FFirstTriggerCharacter);
+end;
+
+
+{ TDocumentLinkOptions }
+
+constructor TDocumentLinkOptions.Create;
+begin
+  FResolveProvider := True;
+end;
+
+procedure TDocumentLinkOptions.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FResolveProvider := Value['resolveProvider'].AsBoolean;
+end;
+
+procedure TDocumentLinkOptions.WriteToJson(const Value: TdwsJSONObject);
+begin
+  Value.AddValue('resolveProvider', FResolveProvider);
+end;
+
+
+{ TExecuteCommandOptions }
+
+constructor TExecuteCommandOptions.Create;
+begin
+  FCommands := TStringList.Create;
+  FCommands.Add('dwsSyntaxCheck');
+  FCommands.Add('dwsCompile');
+  FCommands.Add('dwsBuild');
+end;
+
+destructor TExecuteCommandOptions.Destroy;
+begin
+  FCommands.Free;
+  inherited;
+end;
+
+procedure TExecuteCommandOptions.ReadFromJson(const Value: TdwsJSONValue);
+var
+  CommandArray: TdwsJSONArray;
+  Index: Integer;
+begin
+  CommandArray := TdwsJSONArray(Value['commands']);
+  FCommands.Clear;
+  for Index := 0 to CommandArray.ElementCount - 1 do
+    FCommands.Add(CommandArray[Index].AsString);
+end;
+
+procedure TExecuteCommandOptions.WriteToJson(const Value: TdwsJSONObject);
+var
+  CommandArray: TdwsJSONArray;
+  Index: Integer;
+begin
+  CommandArray := Value.AddArray('commands');
+  for Index := 0 to CommandArray.ElementCount - 1 do
+    CommandArray.Add(FCommands[Index]);
+end;
+
+
 { TServerCapabilities }
 
 constructor TServerCapabilities.Create;
 begin
   inherited;
+
+  FTextDocumentSyncOptions := TTextDocumentSyncOptions.Create;
+  FCompletionProvider := TCompletionOptions.Create;
+  FSignatureHelpProvider := TSignatureHelpOptions.Create;
+  FCodeLensProvider := TCodeLensOptions.Create;
+  FDocumentOnTypeFormattingProvider := TDocumentOnTypeFormattingOptions.Create;
+  FDocumentLinkProvider := TDocumentLinkOptions.Create;
+  FExecuteCommandProvider := TExecuteCommandOptions.Create;
+
   HoverProvider := True;
   DefinitionProvider := True;
   ReferencesProvider := True;
@@ -371,11 +712,27 @@ begin
 end;
 
 
+destructor TServerCapabilities.Destroy;
+begin
+  FTextDocumentSyncOptions.Free;
+  FCompletionProvider.Free;
+  FSignatureHelpProvider.Free;
+  FCodeLensProvider.Free;
+  FDocumentOnTypeFormattingProvider.Free;
+  FDocumentLinkProvider.Free;
+  FExecuteCommandProvider.Free;
+
+  inherited;
+end;
+
 procedure TServerCapabilities.ReadFromJson(const Value: TdwsJSONValue);
 begin
   inherited;
 
+  FTextDocumentSyncOptions.ReadFromJson(Value['textDocumentSync']);
   FHoverProvider := Value['hoverProvider'].AsBoolean;
+  FCompletionProvider.ReadFromJson(Value['completionProvider']);
+  FSignatureHelpProvider.ReadFromJson(Value['signatureProvider']);
   FDefinitionProvider := Value['definitionProvider'].AsBoolean;
   FReferencesProvider := Value['referencesProvider'].AsBoolean;
   FDocumentHighlightProvider := Value['documentHighlightProvider'].AsBoolean;
@@ -384,14 +741,20 @@ begin
   FCodeActionProvider := Value['codeActionProvider'].AsBoolean;
   FDocumentFormattingProvider := Value['documentFormattingProvider'].AsBoolean;
   FDocumentRangeFormattingProvider := Value['documentRangeFormattingProvider'].AsBoolean;
+  FDocumentOnTypeFormattingProvider.ReadFromJson(Value['documentOnTypeFormattingProvider']);
   FRenameProvider := Value['renameProvider'].AsBoolean;
+  FDocumentLinkProvider.ReadFromJson(Value['documentLinkProvider']);
+  FExecuteCommandProvider.ReadFromJson(Value['executeCommandProvider']);
 end;
 
 procedure TServerCapabilities.WriteToJson(const Value: TdwsJSONObject);
 begin
   inherited;
 
+  FTextDocumentSyncOptions.WriteToJson(Value.AddObject('textDocumentSync'));
   Value.AddValue('hoverProvider', FHoverProvider);
+  FCompletionProvider.WriteToJson(Value.AddObject('completionProvider'));
+  FSignatureHelpProvider.WriteToJson(Value.AddObject('signatureProvider'));
   Value.AddValue('definitionProvider', FDefinitionProvider);
   Value.AddValue('referencesProvider', FReferencesProvider);
   Value.AddValue('documentHighlightProvider', FDocumentHighlightProvider);
@@ -400,7 +763,10 @@ begin
   Value.AddValue('codeActionProvider', FCodeActionProvider);
   Value.AddValue('documentFormattingProvider', FDocumentFormattingProvider);
   Value.AddValue('documentRangeFormattingProvider', FDocumentRangeFormattingProvider);
+  FDocumentOnTypeFormattingProvider.WriteToJson(Value.AddObject('documentOnTypeFormattingProvider'));
   Value.AddValue('renameProvider', FRenameProvider);
+  FDocumentLinkProvider.WriteToJson(Value.AddObject('documentLinkProvider'));
+  FExecuteCommandProvider.WriteToJson(Value.AddObject('executeCommandProvider'));
 end;
 
 end.

@@ -269,6 +269,7 @@ type
   TDocumentSymbolInformation = class(TJsonClass)
   type
     TSymbolKind = (
+      skUnknown = 0,
       skFile = 1,
       skModule = 2,
       skNamespace = 3,

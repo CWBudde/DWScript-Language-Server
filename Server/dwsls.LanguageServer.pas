@@ -37,7 +37,6 @@ type
 
     function GetSourceCodeForUri(Uri: string): string;
     function CreateJsonRpc(Method: string = ''): TdwsJSONObject;
-    procedure EvaluateClientCapabilities(Params: TdwsJSONObject);
     procedure LogMessage(Text: string; MessageType: TMessageType = msLog);
     procedure RegisterCapability(Method, Id: string);
     procedure SendInitializeResponse;
@@ -109,7 +108,7 @@ implementation
 
 uses
   SysUtils, dwsStrings, dwsSymbols, dwsPascalTokenizer, dwsTokenizer,
-  dwsScriptSource;
+  dwsScriptSource, dwsXXHash;
 
 { TDWScriptLanguageServer }
 
@@ -181,7 +180,6 @@ end;
 
 function TDWScriptLanguageServer.Compile(Uri: string): IdwsProgram;
 var
-  TextDocumentItem: TdwsTextDocumentItem;
   PublishDiagnosticsParams: TPublishDiagnosticsParams;
   Params: TdwsJSONObject;
   SourceCode: string;
@@ -271,11 +269,6 @@ begin
   SendNotification('client/unregisterCapability', Params);
 end;
 
-procedure TDWScriptLanguageServer.EvaluateClientCapabilities(Params: TdwsJSONObject);
-begin
-  FClientCapabilities.ReadFromJson(Params);
-end;
-
 function TDWScriptLanguageServer.GetSourceCodeForUri(Uri: string): string;
 var
   TextDocumentItem: TdwsTextDocumentItem;
@@ -294,7 +287,7 @@ end;
 
 procedure TDWScriptLanguageServer.HandleInitialize(Params: TdwsJSONObject);
 begin
-  EvaluateClientCapabilities(Params);
+  FClientCapabilities.ReadFromJson(Params);
   SendInitializeResponse;
 end;
 
@@ -832,6 +825,7 @@ end;
 
 function SymbolToSymbolKind(Symbol: TSymbol): TDocumentSymbolInformation.TSymbolKind;
 begin
+  Result := skUnknown;
   if Symbol is TFuncSymbol then
   begin
     case TFuncSymbol(Symbol).Kind of
@@ -1239,73 +1233,9 @@ end;
 procedure TDWScriptLanguageServer.SendInitializeResponse;
 var
   InitializeResult: TdwsJSONObject;
-  Capabilities: TdwsJSONObject;
-  TextDocumentSyncOptions: TdwsJSONObject;
-  SaveOptions: TdwsJSONObject;
-  CompletionOptions: TdwsJSONObject;
-  TriggerCharacters: TdwsJSONArray;
-  SignatureHelpOptions: TdwsJSONObject;
-  CodeLensOptions: TdwsJSONObject;
-  DocumentOnTypeFormattingOptions: TdwsJSONObject;
-  DocumentLinkOptions: TdwsJSONObject;
-  ExecuteCommandOptions: TdwsJSONObject;
-  Commands: TdwsJSONArray;
 begin
   InitializeResult := TdwsJSONObject.Create;
-  Capabilities := InitializeResult.AddObject('capabilities');
-
-  // text document sync options
-  TextDocumentSyncOptions := Capabilities.AddObject('textDocumentSync');
-  TextDocumentSyncOptions.AddValue('openClose', true);
-  TextDocumentSyncOptions.AddValue('change', Integer(dsFull));
-  TextDocumentSyncOptions.AddValue('willSave', false); // not needed so far
-  TextDocumentSyncOptions.AddValue('willSaveWaitUntil', false); // not needed so far
-  SaveOptions := TextDocumentSyncOptions.AddObject('save');
-  SaveOptions.AddValue('includeText', false); // not needed so far
-
-  Capabilities.AddValue('definitionProvider', true);
-  Capabilities.AddValue('hoverProvider', true);
-  Capabilities.AddValue('referencesProvider', true);
-  Capabilities.AddValue('documentSymbolProvider', true);
-  Capabilities.AddValue('documentHighlightProvider', true);
-
-(*
-  // completion options
-  CompletionOptions := Capabilities.AddObject('completionProvider');
-  CompletionOptions.AddValue('resolveProvider', true);
-  TriggerCharacters := CompletionOptions.AddArray('triggerCharacters');
-  TriggerCharacters.Add('.');
-
-  // signature help options
-  SignatureHelpOptions := Capabilities.AddObject('signatureHelpProvider');
-  TriggerCharacters := CompletionOptions.AddArray('triggerCharacters');
-
-  Capabilities.AddValue('workspaceSymbolProvider', true);
-  Capabilities.AddValue('codeActionProvider', true);
-
-  // Code Lens options
-  CodeLensOptions := Capabilities.AddObject('codeLensProvider');
-  CodeLensOptions.AddValue('resolveProvider', true);
-
-  Capabilities.AddValue('documentFormattingProvider', true);
-  Capabilities.AddValue('documentRangeFormattingProvider', true);
-
-{
-  // Format document on type options
-  DocumentOnTypeFormattingOptions := Capabilities.AddObject('documentOnTypeFormattingProvider');
-  DocumentOnTypeFormattingOptions.AddValue('firstTriggerCharacter', '');
-  TriggerCharacters := CompletionOptions.AddArray('moreTriggerCharacter');
-}
-
-  Capabilities.AddValue('renameProvider', true);
-
-  DocumentLinkOptions := Capabilities.AddObject('documentLinkProvider');
-  DocumentLinkOptions.AddValue('resolveProvider', true);
-
-  ExecuteCommandOptions := Capabilities.AddObject('executeCommandProvider');
-  Commands := ExecuteCommandOptions.AddArray('commands');
-  Commands.Add('DwsTest');
-*)
+  FServerCapabilities.WriteToJson(InitializeResult.AddObject('capabilities'));
 
   SendResponse(InitializeResult);
 end;

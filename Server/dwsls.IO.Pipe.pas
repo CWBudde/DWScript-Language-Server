@@ -20,9 +20,9 @@ type
     {$IFDEF DEBUGLOG}
     FLog: TStringList;
     procedure Log(const Text: string); inline;
+    procedure OnLogHandler(const Text: string);
     {$ENDIF}
     procedure OnOutputHandler(const Text: string);
-    procedure OnLogHandler(const Text: string);
   public
     constructor Create;
     destructor Destroy; override;
@@ -70,12 +70,12 @@ begin
   inherited;
 end;
 
+{$IFDEF DEBUGLOG}
 procedure TDWScriptLanguageServerLoop.OnLogHandler(const Text: string);
 begin
-{$IFDEF DEBUGLOG}
   Log(Text);
-{$ENDIF}
 end;
+{$ENDIF}
 
 {$IFDEF DEBUGLOG}
 procedure TDWScriptLanguageServerLoop.Log(const Text: string);

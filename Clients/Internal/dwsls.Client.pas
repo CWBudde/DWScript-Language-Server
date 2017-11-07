@@ -13,6 +13,7 @@ type
     FRequestIndex: Integer;
     FLastResponse: string;
     FLanguageServer: TDWScriptLanguageServer;
+    FClientCapabilities: TClientCapabilities;
     FDiagnosticMessages: TDiagnostics;
     function CreateJsonRpc(Method: string = ''): TdwsJSONObject;
     procedure HandleResponse(JsonRpc: TdwsJSONObject);
@@ -27,6 +28,11 @@ type
     procedure SendNotification(const Method: string; Params: TdwsJSONObject = nil); overload;
     procedure SendNotification(const Method, Params: string); overload;
 
+    procedure SendInitialize(const RootPath: string); overload;
+    procedure SendInitialize(const RootPath: string; Trace: string); overload;
+    procedure SendInitialize(const RootPath: string; ProcessID: Integer); overload;
+    procedure SendInitialize(const RootPath, RootUri: string; ProcessID: Integer); overload;
+    procedure SendInitialize(const RootPath, RootUri, Trace: string; ProcessID: Integer); overload;
     procedure SendInitialized;
 
     procedure SendWorkspaceSymbol(Query: string);
@@ -79,6 +85,8 @@ begin
   FLanguageServer := TDWScriptLanguageServer.Create;
   FLanguageServer.OnOutput := OnOutputHandler;
 
+  FClientCapabilities := TClientCapabilities.Create;
+
   FDiagnosticMessages := TDiagnostics.Create;
   FDiagnosticMessages.Clear;
 
@@ -88,6 +96,8 @@ end;
 destructor TLanguageServerHost.Destroy;
 begin
   FDiagnosticMessages.Free;
+
+  FClientCapabilities.Free;
 
   FLanguageServer.Free;
   inherited;
@@ -169,16 +179,14 @@ end;
 procedure TLanguageServerHost.HandlePublishDiagnostics(Params: TdwsJSONObject);
 var
   PublishDiagnosticsParams: TPublishDiagnosticsParams;
-  Index: Integer;
-  Result: TdwsJSONArray;
 begin
   PublishDiagnosticsParams := TPublishDiagnosticsParams.Create;
   try
     PublishDiagnosticsParams.ReadFromJson(Params);
     while PublishDiagnosticsParams.Diagnostics.Count > 0 do
     begin
-      FDiagnosticMessages.Add(PublishDiagnosticsParams.Diagnostics[Index]);
-      PublishDiagnosticsParams.Diagnostics.Extract(Index);
+      FDiagnosticMessages.Add(PublishDiagnosticsParams.Diagnostics[0]);
+      PublishDiagnosticsParams.Diagnostics.Extract(0);
     end;
   finally
     PublishDiagnosticsParams.Free;
@@ -642,6 +650,43 @@ begin
   end;
 
   SendRequest('textDocument/rename', JsonParams);
+end;
+
+procedure TLanguageServerHost.SendInitialize(const RootPath: string);
+begin
+  SendInitialize(RootPath, 'file:///' + RootPath, 0);
+end;
+
+procedure TLanguageServerHost.SendInitialize(const RootPath: string;
+  ProcessID: Integer);
+begin
+  SendInitialize(RootPath, RootPath, ProcessID);
+end;
+
+procedure TLanguageServerHost.SendInitialize(const RootPath: string;
+  Trace: string);
+begin
+  SendInitialize(RootPath, 'file:///' + RootPath, Trace, 0);
+end;
+
+procedure TLanguageServerHost.SendInitialize(const RootPath, RootUri: string;
+  ProcessID: Integer);
+begin
+  SendInitialize(RootPath, RootUri, 'off', ProcessId);
+end;
+
+procedure TLanguageServerHost.SendInitialize(const RootPath, RootUri, Trace: string;
+  ProcessID: Integer);
+var
+  JsonObject: TdwsJSONObject;
+begin
+  JsonObject := TdwsJSONObject.Create;
+  JsonObject.AddValue('processId', ProcessID);
+  JsonObject.AddValue('rootPath', RootPath);
+  JsonObject.AddValue('rootUri', RootUri);
+  FClientCapabilities.WriteToJson(JsonObject.AddObject('capabilities'));
+  JsonObject.AddValue('trace', Trace);
+  SendRequest('initialize', JsonObject);
 end;
 
 procedure TLanguageServerHost.SendInitialized;

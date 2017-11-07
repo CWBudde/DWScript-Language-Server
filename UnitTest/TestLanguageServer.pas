@@ -10,9 +10,12 @@ uses
 type
   TTestLanguageServerClasses = class(TTestCase)
   public
-    procedure SetUp;
-    procedure TearDown;
+    procedure SetUp; override;
+    procedure TearDown; override;
   published
+    procedure TestJsonClientCapabilities;
+    procedure TestJsonServerCapabilities;
+
     procedure TestJsonTextDocumentPositionParams;
     procedure TestJsonPublishDiagnosticsParams;
     procedure TestJsonDidOpenTextDocumentParams;
@@ -68,6 +71,9 @@ type
   end;
 
 implementation
+
+uses
+  SysUtils;
 
 { TTestLanguageServerClasses }
 
@@ -714,6 +720,126 @@ begin
   end;
 end;
 
+procedure TTestLanguageServerClasses.TestJsonClientCapabilities;
+var
+  ClientCapabilities: TClientCapabilities;
+  Params: TdwsJSONObject;
+begin
+  Params := TdwsJSONObject.Create;
+  try
+    ClientCapabilities := TClientCapabilities.Create;
+    try
+      with ClientCapabilities do
+      begin
+        WorkspaceCapabilities.ApplyEdit := True;
+        WorkspaceCapabilities.WorkspaceEditDocumentChanges := True;
+        WorkspaceCapabilities.DidChangeConfiguration.DynamicRegistration := True;
+        WorkspaceCapabilities.DidChangeWatchedFiles.DynamicRegistration := True;
+        WorkspaceCapabilities.Symbol.DynamicRegistration := True;
+        WorkspaceCapabilities.ExecuteCommand.DynamicRegistration := True;
+        TextDocumentCapabilities.Synchronization.DidSave := False;
+        TextDocumentCapabilities.Synchronization.DynamicRegistration := False;
+        TextDocumentCapabilities.Synchronization.WillSave := True;
+        TextDocumentCapabilities.Synchronization.WillSaveWaitUntil := True;
+        TextDocumentCapabilities.Completion.DynamicRegistration := False;
+        TextDocumentCapabilities.Completion.SnippetSupport := False;
+        TextDocumentCapabilities.Hover.DynamicRegistration := False;
+        TextDocumentCapabilities.SignatureHelp.DynamicRegistration := False;
+        TextDocumentCapabilities.References.DynamicRegistration := False;
+        TextDocumentCapabilities.DocumentHighlight.DynamicRegistration := True;
+        TextDocumentCapabilities.DocumentSymbol.DynamicRegistration := False;
+        TextDocumentCapabilities.Formatting.DynamicRegistration := False;
+        TextDocumentCapabilities.RangeFormatting.DynamicRegistration := True;
+        TextDocumentCapabilities.OnTypeFormatting.DynamicRegistration := False;
+        TextDocumentCapabilities.Definition.DynamicRegistration := True;
+        TextDocumentCapabilities.CodeAction.DynamicRegistration := False;
+        TextDocumentCapabilities.CodeLens.DynamicRegistration := False;
+        TextDocumentCapabilities.DocumentLink.DynamicRegistration := True;
+        TextDocumentCapabilities.Rename.DynamicRegistration := False;
+      end;
+      ClientCapabilities.WriteToJson(Params);
+    finally
+      ClientCapabilities.Free;
+    end;
+
+    ClientCapabilities := TClientCapabilities.Create;
+    try
+      ClientCapabilities.ReadFromJson(Params);
+      with ClientCapabilities do
+      begin
+        CheckEquals(True, WorkspaceCapabilities.ApplyEdit);
+        CheckEquals(True, WorkspaceCapabilities.WorkspaceEditDocumentChanges);
+        CheckEquals(True, WorkspaceCapabilities.DidChangeConfiguration.DynamicRegistration);
+        CheckEquals(True, WorkspaceCapabilities.DidChangeWatchedFiles.DynamicRegistration);
+        CheckEquals(True, WorkspaceCapabilities.Symbol.DynamicRegistration);
+        CheckEquals(True, WorkspaceCapabilities.ExecuteCommand.DynamicRegistration);
+
+        CheckEquals(False, TextDocumentCapabilities.Synchronization.DidSave);
+        CheckEquals(False, TextDocumentCapabilities.Synchronization.DynamicRegistration);
+        CheckEquals(True, TextDocumentCapabilities.Synchronization.WillSave);
+        CheckEquals(True, TextDocumentCapabilities.Synchronization.WillSaveWaitUntil);
+        CheckEquals(False, TextDocumentCapabilities.Completion.DynamicRegistration);
+        CheckEquals(False, TextDocumentCapabilities.Completion.SnippetSupport);
+        CheckEquals(False, TextDocumentCapabilities.Hover.DynamicRegistration);
+        CheckEquals(False, TextDocumentCapabilities.SignatureHelp.DynamicRegistration);
+        CheckEquals(False, TextDocumentCapabilities.References.DynamicRegistration);
+        CheckEquals(True, TextDocumentCapabilities.DocumentHighlight.DynamicRegistration);
+        CheckEquals(False, TextDocumentCapabilities.DocumentSymbol.DynamicRegistration);
+        CheckEquals(False, TextDocumentCapabilities.Formatting.DynamicRegistration);
+        CheckEquals(True, TextDocumentCapabilities.RangeFormatting.DynamicRegistration);
+        CheckEquals(False, TextDocumentCapabilities.OnTypeFormatting.DynamicRegistration);
+        CheckEquals(True, TextDocumentCapabilities.Definition.DynamicRegistration);
+        CheckEquals(False, TextDocumentCapabilities.CodeAction.DynamicRegistration);
+        CheckEquals(False, TextDocumentCapabilities.CodeLens.DynamicRegistration);
+        CheckEquals(True, TextDocumentCapabilities.DocumentLink.DynamicRegistration);
+        CheckEquals(False, TextDocumentCapabilities.Rename.DynamicRegistration);
+      end;
+    finally
+      ClientCapabilities.Free;
+    end;
+  finally
+    Params.Free;
+  end;
+end;
+
+procedure TTestLanguageServerClasses.TestJsonServerCapabilities;
+var
+  ServerCapabilities: TServerCapabilities;
+  Params: TdwsJSONObject;
+begin
+  Params := TdwsJSONObject.Create;
+  try
+    ServerCapabilities := TServerCapabilities.Create;
+    try
+      ServerCapabilities.TextDocumentSyncOptions.OpenClose := False;
+      ServerCapabilities.TextDocumentSyncOptions.Change := dsIncremental;
+      ServerCapabilities.TextDocumentSyncOptions.WillSave := True;
+      ServerCapabilities.TextDocumentSyncOptions.WillSaveWaitUntil := True;
+      ServerCapabilities.TextDocumentSyncOptions.Save.IncludeText := True;
+      ServerCapabilities.HoverProvider := True;
+      ServerCapabilities.CompletionProvider.ResolveProvider := False;
+      ServerCapabilities.WriteToJson(Params);
+    finally
+      ServerCapabilities.Free;
+    end;
+
+    ServerCapabilities := TServerCapabilities.Create;
+    try
+      ServerCapabilities.ReadFromJson(Params);
+      CheckEquals(False, ServerCapabilities.TextDocumentSyncOptions.OpenClose, 'ServerCapabilities.TextDocumentSyncOptions.OpenClose');
+      CheckEquals(Integer(dsIncremental), Integer(ServerCapabilities.TextDocumentSyncOptions.Change));
+      CheckEquals(True, ServerCapabilities.TextDocumentSyncOptions.WillSave, 'ServerCapabilities.TextDocumentSyncOptions.WillSave');
+      CheckEquals(True, ServerCapabilities.TextDocumentSyncOptions.WillSaveWaitUntil, 'ServerCapabilities.TextDocumentSyncOptions.WillSaveWaitUntil');
+      CheckEquals(True, ServerCapabilities.TextDocumentSyncOptions.Save.IncludeText, 'ServerCapabilities.TextDocumentSyncOptions.Save.IncludeText');
+      CheckEquals(False, ServerCapabilities.CompletionProvider.ResolveProvider);
+    finally
+      ServerCapabilities.Free;
+    end;
+  finally
+    Params.Free;
+  end;
+end;
+
 procedure TTestLanguageServerClasses.TestJsonTextDocumentPositionParams;
 var
   TextDocumentPositionParams: TTextDocumentPositionParams;
@@ -820,7 +946,7 @@ var
   JsonObject: TdwsJSONObject;
   LanguageServerOptions: TdwsJSONObject;
 begin
-  FLanguageServerHost.SendRequest('initialize', '{"processId":0,"rootPath":"c:\\","rootUri":"file:///c%3A/","capabilities":{"workspace":{"didChangeConfiguration":{"dynamicRegistration":true}}},"trace":"verbose"}}');
+  FLanguageServerHost.SendInitialize(ExtractFilePath(ParamStr(0)));
   FLanguageServerHost.SendInitialized;
 
   JsonObject := TdwsJSONObject.Create;
