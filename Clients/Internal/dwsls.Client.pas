@@ -3,7 +3,7 @@ unit dwsls.Client;
 interface
 
 uses
-  Classes, SysUtils, dwsJson, dwsls.Classes.Capabilities,
+  Classes, SysUtils, dwsJson, dwsUtils, dwsls.Classes.Capabilities,
   dwsls.Classes.Workspace, dwsls.Classes.Document, dwsls.Classes.Common,
   dwsls.Classes.Json, dwsls.LanguageServer;
 
@@ -11,12 +11,15 @@ type
   TLanguageServerHost = class
   private
     FRequestIndex: Integer;
+    FInitialized: Boolean;
     FLastResponse: string;
     FLanguageServer: TDWScriptLanguageServer;
     FClientCapabilities: TClientCapabilities;
+    FServerCapabilities: TServerCapabilities;
     FDiagnosticMessages: TDiagnostics;
-    function CreateJsonRpc(Method: string = ''): TdwsJSONObject;
-    procedure HandleResponse(JsonRpc: TdwsJSONObject);
+    FPendingRequests: TRequests;
+    procedure HandleServerOutput(JsonRpc: TdwsJSONObject);
+    procedure HandleInitialize(Params: TdwsJSONObject);
     procedure HandlePublishDiagnostics(Params: TdwsJSONObject);
     procedure OnOutputHandler(const Text: string);
   public
@@ -82,78 +85,101 @@ implementation
 
 constructor TLanguageServerHost.Create;
 begin
+  // create internal language server
   FLanguageServer := TDWScriptLanguageServer.Create;
   FLanguageServer.OnOutput := OnOutputHandler;
 
+  // create classes to store client and server capacibilities
   FClientCapabilities := TClientCapabilities.Create;
+  FServerCapabilities := TServerCapabilities.Create;
 
+  // create a diagnostic message container
   FDiagnosticMessages := TDiagnostics.Create;
-  FDiagnosticMessages.Clear;
+
+  // create a list to store pending requests
+  FPendingRequests := TRequests.Create;
 
   FRequestIndex := 0;
 end;
 
 destructor TLanguageServerHost.Destroy;
 begin
+  FPendingRequests.Free;
+
   FDiagnosticMessages.Free;
 
+  FServerCapabilities.Free;
   FClientCapabilities.Free;
 
   FLanguageServer.Free;
   inherited;
 end;
 
-function TLanguageServerHost.CreateJSONRPC(Method: string = ''): TdwsJSONObject;
-begin
-  Result := TdwsJSONObject.Create;
-  Result.AddValue('jsonrpc', '2.0');
-  if Method <> '' then
-    Result.AddValue('method', Method);
-end;
-
 procedure TLanguageServerHost.OnOutputHandler(const Text: string);
 var
   JsonObject: TdwsJSONObject;
 begin
+  // store last response (used for simple unit tests)
   FLastResponse := Text;
 
+  // decode text to json object
   JsonObject := TdwsJSONObject(TdwsJSONValue.ParseString(Text));
   try
+    // ensure the JSON RPC format is correct
     if JsonObject.Items['jsonrpc'].AsString <> '2.0' then
       raise Exception.Create('Unknown jsonrpc format');
 
-    HandleResponse(JsonObject);
+    // handle server output for the json object
+    HandleServerOutput(JsonObject);
   finally
     JsonObject.Free;
   end;
 end;
 
-procedure TLanguageServerHost.HandleResponse(JsonRpc: TdwsJSONObject);
+procedure TLanguageServerHost.HandleServerOutput(JsonRpc: TdwsJSONObject);
 var
   Method: string;
-  ResponseID: Integer;
+  Index: Integer;
+  ID: Integer;
+  Request: TRequest;
 begin
+  // test for a notification or request
+  if Assigned(JsonRpc['method']) then
+    Method := JsonRpc['method'].AsString
+  else
   if Assigned(JsonRpc['id']) then
   begin
-    ResponseID := JsonRpc['id'].AsInteger;
-    // TODO: determine method by ID
+    // get message ID
+    ID := JsonRpc['id'].AsInteger;
+
+    // locate request (if present)
+    Request := nil;
+    for Index := 0 to FPendingRequests.Count - 1 do
+      if FPendingRequests[Index].ID = ID then
+      begin
+        Request := FPendingRequests[Index];
+        FPendingRequests.Extract(Index);
+        break;
+      end;
+
+    // get method name
+    if Assigned(Request) then
+      Method := Request.Method;
   end;
 
-  if Assigned(JsonRpc['method']) then
-    Method := JsonRpc['method'].AsString;
-
+  // ensure the method is known
   if Method = '' then
     exit;
 
   if Method = 'initialize' then
   begin
-    // TODO: send out 'initialized' message
-    Exit;
-  end;
+    HandleInitialize(TdwsJsonObject(JsonRpc['params']));
+  end
+  else
   if Method = 'shutdown' then
   begin
-    // TODO: send out 'exit' message
-    Exit;
+    FInitialized := False;
+    SendNotification('exit');
   end
   else
   if Pos('workspace', Method) = 1 then
@@ -171,9 +197,18 @@ begin
   end
 {$IFDEF DEBUGLOG}
   else
-    Log('UnknownMessage: ' + JsonRpc.AsString);
-{$ENDIF}
-//  FDiagnosticMessages.
+    Log('UnknownMessage: ' + JsonRpc.AsString)
+{$ENDIF};
+
+  if Assigned(Request) then
+    Request.Free;
+end;
+
+procedure TLanguageServerHost.HandleInitialize(Params: TdwsJSONObject);
+begin
+  FServerCapabilities.ReadFromJson(Params);
+  FInitialized := True;
+  SendInitialized;
 end;
 
 procedure TLanguageServerHost.HandlePublishDiagnostics(Params: TdwsJSONObject);
@@ -204,15 +239,20 @@ end;
 procedure TLanguageServerHost.SendNotification(const Method: string;
   Params: TdwsJSONObject);
 var
-  Response: TdwsJSONObject;
+  Notification: TNotification;
+  JsonObject: TdwsJSONObject;
 begin
-  Response := CreateJSONRPC(Method);
+  Notification := TNotification.Create(Method, Params);
   try
-    if Assigned(Params) then
-      Response.Add('params', Params);
-    FLanguageServer.Input(Response.ToString);
+    JsonObject := TdwsJSONObject.Create;
+    try
+      Notification.WriteToJson(JsonObject);
+      FLanguageServer.Input(JsonObject.ToString);
+    finally
+      JsonObject.Free;
+    end;
   finally
-    Response.Free;
+    Notification.Free;
   end;
 end;
 
@@ -227,17 +267,18 @@ end;
 procedure TLanguageServerHost.SendRequest(const Method: string;
   Params: TdwsJSONObject = nil);
 var
-  Response: TdwsJSONObject;
+  Request: TRequest;
+  JsonObject: TdwsJSONObject;
 begin
-  Response := CreateJSONRPC(Method);
+  Request := TRequest.Create(Method, FRequestIndex, Params);
+  FPendingRequests.Add(Request);
+
+  JsonObject := TdwsJSONObject.Create;
   try
-    if Assigned(Params) then
-      Response.Add('params', Params);
-    Response.AddValue('id', FRequestIndex);
-    Inc(FRequestIndex);
-    FLanguageServer.Input(Response.ToString);
+    Request.WriteToJson(JsonObject);
+    FLanguageServer.Input(JsonObject.ToString);
   finally
-    Response.Free;
+    JsonObject.Free;
   end;
 end;
 

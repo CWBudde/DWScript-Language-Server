@@ -767,17 +767,17 @@ begin
       ClientCapabilities.ReadFromJson(Params);
       with ClientCapabilities do
       begin
-        CheckEquals(True, WorkspaceCapabilities.ApplyEdit);
-        CheckEquals(True, WorkspaceCapabilities.WorkspaceEditDocumentChanges);
-        CheckEquals(True, WorkspaceCapabilities.DidChangeConfiguration.DynamicRegistration);
-        CheckEquals(True, WorkspaceCapabilities.DidChangeWatchedFiles.DynamicRegistration);
-        CheckEquals(True, WorkspaceCapabilities.Symbol.DynamicRegistration);
-        CheckEquals(True, WorkspaceCapabilities.ExecuteCommand.DynamicRegistration);
+        CheckEquals(True, WorkspaceCapabilities.ApplyEdit, 'WorkspaceCapabilities.ApplyEdit');
+        CheckEquals(True, WorkspaceCapabilities.WorkspaceEditDocumentChanges, 'WorkspaceCapabilities.WorkspaceEditDocumentChanges');
+        CheckEquals(True, WorkspaceCapabilities.DidChangeConfiguration.DynamicRegistration, 'WorkspaceCapabilities.DidChangeConfiguration');
+        CheckEquals(True, WorkspaceCapabilities.DidChangeWatchedFiles.DynamicRegistration, 'WorkspaceCapabilities.DidChangeWatchedFiles');
+        CheckEquals(True, WorkspaceCapabilities.Symbol.DynamicRegistration, 'WorkspaceCapabilities.Symbol');
+        CheckEquals(True, WorkspaceCapabilities.ExecuteCommand.DynamicRegistration, 'WorkspaceCapabilities.ExecuteCommand');
 
-        CheckEquals(False, TextDocumentCapabilities.Synchronization.DidSave);
-        CheckEquals(False, TextDocumentCapabilities.Synchronization.DynamicRegistration);
-        CheckEquals(True, TextDocumentCapabilities.Synchronization.WillSave);
-        CheckEquals(True, TextDocumentCapabilities.Synchronization.WillSaveWaitUntil);
+        CheckEquals(False, TextDocumentCapabilities.Synchronization.DidSave, 'TextDocumentCapabilities.Synchronization.DidSave');
+        CheckEquals(False, TextDocumentCapabilities.Synchronization.DynamicRegistration, 'TextDocumentCapabilities.Synchronization.DynamicRegistration');
+        CheckEquals(True, TextDocumentCapabilities.Synchronization.WillSave, 'TextDocumentCapabilities.Synchronization.WillSave');
+        CheckEquals(True, TextDocumentCapabilities.Synchronization.WillSaveWaitUntil, 'TextDocumentCapabilities.Synchronization.WillSaveWaitUntil');
         CheckEquals(False, TextDocumentCapabilities.Completion.DynamicRegistration);
         CheckEquals(False, TextDocumentCapabilities.Completion.SnippetSupport);
         CheckEquals(False, TextDocumentCapabilities.Hover.DynamicRegistration);
@@ -947,7 +947,6 @@ var
   LanguageServerOptions: TdwsJSONObject;
 begin
   FLanguageServerHost.SendInitialize(ExtractFilePath(ParamStr(0)));
-  FLanguageServerHost.SendInitialized;
 
   JsonObject := TdwsJSONObject.Create;
   LanguageServerOptions := JsonObject.AddObject('dwsls');

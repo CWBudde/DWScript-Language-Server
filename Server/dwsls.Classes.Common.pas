@@ -40,6 +40,54 @@ type
 	  ecRequestCancelled = -32800
   );
 
+  TMessage = class(TJsonClass)
+  private
+    FJsonRpc: string;
+  public
+    constructor Create;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property JsonRpc: string read FJsonRpc write FJsonRpc;
+  end;
+
+  TRequest = class(TMessage)
+  private
+    FMethod: string;
+    FId: Integer;
+    FParams: TdwsJSONObject;
+  public
+    constructor Create(Method: string; ID: Integer); overload;
+    constructor Create(Method: string; ID: Integer; Params: TdwsJSONObject); overload;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property ID: Integer read FId;
+    property Method: string read FMethod;
+    property Params: TdwsJSONObject read FParams;
+  end;
+
+  TNotification = class(TMessage)
+  private
+    FMethod: string;
+    FParams: TdwsJSONObject;
+  public
+    constructor Create(Method: string); overload;
+    constructor Create(Method: string; Params: TdwsJSONObject); overload;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Method: string read FMethod;
+    property Params: TdwsJSONObject read FParams;
+  end;
+
+  TRequests = TObjectList<TRequest>;
+
   TDynamicRegistration = class(TJsonClass)
   private
     FDynamicRegistration: Boolean;
@@ -260,6 +308,118 @@ implementation
 
 uses
   dwsWebUtils;
+
+{ TMessage }
+
+constructor TMessage.Create;
+begin
+  FJsonRpc := '2.0';
+end;
+
+procedure TMessage.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FJsonRpc := Value['jsonrpc'].AsString;
+end;
+
+procedure TMessage.WriteToJson(const Value: TdwsJSONObject);
+begin
+  Value.AddValue('jsonrpc', FJsonRpc);
+end;
+
+
+{ TRequest }
+
+constructor TRequest.Create(Method: string; ID: Integer);
+begin
+  Create(Method, ID, nil);
+end;
+
+constructor TRequest.Create(Method: string; ID: Integer;
+  Params: TdwsJSONObject);
+begin
+  inherited Create;
+
+  FMethod := Method;
+  FId := ID;
+  FParams := Params;
+end;
+
+destructor TRequest.Destroy;
+begin
+  if Assigned(FParams) then
+    FParams.Free;
+
+  inherited;
+end;
+
+procedure TRequest.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  inherited;
+
+  if Assigned(FParams) then
+    FParams.Free;
+
+  FMethod := Value['method'].AsString;
+  FId := Value['id'].AsInteger;
+  if Assigned(Value['params']) then
+    FParams := TdwsJSONObject(Value['params'].Clone);
+end;
+
+procedure TRequest.WriteToJson(const Value: TdwsJSONObject);
+begin
+  inherited;
+
+  Value.AddValue('method', FMethod);
+  Value.AddValue('id', FId);
+  if Assigned(FParams) then
+    Value.Add('params', FParams.Clone);
+end;
+
+
+{ TNotification }
+
+constructor TNotification.Create(Method: string);
+begin
+  Create(Method, nil);
+end;
+
+constructor TNotification.Create(Method: string; Params: TdwsJSONObject);
+begin
+  inherited Create;
+
+  FMethod := Method;
+  FParams := Params;
+end;
+
+destructor TNotification.Destroy;
+begin
+  if Assigned(FParams) then
+    FParams.Free;
+
+  inherited;
+end;
+
+procedure TNotification.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  inherited;
+
+  if Assigned(FParams) then
+    FParams.Free;
+
+  FMethod := Value['method'].AsString;
+  if Assigned(Value['params']) then
+    FParams := TdwsJSONObject(Value['params'].Clone);
+end;
+
+procedure TNotification.WriteToJson(const Value: TdwsJSONObject);
+begin
+  inherited;
+
+  Value.AddValue('method', FMethod);
+  if Assigned(FParams) then
+    Value.Add('params', FParams.Clone);
+end;
+
 
 { TDynamicRegistration }
 

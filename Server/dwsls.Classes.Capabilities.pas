@@ -324,7 +324,7 @@ begin
   inherited;
 
   Value.AddValue('willSave', FWillSave);
-  Value.AddValue('willSaveUntilWait', FWillSaveWaitUntil);
+  Value.AddValue('willSaveWaitUntil', FWillSaveWaitUntil);
   Value.AddValue('didSave', FDidSave);
 end;
 

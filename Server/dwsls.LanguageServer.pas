@@ -100,6 +100,8 @@ type
     destructor Destroy; override;
 
     function Input(Body: string): Boolean;
+
+    property ServerCapabilities: TServerCapabilities read FServerCapabilities;
     property OnOutput: TOnOutput read FOnOutput write FOnOutput;
     property OnLog: TOnOutput read FOnLog write FOnLog;
   end;
