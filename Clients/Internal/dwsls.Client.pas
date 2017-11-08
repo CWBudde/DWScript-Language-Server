@@ -21,6 +21,8 @@ type
     procedure HandleServerOutput(JsonRpc: TdwsJSONObject);
     procedure HandleInitialize(Params: TdwsJSONObject);
     procedure HandlePublishDiagnostics(Params: TdwsJSONObject);
+    procedure HandleHoverResponse(Result: TdwsJSONObject);
+    procedure HandleShutdown;
     procedure OnOutputHandler(const Text: string);
   public
     constructor Create;
@@ -172,14 +174,14 @@ begin
     exit;
 
   if Method = 'initialize' then
-  begin
-    HandleInitialize(TdwsJsonObject(JsonRpc['params']));
-  end
+    HandleInitialize(TdwsJsonObject(JsonRpc['params']))
   else
   if Method = 'shutdown' then
+    HandleShutdown
+  else
+  if Pos('$/cancelRequest', Method) = 1 then
   begin
-    FInitialized := False;
-    SendNotification('exit');
+    // yet todo
   end
   else
   if Pos('workspace', Method) = 1 then
@@ -193,6 +195,9 @@ begin
     if Method = 'textDocument/publishDiagnostics' then
       HandlePublishDiagnostics(TdwsJsonObject(JsonRpc['params']))
     else
+    if Method = 'textDocument/hover' then
+      HandleHoverResponse(TdwsJsonObject(JsonRpc['result']))
+    else
       // TODO
   end
 {$IFDEF DEBUGLOG}
@@ -202,6 +207,24 @@ begin
 
   if Assigned(Request) then
     Request.Free;
+end;
+
+procedure TLanguageServerHost.HandleShutdown;
+begin
+  FInitialized := False;
+  SendNotification('exit');
+end;
+
+procedure TLanguageServerHost.HandleHoverResponse(Result: TdwsJSONObject);
+var
+  HoverResponse: THoverResponse;
+begin
+  HoverResponse := THoverResponse.Create;
+  try
+    HoverResponse.ReadFromJson(Result);
+  finally
+    HoverResponse.Free;
+  end;
 end;
 
 procedure TLanguageServerHost.HandleInitialize(Params: TdwsJSONObject);

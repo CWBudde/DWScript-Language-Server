@@ -1013,7 +1013,11 @@ var
   Result: TdwsJSONObject;
 begin
   DidChangeWatchedFilesParams := TDidChangeWatchedFilesParams.Create;
-  DidChangeWatchedFilesParams.ReadFromJson(Params);
+  try
+    DidChangeWatchedFilesParams.ReadFromJson(Params);
+  finally
+    DidChangeWatchedFilesParams.Free;
+  end;
 
   // yet to do
 

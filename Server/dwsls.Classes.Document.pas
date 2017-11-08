@@ -3,7 +3,7 @@ unit dwsls.Classes.Document;
 interface
 
 uses
-  dwsJSON, dwsUtils, dwsls.Classes.JSON, dwsls.Classes.Common;
+  Classes, dwsJSON, dwsUtils, dwsls.Classes.JSON, dwsls.Classes.Common;
 
 type
   TTextDocumentPositionParams = class(TJsonClass)
@@ -207,6 +207,21 @@ type
 
     property Items: TCompletionItems read FItems;
     property IsIncomplete: Boolean read FIsIncomplete write FIsIncomplete;
+  end;
+
+  THoverResponse = class(TJsonClass)
+  private
+    FContents: TStringList;
+    FRange: TRange;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Contents: TStringList read FContents;
+    property Range: TRange read FRange;
   end;
 
   TReferenceContext = class(TJsonClass)
@@ -812,6 +827,58 @@ begin
   ItemArray := TdwsJSONObject(Value).AddArray('items');
   for Index := 0 to FItems.Count - 1 do
     FItems[Index].WriteToJson(ItemArray.AddObject);
+end;
+
+
+{ THoverResponse }
+
+constructor THoverResponse.Create;
+begin
+  FContents := TStringList.Create;
+  FRange := TRange.Create;
+end;
+
+destructor THoverResponse.Destroy;
+begin
+  FContents.Free;
+  FRange.Free;
+
+  inherited;
+end;
+
+procedure THoverResponse.ReadFromJson(const Value: TdwsJSONValue);
+var
+  ContentValue: TdwsJSONValue;
+  Index: Integer;
+begin
+  FRange.ReadFromJson(Value['range']);
+  FContents.Clear;
+
+  ContentValue := Value['contents'];
+  if Assigned(ContentValue) then
+    if ContentValue is TdwsJSONArray then
+    begin
+      for Index := 0 to ContentValue.ElementCount - 1 do
+        FContents.Add(ContentValue.Elements[Index].AsString);
+    end
+    else
+      FContents.Add(ContentValue.AsString);
+end;
+
+procedure THoverResponse.WriteToJson(const Value: TdwsJSONObject);
+var
+  ContentArray: TdwsJSONArray;
+  Index: Integer;
+begin
+  FRange.WriteToJson(Value.AddObject('range'));
+  if FContents.Count = 1 then
+    Value.AddValue('contents', FContents[0])
+  else
+  begin
+    ContentArray := TdwsJSONArray(Value.AddArray('contents'));
+    for Index := 0 to FContents.Count - 1 do
+      ContentArray.Add(FContents[Index]);
+  end;
 end;
 
 

@@ -2,8 +2,6 @@ program dwsls;
 
 {$APPTYPE CONSOLE}
 
-{$R *.res}
-
 uses
   System.SysUtils,
   dwsJson,

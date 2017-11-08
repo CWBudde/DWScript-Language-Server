@@ -24,6 +24,7 @@ type
     procedure TestJsonDidSaveTextDocumentParams;
     procedure TestJsonDidCloseTextDocumentParams;
     procedure TestJsonCompletionListResponse;
+    procedure TestJsonHoverResponse;
     procedure TestJsonReferenceParams;
     procedure TestJsonDocumentSymbolParams;
     procedure TestJsonDocumentSymbolInformation;
@@ -660,6 +661,60 @@ begin
       CheckEquals('Foo', ExecuteCommandParams.Command);
     finally
       ExecuteCommandParams.Free;
+    end;
+  finally
+    Params.Free;
+  end;
+end;
+
+procedure TTestLanguageServerClasses.TestJsonHoverResponse;
+var
+  HoverResponse: THoverResponse;
+  Params: TdwsJSONObject;
+begin
+  // single line content
+  Params := TdwsJSONObject.Create;
+  try
+    HoverResponse := THoverResponse.Create;
+    try
+      HoverResponse.Contents.Add('Foo');
+      HoverResponse.WriteToJson(Params);
+    finally
+      HoverResponse.Free;
+    end;
+
+    HoverResponse := THoverResponse.Create;
+    try
+      HoverResponse.ReadFromJson(Params);
+      CheckEquals(1, HoverResponse.Contents.Count);
+      CheckEquals('Foo', HoverResponse.Contents[0]);
+    finally
+      HoverResponse.Free;
+    end;
+  finally
+    Params.Free;
+  end;
+
+  // multi line content
+  Params := TdwsJSONObject.Create;
+  try
+    HoverResponse := THoverResponse.Create;
+    try
+      HoverResponse.Contents.Add('Foo');
+      HoverResponse.Contents.Add('Bar');
+      HoverResponse.WriteToJson(Params);
+    finally
+      HoverResponse.Free;
+    end;
+
+    HoverResponse := THoverResponse.Create;
+    try
+      HoverResponse.ReadFromJson(Params);
+      CheckEquals(2, HoverResponse.Contents.Count);
+      CheckEquals('Foo', HoverResponse.Contents[0]);
+      CheckEquals('Bar', HoverResponse.Contents[1]);
+    finally
+      HoverResponse.Free;
     end;
   finally
     Params.Free;
