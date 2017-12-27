@@ -38,6 +38,7 @@ type
     procedure TestJsonDocumentFormattingParams;
     procedure TestJsonDocumentRangeFormattingParams;
     procedure TestJsonDocumentOnTypeFormattingParams;
+    procedure TestJsonDocumentRenameParams;
 
     procedure TestJsonDidChangeWatchedFilesParams;
     procedure TestJsonWorkspaceSymbolParams;
@@ -715,6 +716,41 @@ begin
       CheckEquals(True, DocumentRangeFormattingParams.Options.InsertSpaces);
     finally
       DocumentRangeFormattingParams.Free;
+    end;
+  finally
+    Params.Free;
+  end;
+end;
+
+procedure TTestLanguageServerClasses.TestJsonDocumentRenameParams;
+var
+  RenameParams: TRenameParams;
+  Params: TdwsJSONObject;
+begin
+  Params := TdwsJSONObject.Create;
+  try
+    RenameParams := TRenameParams.Create;
+    try
+      RenameParams.TextDocument.Uri := 'c:\Test.dws';
+      RenameParams.Position.Line := 42;
+      RenameParams.Position.Character := 57;
+      RenameParams.NewName := 'NewName';
+
+      RenameParams.WriteToJson(Params);
+    finally
+      RenameParams.Free;
+    end;
+
+    RenameParams := TRenameParams.Create;
+    try
+      RenameParams.ReadFromJson(Params);
+
+      CheckEquals('c:\Test.dws', RenameParams.TextDocument.Uri);
+      CheckEquals(42, RenameParams.Position.Line);
+      CheckEquals(57, RenameParams.Position.Character);
+      CheckEquals('NewName', RenameParams.NewName);
+    finally
+      RenameParams.Free;
     end;
   finally
     Params.Free;

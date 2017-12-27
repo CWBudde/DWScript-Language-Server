@@ -793,8 +793,45 @@ begin
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentRenameSymbol(Params: TdwsJSONObject);
+var
+  RenameParams: TRenameParams;
+  Prog: IdwsProgram;
+  Symbol: TSymbol;
+  SymbolPosList: TSymbolPositionList;
+  WorkspaceEdit: TWorkspaceEdit;
+  Result: TdwsJSONObject;
 begin
-  // not yet implemented
+  RenameParams := TRenameParams.Create;
+  try
+    RenameParams.ReadFromJson(Params);
+
+    Prog := Compile(RenameParams.TextDocument.Uri);
+
+    Symbol := Prog.SymbolDictionary.FindSymbolAtPosition(
+      RenameParams.Position.Character + 1,
+      RenameParams.Position.Line + 1,
+      SYS_MainModule);
+    if Assigned(Symbol) then
+      SymbolPosList := Prog.SymbolDictionary.FindSymbolPosList(Symbol);
+  finally
+    RenameParams.Free;
+  end;
+
+  if False then
+  begin
+    Result := TdwsJSONObject.Create;
+
+    WorkspaceEdit := TWorkspaceEdit.Create;
+    try
+      WorkspaceEdit.WriteToJson(Result);
+    finally
+      WorkspaceEdit.Free;
+    end;
+
+    SendResponse(Result);
+  end
+  else
+    SendResponse;
 end;
 
 procedure ParameterToSignatureInformation(const AParams: TParamsSymbolTable;

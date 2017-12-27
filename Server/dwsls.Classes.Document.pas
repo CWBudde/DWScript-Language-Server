@@ -199,10 +199,10 @@ type
     FInsertText: string;
     FInsertTextFormat: TInsertTextFormat;
     FTextEdit: TTextEdit;
-    //FAdditionalTextEdits: TextEdit[];
-    FCommitCharacters: array of string;
+    FAdditionalTextEdits: TObjectList<TTextEdit>;
+    FCommitCharacters: TStringList;
     FCommand: TCommand;
-//    FData:
+    FData: TdwsJSONValue;
   public
     constructor Create;
     destructor Destroy; override;
@@ -219,8 +219,9 @@ type
     property FilterText: string read FFilterText write FFilterText;
     property InsertText: string read FInsertText write FInsertText;
     property InsertTextFormat: TInsertTextFormat read FInsertTextFormat write FInsertTextFormat;
-    property TextEdit: TTextEdit read FTextEdit write FTextEdit;
-//    property CommitCharacters: array of string read FCommitCharacters write FCommitCharacters;
+    property TextEdit: TTextEdit read FTextEdit;
+    property AdditionalTextEdits: TObjectList<TTextEdit> read FAdditionalTextEdits;
+    property CommitCharacters: TStringList read FCommitCharacters;
     property Command: TCommand read FCommand write FCommand;
    end;
 
@@ -550,20 +551,13 @@ type
     property Target: string read FTarget write FTarget;
   end;
 
-  TRenameParams = class(TJsonClass)
+  TRenameParams = class(TTextDocumentPositionParams)
   private
-    FTextDocument: TTextDocumentIdentifier;
-    FPosition: TPosition;
     FNewName: string;
   public
-    constructor Create;
-    destructor Destroy; override;
-
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
 
-    property TextDocument: TTextDocumentIdentifier read FTextDocument;
-    property Position: TPosition read FPosition;
     property NewName: string read FNewName write FNewName;
   end;
 
@@ -907,18 +901,28 @@ end;
 constructor TCompletionItem.Create;
 begin
   FTextEdit := TTextEdit.Create;
+  FAdditionalTextEdits := TObjectList<TTextEdit>.Create;
   FMarkupContent := TMarkupContent.Create;
+  FCommitCharacters := TStringList.Create;
+  FData := TdwsJSONValue.Create;
 end;
 
 destructor TCompletionItem.Destroy;
 begin
-  FTextEdit.Free;
+  FData.Free;
+  FCommitCharacters.Free;
   FMarkupContent.Free;
+  FAdditionalTextEdits.Free;
+  FTextEdit.Free;
 
   inherited;
 end;
 
 procedure TCompletionItem.ReadFromJson(const Value: TdwsJSONValue);
+var
+  Index: Integer;
+  AdditionalTextEditsArray, CommitCharactersArray: TdwsJSONArray;
+  TextEdit: TTextEdit;
 begin
   FLabel := Value['label'].AsString;
   FKind := TCompletionItemKind(Value['kind'].AsInteger);
@@ -932,9 +936,26 @@ begin
   FInsertText := Value['insertText'].AsString;
   FInsertTextFormat := TInsertTextFormat(Value['kind'].AsInteger);
   FTextEdit.ReadFromJson(Value['textEdit']);
+
+  AdditionalTextEditsArray := TdwsJSONArray(Value['additionalTextEdits']);
+  if AdditionalTextEditsArray is TdwsJSONArray then
+    for Index := 0 to AdditionalTextEditsArray.ElementCount - 1 do
+    begin
+      TextEdit := TTextEdit.Create;
+      TextEdit.ReadFromJson(AdditionalTextEditsArray.Elements[Index]);
+      FAdditionalTextEdits.Add(TextEdit);
+    end;
+
+  CommitCharactersArray := TdwsJSONArray(Value['commitCharacters']);
+  if CommitCharactersArray is TdwsJSONArray then
+    for Index := 0 to CommitCharactersArray.ElementCount - 1 do
+      FCommitCharacters.Add(CommitCharactersArray.Elements[Index].AsString);
 end;
 
 procedure TCompletionItem.WriteToJson(const Value: TdwsJSONObject);
+var
+  AdditionalTextEditsArray, CommitCharactersArray: TdwsJSONArray;
+  Index: Integer;
 begin
   Value.AddValue('label', FLabel);
   Value.AddValue('kind', Integer(FKind));
@@ -949,6 +970,17 @@ begin
   Value.AddValue('insertText', FInsertText);
   Value.AddValue('insertTextFormat', Integer(FInsertTextFormat));
   FTextEdit.WriteToJson(Value.AddObject('textEdit'));
+
+  AdditionalTextEditsArray := TdwsJSONObject(Value).AddArray('contentChanges');
+  for Index := 0 to FAdditionalTextEdits.Count - 1 do
+    FAdditionalTextEdits[Index].WriteToJson(AdditionalTextEditsArray.AddObject);
+
+  if FCommitCharacters.Count > 0 then
+  begin
+    CommitCharactersArray := TdwsJSONArray(Value.AddArray('commitCharacters'));
+    for Index := 0 to FCommitCharacters.Count - 1 do
+      CommitCharactersArray.Add(FCommitCharacters[Index]);
+  end;
 end;
 
 
@@ -1596,29 +1628,18 @@ end;
 
 { TRenameParams }
 
-constructor TRenameParams.Create;
-begin
-  FTextDocument := TTextDocumentIdentifier.Create;
-  FPosition := TPosition.Create;
-end;
-
-destructor TRenameParams.Destroy;
-begin
-  FTextDocument.Free;
-  FPosition.Free;
-  inherited;
-end;
-
 procedure TRenameParams.ReadFromJson(const Value: TdwsJSONValue);
 begin
-  FTextDocument.ReadFromJson(Value['textDocument']);
-  FPosition.ReadFromJson(Value['position']);
+  inherited;
+
+  FNewName := Value['newName'].AsString;
 end;
 
 procedure TRenameParams.WriteToJson(const Value: TdwsJSONObject);
 begin
-  FTextDocument.WriteToJson(Value.AddObject('textDocument'));
-  FPosition.WriteToJson(Value.AddObject('position'));
+  inherited;
+
+  Value.AddValue('newName', FNewName);
 end;
 
 end.
