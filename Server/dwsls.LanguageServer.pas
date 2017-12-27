@@ -110,7 +110,7 @@ implementation
 
 uses
   SysUtils, dwsStrings, dwsSymbols, dwsPascalTokenizer, dwsTokenizer,
-  dwsScriptSource, dwsXXHash;
+  dwsScriptSource, dwsXXHash, dwsSuggestions, dwsContextMap;
 
 { TDWScriptLanguageServer }
 
@@ -797,32 +797,151 @@ begin
   // not yet implemented
 end;
 
+procedure ParameterToSignatureInformation(const AParams: TParamsSymbolTable;
+  const SignatureInformation: TSignatureInformation);
+var
+  Index: Integer;
+  ParameterInformation: TParameterInformation;
+begin
+  for Index := 0 to AParams.Count - 1 do
+  begin
+    ParameterInformation := TParameterInformation.Create;
+    ParameterInformation.&Label := AParams[Index].Name;
+    ParameterInformation.Documentation := AParams[Index].Description;
+    SignatureInformation.Parameters.Add(ParameterInformation);
+  end;
+end;
+
+procedure FunctionToSignatureHelp(const Symbol: TFuncSymbol;
+  const SignatureHelp: TSignatureHelp);
+var
+  SignatureInformation: TSignatureInformation;
+begin
+  SignatureInformation := TSignatureInformation.Create;
+  SignatureInformation.&Label := TFuncSymbol(Symbol).Name;
+  SignatureInformation.Documentation := TFuncSymbol(Symbol).Description;
+  ParameterToSignatureInformation(Symbol.Params, SignatureInformation);
+  SignatureHelp.Signatures.Add(SignatureInformation);
+end;
+
+procedure CollectMethodOverloads(MethodSymbols: TMethodSymbol; const Overloads : TFuncSymbolList);
+var
+  MemberSymbol: TSymbol;
+  StructSymbol: TCompositeTypeSymbol;
+  RecentOverloaded: TMethodSymbol;
+begin
+  // store the recent overloaded symbol
+  RecentOverloaded := MethodSymbols;
+  StructSymbol := MethodSymbols.StructSymbol;
+  repeat
+    // enumerate structure members
+    for MemberSymbol in StructSymbol.Members do
+    begin
+      // ensure the member is a method symbol itself
+      if not (MemberSymbol is TMethodSymbol) then
+        Continue;
+
+      // check if member name equals the method symbol name
+      if not UnicodeSameText(MemberSymbol.Name, MethodSymbols.Name) then
+        Continue;
+
+      // store last overloaded method symbol and eventually add to list
+      RecentOverloaded := TMethodSymbol(MemberSymbol);
+      if not Overloads.ContainsChildMethodOf(RecentOverloaded) then
+        Overloads.Add(RecentOverloaded);
+    end;
+
+    // navigate to parent structure symbol
+    StructSymbol := StructSymbol.Parent;
+  until (StructSymbol = nil) or not RecentOverloaded.IsOverloaded;
+end;
+
 procedure TDWScriptLanguageServer.HandleTextDocumentSignatureHelp(Params: TdwsJSONObject);
 var
   TextDocumentPositionParams: TTextDocumentPositionParams;
   Result: TdwsJSONObject;
   Prog: IdwsProgram;
-  Symbol: TSymbol;
+  SourceContext: TdwsSourceContext;
+  ItemIndex: Integer;
+  Symbol, CurrentSymbol: TSymbol;
+  FuncSymbol: TFuncSymbol;
+  Overloads: TFuncSymbolList;
+  SymbolPosList: TSymbolPositionList;
+  SignatureHelp: TSignatureHelp;
+  SignatureInformation: TSignatureInformation;
 begin
   TextDocumentPositionParams := TTextDocumentPositionParams.Create;
   try
     TextDocumentPositionParams.ReadFromJson(Params);
 
+    // compile program
     Prog := Compile(TextDocumentPositionParams.TextDocument.Uri);
 
-    Symbol := Prog.SymbolDictionary.FindSymbolAtPosition(
+    SourceContext := Prog.SourceContextMap.FindContext(
       TextDocumentPositionParams.Position.Character + 1,
       TextDocumentPositionParams.Position.Line + 1,
       SYS_MainModule);
+
+    // get symbol for the document position
+    Symbol := SourceContext.ParentSym;
   finally
     TextDocumentPositionParams.Free;
   end;
 
-  Result := TdwsJSONObject.Create;
+  if (Symbol is TFuncSymbol) then
+  begin
+    Result := TdwsJSONObject.Create;
 
-  // not further implemented so far
+    // create signature help class
+    SignatureHelp := TSignatureHelp.Create;
+    try
+      // check if the symbol is a method symbol
+      if (Symbol is TMethodSymbol) then
+      begin
+        // The symbol is a method
+        Overloads := TFuncSymbolList.Create;
+        try
+          CollectMethodOverloads(TMethodSymbol(Symbol), Overloads);
+          for ItemIndex := 0 to Overloads.Count - 1 do
+            FunctionToSignatureHelp(Overloads[ItemIndex], SignatureHelp);
+        finally
+          Overloads.Free;
+        end;
+      end
+      else
+      begin
+        // The symbol is a general function
+        FunctionToSignatureHelp(TFuncSymbol(Symbol), SignatureHelp);
 
-  SendResponse(Result);
+        if TFuncSymbol(Symbol).IsOverloaded then
+        begin
+          for SymbolPosList in Prog.SymbolDictionary do
+          begin
+            CurrentSymbol := SymbolPosList.Symbol;
+
+            if (CurrentSymbol.ClassType = Symbol.ClassType) and
+              UnicodeSameText(TFuncSymbol(CurrentSymbol).Name, TFuncSymbol(Symbol).Name) and
+              (CurrentSymbol <> Symbol) then
+              FunctionToSignatureHelp(TFuncSymbol(CurrentSymbol), SignatureHelp);
+          end;
+        end
+      end;
+
+(*
+      // todo: determine the correct parameter number
+      SignatureHelp.ActiveSignature := 0;
+      SignatureHelp.ActiveParameter := 0;
+*)
+
+      SignatureHelp.WriteToJson(Result);
+    finally
+      SignatureHelp.Free;
+    end;
+
+    SendResponse(Result);
+  end
+  else
+    SendResponse;
 end;
 
 function SymbolToSymbolKind(Symbol: TSymbol): TDocumentSymbolInformation.TSymbolKind;

@@ -1227,24 +1227,99 @@ end;
 procedure TTestLanguageServer.TestBasicSignatureHelpSequence;
 var
   Response: TdwsJSONObject;
+  SignatureHelp: TSignatureHelp;
+  SignatureInformation: TSignatureInformation;
+  ParameterInformation: TParameterInformation;
 const
   CFile = 'file:///c:/Test.dws';
   CTestUnit =
     'program Test;' + #13#10#13#10 +
+    'type' + #13#10 +
+    '  TTest = class' + #13#10 +
+    '    function Add(A, B: Integer): Integer; overload;' + #13#10 +
+    '    function Add(A: Integer; B: Float): Integer; overload;' + #13#10 +
+    '  end;' + #13#10#13#10 +
     'function Add(A, B: Integer): Integer;' + #13#10 +
+    'begin' + #13#10 +
+    '  Result := A + B;' + #13#10 +
+    'end;' + #13#10#13#10 +
+    'function TTest.Add(A, B: Integer): Integer;' + #13#10 +
     'begin' + #13#10 +
     '  Result := A + B;' + #13#10 +
     'end;';
 begin
   BasicInitialization;
   FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
-  FLanguageServerHost.SendSignatureHelpRequest(CFile, 4, 12);
+  FLanguageServerHost.SendSignatureHelpRequest(CFile, 8, 13);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
   try
-    CheckEquals('todo', Response['result'].ToString);
+    SignatureHelp := TSignatureHelp.Create;
+    try
+      SignatureHelp.ReadFromJson(Response['result']);
+      CheckEquals(0, SignatureHelp.ActiveSignature);
+      CheckEquals(0, SignatureHelp.ActiveParameter);
+      CheckEquals(1, SignatureHelp.Signatures.Count);
+      SignatureInformation := SignatureHelp.Signatures[0];
+      CheckEquals('Add', SignatureInformation.&Label);
+      CheckEquals('function Add(A: Integer; B: Integer): Integer', SignatureInformation.Documentation);
+      ParameterInformation := SignatureInformation.Parameters[0];
+      CheckEquals('A', ParameterInformation.&Label);
+      CheckEquals('A: Integer', ParameterInformation.Documentation);
+      ParameterInformation := SignatureInformation.Parameters[1];
+      CheckEquals('B', ParameterInformation.&Label);
+      CheckEquals('B: Integer', ParameterInformation.Documentation);
+    finally
+      SignatureHelp.Free;
+    end;
   finally
     Response.Free;
   end;
+
+  FLanguageServerHost.SendSignatureHelpRequest(CFile, 13, 18);
+  Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
+  try
+    SignatureHelp := TSignatureHelp.Create;
+    try
+      SignatureHelp.ReadFromJson(Response['result']);
+      CheckEquals(0, SignatureHelp.ActiveSignature);
+      CheckEquals(0, SignatureHelp.ActiveParameter);
+      CheckEquals(2, SignatureHelp.Signatures.Count);
+
+      SignatureInformation := SignatureHelp.Signatures[0];
+      CheckEquals('Add', SignatureInformation.&Label);
+      CheckEquals('function Add(A: Integer; B: Float): Integer', SignatureInformation.Documentation);
+      ParameterInformation := SignatureInformation.Parameters[0];
+      CheckEquals('A', ParameterInformation.&Label);
+      CheckEquals('A: Integer', ParameterInformation.Documentation);
+      ParameterInformation := SignatureInformation.Parameters[1];
+      CheckEquals('B', ParameterInformation.&Label);
+      CheckEquals('B: Float', ParameterInformation.Documentation);
+
+      SignatureInformation := SignatureHelp.Signatures[1];
+      CheckEquals('Add', SignatureInformation.&Label);
+      CheckEquals('function Add(A: Integer; B: Integer): Integer', SignatureInformation.Documentation);
+      ParameterInformation := SignatureInformation.Parameters[0];
+      CheckEquals('A', ParameterInformation.&Label);
+      CheckEquals('A: Integer', ParameterInformation.Documentation);
+      ParameterInformation := SignatureInformation.Parameters[1];
+      CheckEquals('B', ParameterInformation.&Label);
+      CheckEquals('B: Integer', ParameterInformation.Documentation);
+    finally
+      SignatureHelp.Free;
+    end;
+  finally
+    Response.Free;
+  end;
+
+  FLanguageServerHost.SendSignatureHelpRequest(CFile, 4, 17);
+  Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
+  try
+    // check for empty response (= no signature available)
+    CheckEquals('', Response['result'].ToString);
+  finally
+    Response.Free;
+  end;
+
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
