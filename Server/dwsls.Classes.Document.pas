@@ -163,7 +163,7 @@ type
     FKind: TCompletionItemKind;
     FDetail: string;
 	  FDocumentation: string;
-    FDocumentationMarkup: TMarkupContent;
+    FMarkupContent: TMarkupContent;
     FSortText: string;
     FFilterText: string;
     FInsertText: string;
@@ -184,7 +184,7 @@ type
     property Kind: TCompletionItemKind read FKind write FKind;
     property Detail: string read FDetail write FDetail;
 	  property Documentation: string read FDocumentation write FDocumentation;
-	  property DocumentationAsMarkupContent: TMarkupContent read FDocumentationMarkup;
+	  property DocumentationAsMarkupContent: TMarkupContent read FMarkupContent;
     property SortText: string read FSortText write FSortText;
     property FilterText: string read FFilterText write FFilterText;
     property InsertText: string read FInsertText write FInsertText;
@@ -209,6 +209,65 @@ type
 
     property Items: TCompletionItems read FItems;
     property IsIncomplete: Boolean read FIsIncomplete write FIsIncomplete;
+  end;
+
+  TParameterInformation = class(TJsonClass)
+  private
+    FLabel: string;
+    FDocumentation: string;
+    FMarkupContent: TMarkupContent;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property &Label: string read FLabel write FLabel;
+    property Documentation: string read FDocumentation write FDocumentation;
+    property DocumentationAsMarkupContent: TMarkupContent read FMarkupContent;
+  end;
+
+  TSignatureInformation = class(TJsonClass)
+  private
+  	FLabel: string;
+    FDocumentation: string;
+    FMarkupContent: TMarkupContent;
+    FParameters: TObjectList<TParameterInformation>;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property &Label: string read FLabel write FLabel;
+    property Documentation: string read FDocumentation write FDocumentation;
+    property DocumentationAsMarkupContent: TMarkupContent read FMarkupContent;
+    property Parameters: TObjectList<TParameterInformation> read FParameters;
+  end;
+
+  TSignatureHelp = class(TJsonClass)
+  private
+    FSignatures: TObjectList<TSignatureInformation>;
+    FActiveSignature: Integer;
+    FActiveParameter: Integer;
+    FHasActiveSignature: Boolean;
+    FHasActiveParameter: Boolean;
+    procedure SetActiveParameter(const Value: Integer);
+    procedure SetActiveSignature(const Value: Integer);
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property ActiveSignature: Integer read FActiveSignature write SetActiveSignature;
+    property ActiveParameter: Integer read FActiveParameter write SetActiveParameter;
+    property HasActiveSignature: Boolean read FHasActiveSignature write FHasActiveSignature;
+    property HasActiveParameter: Boolean read FHasActiveParameter write FHasActiveParameter;
+    property Signatures: TObjectList<TSignatureInformation> read FSignatures;
   end;
 
   THoverResponse = class(TJsonClass)
@@ -612,7 +671,7 @@ begin
     FRangeLength := Value['rangeLength'].AsInteger;
   end
   else
-    FHasRange := false;
+    FHasRange := False;
 
   FText := Value['text'].AsString;
 end;
@@ -657,6 +716,7 @@ begin
   begin
     ChangeEvent := TTextDocumentContentChangeEvent.Create;
     ChangeEvent.ReadFromJson(Changes.Elements[Index]);
+    FContentChanges.Add(ChangeEvent);
   end;
 end;
 
@@ -756,13 +816,13 @@ end;
 constructor TCompletionItem.Create;
 begin
   FTextEdit := TTextEdit.Create;
-  FDocumentationMarkup := TMarkupContent.Create;
+  FMarkupContent := TMarkupContent.Create;
 end;
 
 destructor TCompletionItem.Destroy;
 begin
   FTextEdit.Free;
-  FDocumentationMarkup.Free;
+  FMarkupContent.Free;
 
   inherited;
 end;
@@ -773,7 +833,7 @@ begin
   FKind := TCompletionItemKind(Value['kind'].AsInteger);
   FDetail := Value['detail'].AsString;
   if Value['documentation'] is TdwsJSONObject then
-    FDocumentationMarkup.ReadFromJson(Value['documentation'])
+    FMarkupContent.ReadFromJson(Value['documentation'])
   else
     FDocumentation := Value['documentation'].AsString;
   FSortText := Value['sortText'].AsString;
@@ -791,7 +851,8 @@ begin
   if FDocumentation <> '' then
     Value.AddValue('documentation', FDocumentation)
   else
-    FDocumentationMarkup.WriteToJson(Value.AddObject('documentation'));
+  if FMarkupContent.Value <> '' then
+    FMarkupContent.WriteToJson(Value.AddObject('documentation'));
   Value.AddValue('sortText', FSortText);
   Value.AddValue('filterText', FFilterText);
   Value.AddValue('insertText', FInsertText);
@@ -840,6 +901,182 @@ begin
   ItemArray := TdwsJSONObject(Value).AddArray('items');
   for Index := 0 to FItems.Count - 1 do
     FItems[Index].WriteToJson(ItemArray.AddObject);
+end;
+
+
+{ TParameterInformation }
+
+constructor TParameterInformation.Create;
+begin
+  inherited;
+
+  FMarkupContent := TMarkupContent.Create;
+end;
+
+destructor TParameterInformation.Destroy;
+begin
+  FMarkupContent.Free;
+
+  inherited;
+end;
+
+procedure TParameterInformation.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FLabel := Value['label'].AsString;
+
+  if Value['documentation'] is TdwsJSONObject then
+    FMarkupContent.ReadFromJson(Value['documentation'])
+  else
+    FDocumentation := Value['documentation'].AsString;
+end;
+
+procedure TParameterInformation.WriteToJson(const Value: TdwsJSONObject);
+begin
+  Value.AddValue('label', FLabel);
+
+  if FDocumentation <> '' then
+    Value.AddValue('documentation', FDocumentation)
+  else
+  if FMarkupContent.Value <> '' then
+    FMarkupContent.WriteToJson(Value.AddObject('documentation'));
+end;
+
+
+{ TSignatureInformation }
+
+constructor TSignatureInformation.Create;
+begin
+  inherited;
+
+  FMarkupContent := TMarkupContent.Create;
+  FParameters := TObjectList<TParameterInformation>.Create;
+end;
+
+destructor TSignatureInformation.Destroy;
+begin
+  FParameters.Free;
+  FMarkupContent.Free;
+
+  inherited;
+end;
+
+procedure TSignatureInformation.ReadFromJson(const Value: TdwsJSONValue);
+var
+  Index: Integer;
+  ParametersArray: TdwsJSONArray;
+  ParameterInformation: TParameterInformation;
+begin
+  FLabel := Value['label'].AsString;
+
+  if Value['documentation'] is TdwsJSONObject then
+    FMarkupContent.ReadFromJson(Value['documentation'])
+  else
+    FDocumentation := Value['documentation'].AsString;
+
+  ParametersArray := TdwsJSONArray(Value['parameters']);
+  for Index := 0 to ParametersArray.ElementCount - 1 do
+  begin
+    ParameterInformation := TParameterInformation.Create;
+    ParameterInformation.ReadFromJson(ParametersArray.Elements[Index]);
+    FParameters.Add(ParameterInformation);
+  end;
+end;
+
+procedure TSignatureInformation.WriteToJson(const Value: TdwsJSONObject);
+var
+  Index: Integer;
+  ParametersArray: TdwsJSONArray;
+begin
+  Value.AddValue('label', FLabel);
+
+  if FDocumentation <> '' then
+    Value.AddValue('documentation', FDocumentation)
+  else
+  if FMarkupContent.Value <> '' then
+    FMarkupContent.WriteToJson(Value.AddObject('documentation'));
+
+  ParametersArray := TdwsJSONObject(Value).AddArray('parameters');
+  for Index := 0 to FParameters.Count - 1 do
+    FParameters[Index].WriteToJson(ParametersArray.AddObject);
+end;
+
+
+{ TSignatureHelp }
+
+constructor TSignatureHelp.Create;
+begin
+  inherited;
+
+  FSignatures := TObjectList<TSignatureInformation>.Create;
+end;
+
+destructor TSignatureHelp.Destroy;
+begin
+  FSignatures.Free;
+
+  inherited;
+end;
+
+procedure TSignatureHelp.ReadFromJson(const Value: TdwsJSONValue);
+var
+  Index: Integer;
+  SignaturesArray: TdwsJSONArray;
+  SignatureInformation: TSignatureInformation;
+begin
+  inherited;
+
+  if Value['activeSignature'] <> nil then
+  begin
+    FHasActiveSignature := True;
+    FActiveSignature := Value['activeSignature'].AsInteger;
+  end
+  else
+    FHasActiveSignature := False;
+
+  if Value['activeParameter'] <> nil then
+  begin
+    FHasActiveParameter := True;
+    FActiveParameter := Value['activeParameter'].AsInteger;
+  end
+  else
+    FHasActiveParameter := False;
+
+  SignaturesArray := TdwsJSONArray(Value['signatures']);
+  for Index := 0 to SignaturesArray.ElementCount - 1 do
+  begin
+    SignatureInformation := TSignatureInformation.Create;
+    SignatureInformation.ReadFromJson(SignaturesArray.Elements[Index]);
+    FSignatures.Add(SignatureInformation);
+  end;
+end;
+
+procedure TSignatureHelp.SetActiveParameter(const Value: Integer);
+begin
+  FActiveParameter := Value;
+  FHasActiveParameter := True;
+end;
+
+procedure TSignatureHelp.SetActiveSignature(const Value: Integer);
+begin
+  FActiveSignature := Value;
+  FHasActiveSignature := True;
+end;
+
+procedure TSignatureHelp.WriteToJson(const Value: TdwsJSONObject);
+var
+  Index: Integer;
+  SignaturesArray: TdwsJSONArray;
+begin
+  inherited;
+
+  if FHasActiveSignature then
+    Value.AddValue('activeSignature', FActiveSignature);
+  if FHasActiveParameter then
+    Value.AddValue('activeParameter', FActiveParameter);
+
+  SignaturesArray := TdwsJSONObject(Value).AddArray('signatures');
+  for Index := 0 to FSignatures.Count - 1 do
+    FSignatures[Index].WriteToJson(SignaturesArray.AddObject);
 end;
 
 

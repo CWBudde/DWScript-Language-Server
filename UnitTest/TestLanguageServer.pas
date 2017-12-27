@@ -24,6 +24,7 @@ type
     procedure TestJsonDidSaveTextDocumentParams;
     procedure TestJsonDidCloseTextDocumentParams;
     procedure TestJsonCompletionListResponse;
+    procedure TestJsonSignatureHelp;
     procedure TestJsonHoverResponse;
     procedure TestJsonReferenceParams;
     procedure TestJsonDocumentSymbolParams;
@@ -206,6 +207,7 @@ begin
     CompletionListResponse := TCompletionListResponse.Create;
     try
       CompletionListResponse.ReadFromJson(Params);
+      CompletionItem := CompletionListResponse.Items[0];
       CheckEquals('label', CompletionItem.&Label);
       CheckEquals(Integer(itMethod), Integer(CompletionItem.Kind));
       CheckEquals('detail', CompletionItem.Detail);
@@ -246,6 +248,7 @@ begin
     CompletionListResponse := TCompletionListResponse.Create;
     try
       CompletionListResponse.ReadFromJson(Params);
+      CompletionItem := CompletionListResponse.Items[0];
       CheckEquals('label', CompletionItem.&Label);
       CheckEquals(Integer(itMethod), Integer(CompletionItem.Kind));
       CheckEquals('detail', CompletionItem.Detail);
@@ -257,6 +260,72 @@ begin
       CheckEquals(True, CompletionListResponse.IsIncomplete);
     finally
       CompletionListResponse.Free;
+    end;
+  finally
+    Params.Free;
+  end;
+end;
+
+procedure TTestLanguageServerClasses.TestJsonSignatureHelp;
+var
+  SignatureHelp: TSignatureHelp;
+  SignatureInformation: TSignatureInformation;
+  ParameterInformation: TParameterInformation;
+  Params: TdwsJSONObject;
+begin
+  Params := TdwsJSONObject.Create;
+  try
+    SignatureHelp := TSignatureHelp.Create;
+    try
+      SignatureHelp.ActiveSignature := 1;
+      SignatureHelp.ActiveParameter := 2;
+
+      SignatureInformation := TSignatureInformation.Create;
+      SignatureInformation.&Label := 'label';
+      SignatureInformation.Documentation := 'documentation';
+      SignatureHelp.Signatures.Add(SignatureInformation);
+
+      SignatureInformation := TSignatureInformation.Create;
+      SignatureInformation.&Label := 'label';
+      SignatureInformation.DocumentationAsMarkupContent.Value := 'documentation';
+      ParameterInformation := TParameterInformation.Create;
+      ParameterInformation.&Label := 'label';
+      ParameterInformation.Documentation := 'documentation';
+      SignatureInformation.Parameters.Add(ParameterInformation);
+
+      ParameterInformation := TParameterInformation.Create;
+      ParameterInformation.&Label := 'label';
+      ParameterInformation.DocumentationAsMarkupContent.Value := 'text';
+      SignatureInformation.Parameters.Add(ParameterInformation);
+      SignatureHelp.Signatures.Add(SignatureInformation);
+
+      SignatureHelp.WriteToJson(Params);
+    finally
+      SignatureHelp.Free;
+    end;
+
+    SignatureHelp := TSignatureHelp.Create;
+    try
+      SignatureHelp.ReadFromJson(Params);
+      CheckEquals(1, SignatureHelp.ActiveSignature);
+      CheckEquals(2, SignatureHelp.ActiveParameter);
+
+      SignatureInformation := SignatureHelp.Signatures[0];
+      CheckEquals('label', SignatureInformation.&Label);
+      CheckEquals('documentation', SignatureInformation.Documentation);
+
+      SignatureInformation := SignatureHelp.Signatures[1];
+      CheckEquals('label', SignatureInformation.&Label);
+      CheckEquals('documentation', SignatureInformation.DocumentationAsMarkupContent.Value);
+      CheckEquals(2, SignatureInformation.Parameters.Count);
+      ParameterInformation := SignatureInformation.Parameters[0];
+      CheckEquals('label', ParameterInformation.&Label);
+      CheckEquals('documentation', ParameterInformation.Documentation);
+      ParameterInformation := SignatureInformation.Parameters[1];
+      CheckEquals('label', ParameterInformation.&Label);
+      CheckEquals('text', ParameterInformation.DocumentationAsMarkupContent.Value);
+    finally
+      SignatureHelp.Free;
     end;
   finally
     Params.Free;
