@@ -24,6 +24,7 @@ type
     procedure TestJsonDidSaveTextDocumentParams;
     procedure TestJsonDidCloseTextDocumentParams;
     procedure TestJsonCompletionListResponse;
+    procedure TestJsonCompletionContext;
     procedure TestJsonSignatureHelp;
     procedure TestJsonHoverResponse;
     procedure TestJsonReferenceParams;
@@ -260,6 +261,43 @@ begin
       CheckEquals(True, CompletionListResponse.IsIncomplete);
     finally
       CompletionListResponse.Free;
+    end;
+  finally
+    Params.Free;
+  end;
+end;
+
+procedure TTestLanguageServerClasses.TestJsonCompletionContext;
+var
+  CompletionParams: TCompletionParams;
+  Params: TdwsJSONObject;
+begin
+  Params := TdwsJSONObject.Create;
+  try
+    CompletionParams := TCompletionParams.Create;
+    try
+      CompletionParams.TextDocument.Uri := 'c:\Test.dws';
+      CompletionParams.Position.Line := 42;
+      CompletionParams.Position.Character := 57;
+      CompletionParams.Context.TriggerKind := tkTriggerCharacter;
+      CompletionParams.Context.TriggerCharacter := '.';
+
+      CompletionParams.WriteToJson(Params);
+    finally
+      CompletionParams.Free;
+    end;
+
+    CompletionParams := TCompletionParams.Create;
+    try
+      CompletionParams.ReadFromJson(Params);
+
+      CheckEquals(42, CompletionParams.Position.Line);
+      CheckEquals(57, CompletionParams.Position.Character);
+      CheckEquals('c:\Test.dws', CompletionParams.TextDocument.Uri);
+      CheckEquals(Integer(tkTriggerCharacter), Integer(CompletionParams.Context.TriggerKind));
+      CheckEquals('.', CompletionParams.Context.TriggerCharacter);
+    finally
+      CompletionParams.Free;
     end;
   finally
     Params.Free;

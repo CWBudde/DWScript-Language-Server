@@ -38,6 +38,36 @@ type
     property Diagnostics: TDiagnostics read FDiagnostics write FDiagnostics;
   end;
 
+  TTriggerKind = (tkUnknown = 0, tkInvoked = 1, tkTriggerCharacter = 2);
+
+  TCompletionContext = class(TJsonClass)
+  private
+    FTriggerKind: TTriggerKind;
+    FTriggerCharacter: string;
+    FHasTriggerCharacter: Boolean;
+    procedure SetTriggerCharacter(const Value: string);
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property TriggerKind: TTriggerKind read FTriggerKind write FTriggerKind;
+    property TriggerCharacter: string read FTriggerCharacter write SetTriggerCharacter;
+    property HasTriggerCharacter: Boolean read FHasTriggerCharacter write FHasTriggerCharacter;
+  end;
+
+  TCompletionParams = class(TTextDocumentPositionParams)
+  private
+    FContext: TCompletionContext;
+  public
+    constructor Create; override;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Context: TCompletionContext read FContext;
+  end;
+
   TDidOpenTextDocumentParams = class(TJsonClass)
   private
     FTextDocument: TTextDocumentItem;
@@ -602,7 +632,7 @@ var
   DiagnosticArray: TdwsJSONArray;
   Index: Integer;
 begin
-  TdwsJSONObject(Value).AddValue('uri', FUri);
+  Value.AddValue('uri', FUri);
   DiagnosticArray := TdwsJSONObject(Value).AddArray('diagnostics');
   for Index := 0 to FDiagnostics.Count - 1 do
     FDiagnostics[Index].WriteToJson(DiagnosticArray.AddObject);
@@ -622,6 +652,67 @@ begin
   Diagnostic.Message := Message;
   Diagnostic.CodeAsString := 'dwsls';
   FDiagnostics.Add(Diagnostic);
+end;
+
+
+{ TCompletionContext }
+
+procedure TCompletionContext.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FTriggerKind := TTriggerKind(Value['triggerKind'].AsInteger);
+  if Value['triggerCharacter'] <> nil then
+  begin
+    FHasTriggerCharacter := True;
+    FTriggerCharacter := Value['triggerCharacter'].AsString;
+  end
+  else
+    FHasTriggerCharacter := False;
+end;
+
+procedure TCompletionContext.WriteToJson(const Value: TdwsJSONObject);
+begin
+  Value.AddValue('triggerKind', Integer(FTriggerKind));
+  if FHasTriggerCharacter then
+    Value.AddValue('triggerCharacter', FTriggerCharacter);
+end;
+
+procedure TCompletionContext.SetTriggerCharacter(const Value: string);
+begin
+  FTriggerCharacter := Value;
+  FHasTriggerCharacter := True;
+end;
+
+
+{ TCompletionParams }
+
+constructor TCompletionParams.Create;
+begin
+  inherited;
+
+  FContext := TCompletionContext.Create;
+end;
+
+destructor TCompletionParams.Destroy;
+begin
+  FContext.Free;
+
+  inherited;
+end;
+
+procedure TCompletionParams.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  inherited;
+
+  if Value['context'] is TdwsJSONObject then
+    FContext.ReadFromJson(Value['context']);
+end;
+
+procedure TCompletionParams.WriteToJson(const Value: TdwsJSONObject);
+begin
+  inherited;
+
+  if FContext.FTriggerKind <> tkUnknown then
+    FContext.WriteToJson(Value.AddObject('context'));
 end;
 
 
