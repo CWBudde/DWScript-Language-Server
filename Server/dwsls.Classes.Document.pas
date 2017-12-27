@@ -163,6 +163,7 @@ type
     FKind: TCompletionItemKind;
     FDetail: string;
 	  FDocumentation: string;
+    FDocumentationMarkup: TMarkupContent;
     FSortText: string;
     FFilterText: string;
     FInsertText: string;
@@ -183,6 +184,7 @@ type
     property Kind: TCompletionItemKind read FKind write FKind;
     property Detail: string read FDetail write FDetail;
 	  property Documentation: string read FDocumentation write FDocumentation;
+	  property DocumentationAsMarkupContent: TMarkupContent read FDocumentationMarkup;
     property SortText: string read FSortText write FSortText;
     property FilterText: string read FFilterText write FFilterText;
     property InsertText: string read FInsertText write FInsertText;
@@ -212,6 +214,7 @@ type
   THoverResponse = class(TJsonClass)
   private
     FContents: TStringList;
+    FMarkupContents: TMarkupContent;
     FRange: TRange;
   public
     constructor Create;
@@ -220,6 +223,7 @@ type
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
 
+    property MarkupContents: TMarkupContent read FMarkupContents;
     property Contents: TStringList read FContents;
     property Range: TRange read FRange;
   end;
@@ -752,11 +756,14 @@ end;
 constructor TCompletionItem.Create;
 begin
   FTextEdit := TTextEdit.Create;
+  FDocumentationMarkup := TMarkupContent.Create;
 end;
 
 destructor TCompletionItem.Destroy;
 begin
   FTextEdit.Free;
+  FDocumentationMarkup.Free;
+
   inherited;
 end;
 
@@ -765,7 +772,10 @@ begin
   FLabel := Value['label'].AsString;
   FKind := TCompletionItemKind(Value['kind'].AsInteger);
   FDetail := Value['detail'].AsString;
-  FDocumentation := Value['documentation'].AsString;
+  if Value['documentation'] is TdwsJSONObject then
+    FDocumentationMarkup.ReadFromJson(Value['documentation'])
+  else
+    FDocumentation := Value['documentation'].AsString;
   FSortText := Value['sortText'].AsString;
   FFilterText := Value['filterText'].AsString;
   FInsertText := Value['insertText'].AsString;
@@ -778,7 +788,10 @@ begin
   Value.AddValue('label', FLabel);
   Value.AddValue('kind', Integer(FKind));
   Value.AddValue('detail', FDetail);
-  Value.AddValue('documentation', FDocumentation);
+  if FDocumentation <> '' then
+    Value.AddValue('documentation', FDocumentation)
+  else
+    FDocumentationMarkup.WriteToJson(Value.AddObject('documentation'));
   Value.AddValue('sortText', FSortText);
   Value.AddValue('filterText', FFilterText);
   Value.AddValue('insertText', FInsertText);
@@ -835,12 +848,14 @@ end;
 constructor THoverResponse.Create;
 begin
   FContents := TStringList.Create;
+  FMarkupContents := TMarkupContent.Create;
   FRange := TRange.Create;
 end;
 
 destructor THoverResponse.Destroy;
 begin
   FContents.Free;
+  FMarkupContents.Free;
   FRange.Free;
 
   inherited;
@@ -862,6 +877,9 @@ begin
         FContents.Add(ContentValue.Elements[Index].AsString);
     end
     else
+    if ContentValue is TdwsJSONObject then
+      FMarkupContents.ReadFromJson(ContentValue)
+    else
       FContents.Add(ContentValue.AsString);
 end;
 
@@ -871,13 +889,17 @@ var
   Index: Integer;
 begin
   FRange.WriteToJson(Value.AddObject('range'));
-  if FContents.Count = 1 then
-    Value.AddValue('contents', FContents[0])
-  else
-  begin
-    ContentArray := TdwsJSONArray(Value.AddArray('contents'));
-    for Index := 0 to FContents.Count - 1 do
-      ContentArray.Add(FContents[Index]);
+  case FContents.Count of
+    0:
+      FMarkupContents.WriteToJson(Value.AddObject('contents'));
+    1:
+      Value.AddValue('contents', FContents[0])
+    else
+    begin
+      ContentArray := TdwsJSONArray(Value.AddArray('contents'));
+      for Index := 0 to FContents.Count - 1 do
+        ContentArray.Add(FContents[Index]);
+    end;
   end;
 end;
 

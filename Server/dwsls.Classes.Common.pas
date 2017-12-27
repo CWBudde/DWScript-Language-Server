@@ -290,6 +290,20 @@ type
     property Pattern: string read FPattern write FPattern;
   end;
 
+  TMarkupContent = class(TJsonClass)
+  type
+    TMarkupKind  = (mkPlainText, mkMarkDown, mkUnknown);
+  private
+    FKind: TMarkupKind;
+    FValue: string;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Kind: TMarkupKind read FKind write FKind;
+    property Value: string read FValue write FValue;
+  end;
+
   TFileEvent = class(TJsonClass)
   type
     TFileChangeType = (fcCreated, fcChanged, fcDeleted);
@@ -788,6 +802,33 @@ begin
   Value.AddValue('language', FLanguage);
   Value.AddValue('scheme', FScheme);
   Value.AddValue('pattern', FPattern);
+end;
+
+
+{ TMarkupContent }
+
+procedure TMarkupContent.ReadFromJson(const Value: TdwsJSONValue);
+var
+  Kind: string;
+begin
+  FValue := Value['value'].AsString;
+  Kind := Value['kind'].AsString;
+  if Kind = 'plaintext' then
+    FKind := mkPlainText
+  else
+  if Kind = 'markdown' then
+    FKind := mkMarkDown;
+end;
+
+procedure TMarkupContent.WriteToJson(const Value: TdwsJSONObject);
+begin
+  Value.AddValue('value', FValue);
+  case FKind of
+    mkPlainText:
+      Value.AddValue('kind', 'plaintext');
+    mkMarkDown:
+      Value.AddValue('kind', 'markdown');
+  end;
 end;
 
 

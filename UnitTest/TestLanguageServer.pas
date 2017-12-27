@@ -221,6 +221,46 @@ begin
   finally
     Params.Free;
   end;
+
+  // markup documentation
+  Params := TdwsJSONObject.Create;
+  try
+    CompletionListResponse := TCompletionListResponse.Create;
+    try
+      CompletionListResponse.IsIncomplete := True;
+      CompletionItem := TCompletionItem.Create;
+      CompletionItem.&Label := 'label';
+      CompletionItem.Kind := itMethod;
+      CompletionItem.Detail := 'detail';
+      CompletionItem.DocumentationAsMarkupContent.Value := 'Foo/nBar';
+      CompletionItem.SortText := 'sort text';
+      CompletionItem.FilterText := 'filter text';
+      CompletionItem.InsertText := 'insert text';
+      CompletionItem.InsertTextFormat := tfSnippet;
+      CompletionListResponse.Items.Add(CompletionItem);
+      CompletionListResponse.WriteToJson(Params);
+    finally
+      CompletionListResponse.Free;
+    end;
+
+    CompletionListResponse := TCompletionListResponse.Create;
+    try
+      CompletionListResponse.ReadFromJson(Params);
+      CheckEquals('label', CompletionItem.&Label);
+      CheckEquals(Integer(itMethod), Integer(CompletionItem.Kind));
+      CheckEquals('detail', CompletionItem.Detail);
+      CheckEquals('Foo/nBar', CompletionItem.DocumentationAsMarkupContent.Value);
+      CheckEquals('sort text', CompletionItem.SortText);
+      CheckEquals('filter text', CompletionItem.FilterText);
+      CheckEquals('insert text', CompletionItem.InsertText);
+      CheckEquals(Integer(tfSnippet), Integer(CompletionItem.InsertTextFormat));
+      CheckEquals(True, CompletionListResponse.IsIncomplete);
+    finally
+      CompletionListResponse.Free;
+    end;
+  finally
+    Params.Free;
+  end;
 end;
 
 procedure TTestLanguageServerClasses.TestJsonDidChangeTextDocumentParams;
@@ -713,6 +753,29 @@ begin
       CheckEquals(2, HoverResponse.Contents.Count);
       CheckEquals('Foo', HoverResponse.Contents[0]);
       CheckEquals('Bar', HoverResponse.Contents[1]);
+    finally
+      HoverResponse.Free;
+    end;
+  finally
+    Params.Free;
+  end;
+
+  // markdown content
+  Params := TdwsJSONObject.Create;
+  try
+    HoverResponse := THoverResponse.Create;
+    try
+      Assert(HoverResponse.Contents.Count = 0);
+      HoverResponse.MarkupContents.Value := 'Foo/nBar';
+      HoverResponse.WriteToJson(Params);
+    finally
+      HoverResponse.Free;
+    end;
+
+    HoverResponse := THoverResponse.Create;
+    try
+      HoverResponse.ReadFromJson(Params);
+      CheckEquals('Foo/nBar', HoverResponse.MarkupContents.Value);
     finally
       HoverResponse.Free;
     end;
