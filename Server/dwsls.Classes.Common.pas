@@ -685,8 +685,8 @@ var
   ArgumentArray: TdwsJSONArray;
   Index: Integer;
 begin
-  Value['title'].AsString := FTitle;
-  Value['command'].AsString := FCommand;
+  Value.AddValue('title', FTitle);
+  Value.AddValue('command', FCommand);
   ArgumentArray := TdwsJSONObject(Value).AddArray('arguments');
   for Index := 0 to FArguments.Count - 1 do
     ArgumentArray.AddValue.AsString := FArguments[Index];

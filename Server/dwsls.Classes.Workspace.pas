@@ -43,6 +43,7 @@ type
     procedure WriteToJson(const Value: TdwsJSONObject); override;
 
     property Command: string read FCommand write FCommand;
+    property Arguments: TStringList read FArguments;
   end;
 
   TApplyWorkspaceEditParams = class(TJsonClass)

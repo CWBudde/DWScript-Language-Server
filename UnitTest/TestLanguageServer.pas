@@ -16,6 +16,9 @@ type
     procedure TestJsonClientCapabilities;
     procedure TestJsonServerCapabilities;
 
+    procedure TestJsonCommand;
+    procedure TestJsonDiagnostics;
+
     procedure TestJsonTextDocumentPositionParams;
     procedure TestJsonPublishDiagnosticsParams;
     procedure TestJsonDidOpenTextDocumentParams;
@@ -89,6 +92,79 @@ end;
 procedure TTestLanguageServerClasses.TearDown;
 begin
   // nothing to be done in here
+end;
+
+procedure TTestLanguageServerClasses.TestJsonCommand;
+var
+  Command: TCommand;
+  Params: TdwsJSONObject;
+begin
+  Params := TdwsJSONObject.Create;
+  try
+    Command := TCommand.Create;
+    try
+      Command.Title := 'title';
+      Command.Command := 'command';
+      Command.Arguments.Add('argument');
+      Command.WriteToJson(Params);
+    finally
+      Command.Free;
+    end;
+
+    Command := TCommand.Create;
+    try
+      Command.ReadFromJson(Params);
+      CheckEquals('title', Command.Title);
+      CheckEquals('command', Command.Command);
+      CheckEquals(1, Command.Arguments.Count);
+      CheckEquals('argument', Command.Arguments[0]);
+    finally
+      Command.Free;
+    end;
+  finally
+    Params.Free;
+  end;
+end;
+
+procedure TTestLanguageServerClasses.TestJsonDiagnostics;
+var
+  Diagnostic: TDiagnostic;
+  Params: TdwsJSONObject;
+begin
+  Params := TdwsJSONObject.Create;
+  try
+    Diagnostic := TDiagnostic.Create;
+    try
+      Diagnostic.Range.Start.Line := 42;
+      Diagnostic.Range.Start.Character := 47;
+      Diagnostic.Range.&End.Line := 52;
+      Diagnostic.Range.&End.Character := 57;
+      Diagnostic.Source := 'source';
+      Diagnostic.Severity := dsInformation;
+      Diagnostic.CodeAsString := 'code';
+      Diagnostic.Message := 'message';
+      Diagnostic.WriteToJson(Params);
+    finally
+      Diagnostic.Free;
+    end;
+
+    Diagnostic := TDiagnostic.Create;
+    try
+      Diagnostic.ReadFromJson(Params);
+      CheckEquals(42, Diagnostic.Range.Start.Line);
+      CheckEquals(47, Diagnostic.Range.Start.Character);
+      CheckEquals(52, Diagnostic.Range.&End.Line);
+      CheckEquals(57, Diagnostic.Range.&End.Character);
+      CheckEquals('code', Diagnostic.CodeAsString);
+      CheckEquals('source', Diagnostic.Source);
+      CheckEquals('message', Diagnostic.Message);
+      CheckEquals(Integer(dsInformation), Integer(Diagnostic.Severity));
+    finally
+      Diagnostic.Free;
+    end;
+  finally
+    Params.Free;
+  end;
 end;
 
 procedure TTestLanguageServerClasses.TestJsonApplyWorkspaceEditParams;
@@ -191,7 +267,6 @@ begin
       CheckEquals('source', Diagnostic.Source);
       CheckEquals('message', Diagnostic.Message);
       CheckEquals(Integer(dsInformation), Integer(Diagnostic.Severity));
-      Diagnostic.Severity := dsInformation;
     finally
       CodeActionParams.Free;
     end;
@@ -880,6 +955,7 @@ begin
     ExecuteCommandParams := TExecuteCommandParams.Create;
     try
       ExecuteCommandParams.Command := 'Foo';
+      ExecuteCommandParams.Arguments.Add('Bar');
       ExecuteCommandParams.WriteToJson(Params);
     finally
       ExecuteCommandParams.Free;
@@ -889,6 +965,8 @@ begin
     try
       ExecuteCommandParams.ReadFromJson(Params);
       CheckEquals('Foo', ExecuteCommandParams.Command);
+      CheckEquals(1, ExecuteCommandParams.Arguments.Count);
+      CheckEquals('Bar', ExecuteCommandParams.Arguments[0]);
     finally
       ExecuteCommandParams.Free;
     end;
