@@ -585,12 +585,51 @@ begin
 end;
 
 procedure TDiagnostic.ReadFromJson(const Value: TdwsJSONValue);
+var
+  CodeValue: TdwsJSONValue;
 begin
   FRange.ReadFromJson(Value['range']);
   FSource := Value['source'].AsString;
   if not Value['severity'].IsNull then
     FSeverity := TDiagnosticSeverity(Value['severity'].AsInteger);
   FMessage := Value['message'].AsString;
+
+  // read code
+  CodeValue := Value['code'];
+  if CodeValue is TdwsJSONValue then
+  case CodeValue.ValueType of
+    jvtString:
+      begin
+        FCodeString := CodeValue.AsString;
+        FCodeType := ctString;
+      end;
+    jvtNumber:
+      begin
+        FCodeValue := CodeValue.AsInteger;
+        FCodeType := ctNumber;
+      end;
+    else
+      FCodeType := ctNone;
+  end
+  else
+    CodeType := ctNone;
+end;
+
+procedure TDiagnostic.WriteToJson(const Value: TdwsJSONObject);
+begin
+  FRange.WriteToJson(Value.AddObject('range'));
+  if FSeverity <> dsUnknown then
+    Value.AddValue('severity', Integer(FSeverity));
+  if FSource <> '' then
+    Value.AddValue('source', FSource);
+  Value.AddValue('message', FMessage);
+
+  case CodeType of
+    ctString:
+      Value.AddValue('code', FCodeString);
+    ctNumber:
+      Value.AddValue('code', FCodeValue);
+  end;
 end;
 
 procedure TDiagnostic.SetCodeString(const Value: string);
@@ -609,16 +648,6 @@ begin
     FCodeValue := Value;
     FCodeType := ctNumber;
   end;
-end;
-
-procedure TDiagnostic.WriteToJson(const Value: TdwsJSONObject);
-begin
-  FRange.WriteToJson(Value.AddObject('range'));
-  if FSeverity <> dsUnknown then
-    Value.AddValue('severity', Integer(FSeverity));
-  if FSource <> '' then
-    Value.AddValue('source', FSource);
-  Value.AddValue('message', FMessage);
 end;
 
 

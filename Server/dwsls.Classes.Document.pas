@@ -1421,7 +1421,7 @@ var
   Index: Integer;
   DiagnosticsArray: TdwsJSONArray;
 begin
-  DiagnosticsArray := TdwsJSONObject(Value).AddArray('contentChanges');
+  DiagnosticsArray := TdwsJSONObject(Value).AddArray('diagnostics');
   for Index := 0 to FDiagnostics.Count - 1 do
     FDiagnostics[Index].WriteToJson(DiagnosticsArray.AddObject);
 end;

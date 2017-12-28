@@ -126,12 +126,14 @@ begin
     try
       ApplyWorkspaceEditParams.ReadFromJson(Params);
       CheckEquals('c:\Test.dws', ApplyWorkspaceEditParams.WorkspaceEdit.DocumentChanges[0].TextDocument.Uri);
-      CheckEquals('c:\Test.dws', ApplyWorkspaceEditParams.WorkspaceEdit.Changes.Items[0].Uri);
-      CheckEquals(42, ApplyWorkspaceEditParams.WorkspaceEdit.Changes.Items[0].TextEdits[0].Range.Start.Line);
-      CheckEquals(47, ApplyWorkspaceEditParams.WorkspaceEdit.Changes.Items[0].TextEdits[0].Range.Start.Character);
-      CheckEquals(52, ApplyWorkspaceEditParams.WorkspaceEdit.Changes.Items[0].TextEdits[0].Range.&End.Line);
-      CheckEquals(57, ApplyWorkspaceEditParams.WorkspaceEdit.Changes.Items[0].TextEdits[0].Range.&End.Character);
-      CheckEquals('NewText', ApplyWorkspaceEditParams.WorkspaceEdit.Changes.Items[0].TextEdits[0].NewText);
+      TextEditItem := ApplyWorkspaceEditParams.WorkspaceEdit.Changes.Items[0];
+      CheckEquals('c:\Test.dws', TextEditItem.Uri);
+      TextEdit := TextEditItem.TextEdits[0];
+      CheckEquals(42, TextEdit.Range.Start.Line);
+      CheckEquals(47, TextEdit.Range.Start.Character);
+      CheckEquals(52, TextEdit.Range.&End.Line);
+      CheckEquals(57, TextEdit.Range.&End.Character);
+      CheckEquals('NewText', TextEdit.NewText);
     finally
       ApplyWorkspaceEditParams.Free;
     end;
@@ -151,10 +153,18 @@ begin
     CodeActionParams := TCodeActionParams.Create;
     try
       CodeActionParams.Range.Start.Line := 42;
-      CodeActionParams.Range.Start.Character := 42;
-      CodeActionParams.Range.&End.Line := 57;
+      CodeActionParams.Range.Start.Character := 47;
+      CodeActionParams.Range.&End.Line := 52;
       CodeActionParams.Range.&End.Character := 57;
       Diagnostic := TDiagnostic.Create;
+      Diagnostic.Range.Start.Line := 42;
+      Diagnostic.Range.Start.Character := 47;
+      Diagnostic.Range.&End.Line := 52;
+      Diagnostic.Range.&End.Character := 57;
+      Diagnostic.Source := 'source';
+      Diagnostic.Severity := dsInformation;
+      Diagnostic.CodeAsString := 'code';
+      Diagnostic.Message := 'message';
       CodeActionParams.Context.Diagnostics.Add(Diagnostic);
       CodeActionParams.WriteToJson(Params);
     finally
@@ -164,6 +174,24 @@ begin
     CodeActionParams := TCodeActionParams.Create;
     try
       CodeActionParams.ReadFromJson(Params);
+      CheckEquals(42, CodeActionParams.Range.Start.Line);
+      CheckEquals(47, CodeActionParams.Range.Start.Character);
+      CheckEquals(52, CodeActionParams.Range.&End.Line);
+      CheckEquals(57, CodeActionParams.Range.&End.Character);
+      CheckEquals(1, CodeActionParams.Context.Diagnostics.Count);
+
+      // check context (with diagnostics)
+      CheckEquals(1, CodeActionParams.Context.Diagnostics.Count);
+      Diagnostic := CodeActionParams.Context.Diagnostics[0];
+      CheckEquals(42, Diagnostic.Range.Start.Line);
+      CheckEquals(47, Diagnostic.Range.Start.Character);
+      CheckEquals(52, Diagnostic.Range.&End.Line);
+      CheckEquals(57, Diagnostic.Range.&End.Character);
+      CheckEquals('code', Diagnostic.CodeAsString);
+      CheckEquals('source', Diagnostic.Source);
+      CheckEquals('message', Diagnostic.Message);
+      CheckEquals(Integer(dsInformation), Integer(Diagnostic.Severity));
+      Diagnostic.Severity := dsInformation;
     finally
       CodeActionParams.Free;
     end;
