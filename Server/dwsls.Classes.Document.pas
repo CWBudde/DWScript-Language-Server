@@ -1401,13 +1401,29 @@ begin
 end;
 
 procedure TCodeActionContext.ReadFromJson(const Value: TdwsJSONValue);
+var
+  Index: Integer;
+  DiagnosticsArray: TdwsJSONArray;
+  Diagnostic: TDiagnostic;
 begin
-//  FDiagnostics
+  DiagnosticsArray := TdwsJSONArray(Value['diagnostics']);
+  if DiagnosticsArray is TdwsJSONArray then
+    for Index := 0 to DiagnosticsArray.ElementCount - 1 do
+    begin
+      Diagnostic := TDiagnostic.Create;
+      Diagnostic.ReadFromJson(DiagnosticsArray.Elements[Index]);
+      FDiagnostics.Add(Diagnostic);
+    end;
 end;
 
 procedure TCodeActionContext.WriteToJson(const Value: TdwsJSONObject);
+var
+  Index: Integer;
+  DiagnosticsArray: TdwsJSONArray;
 begin
-//  FDiagnostics
+  DiagnosticsArray := TdwsJSONObject(Value).AddArray('contentChanges');
+  for Index := 0 to FDiagnostics.Count - 1 do
+    FDiagnostics[Index].WriteToJson(DiagnosticsArray.AddObject);
 end;
 
 
