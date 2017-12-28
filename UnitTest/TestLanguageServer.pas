@@ -1541,6 +1541,8 @@ end;
 procedure TTestLanguageServer.TestBasicFindReferenceSequence;
 var
   Response: TdwsJSONObject;
+  LocationArray: TdwsJSONArray;
+  Location: TLocation;
 const
   CFile = 'file:///c:/Test.dws';
   CTestUnit =
@@ -1555,7 +1557,20 @@ begin
   FLanguageServerHost.SendRefrencesRequest(CFile, 2, 13, True);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
   try
-    CheckEquals('todo', Response['result'].ToString);
+    CheckTrue(Response['result'] is TdwsJSONArray);
+    LocationArray := TdwsJSONArray(Response['result']);
+    Location := TLocation.Create;
+    try
+      CheckTrue(LocationArray.ElementCount > 0);
+      Location.ReadFromJson(LocationArray[0]);
+      CheckEquals(5, Location.Range.Start.Line);
+      CheckEquals(13, Location.Range.Start.Character);
+      CheckEquals(5, Location.Range.&End.Line);
+      CheckEquals(14, Location.Range.&End.Character);
+      CheckEquals(CFile, Location.Uri);
+    finally
+      Location.Free;
+    end;
   finally
     Response.Free;
   end;
@@ -1565,6 +1580,8 @@ end;
 procedure TTestLanguageServer.TestBasicDocumentHightlightSequence;
 var
   Response: TdwsJSONObject;
+  DocumentHighlightArray: TdwsJSONArray;
+  DocumentHighlight: TDocumentHighlight;
 const
   CFile = 'file:///c:/Test.dws';
   CTestUnit =
@@ -1579,7 +1596,20 @@ begin
   FLanguageServerHost.SendDocumentHighlightRequest(CFile, 2, 13);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
   try
-    CheckEquals('todo', Response['result'].ToString);
+    CheckTrue(Response['result'] is TdwsJSONArray);
+    DocumentHighlightArray := TdwsJSONArray(Response['result']);
+    DocumentHighlight := TDocumentHighlight.Create;
+    try
+      CheckTrue(DocumentHighlightArray.ElementCount > 0);
+      DocumentHighlight.ReadFromJson(DocumentHighlightArray[0]);
+      CheckEquals(5, DocumentHighlight.Range.Start.Line);
+      CheckEquals(13, DocumentHighlight.Range.Start.Character);
+      CheckEquals(5, DocumentHighlight.Range.&End.Line);
+      CheckEquals(14, DocumentHighlight.Range.&End.Character);
+      CheckEquals(Integer(hkText), Integer(DocumentHighlight.Kind));
+    finally
+      DocumentHighlight.Free;
+    end;
   finally
     Response.Free;
   end;

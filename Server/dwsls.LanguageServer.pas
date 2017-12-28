@@ -905,6 +905,7 @@ begin
       // create location and translate between symbol position and location
       Location := TLocation.Create;
       try
+        // TODO: Proper document management (does not find main module so far)
         Location.Uri := SymbolPos.ScriptPos.SourceFile.Location;
         Location.Range.Start.Line := SymbolPos.ScriptPos.Line;
         Location.Range.Start.Character := SymbolPos.ScriptPos.Col;
