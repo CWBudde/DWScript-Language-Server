@@ -35,6 +35,9 @@ type
     procedure Log(const Text: string);
     {$ENDIF}
 
+    procedure InternalRegisterAndUnregisterCapability(Method, Id: string;
+      IsRegister: Boolean); inline;
+
     function GetSourceCodeForUri(Uri: string): string;
     function CreateJsonRpc(Method: string = ''): TdwsJSONObject;
     procedure LogMessage(Text: string; MessageType: TMessageType = msLog);
@@ -123,9 +126,11 @@ begin
   FDelphiWebScript.OnNeedUnit := OnNeedUnitEventHandler;
   FDelphiWebScript.OnInclude := OnIncludeEventHandler;
 
+  // create capatibilities instances
   FClientCapabilities := TClientCapabilities.Create;
   FServerCapabilities := TServerCapabilities.Create;
 
+  // create document item list
   FTextDocumentItemList := TdwsTextDocumentItemList.Create;
 end;
 
@@ -180,6 +185,21 @@ begin
   LogMessage('OnNeedUnitEventHandler: ' + UnitName);
 end;
 
+function ScriptMessageTypeToDiagnosticSeverity(ScriptMessage: TScriptMessage): TDiagnosticSeverity;
+begin
+  // convert the script message class to a diagnostic severity
+  if ScriptMessage is THintMessage then
+    Result := dsHint
+  else
+  if ScriptMessage is TWarningMessage then
+    Result := dsWarning
+  else
+  if ScriptMessage is TErrorMessage then
+    Result := dsError
+  else
+    Result := dsInformation;
+end;
+
 function TDWScriptLanguageServer.Compile(Uri: string): IdwsProgram;
 var
   PublishDiagnosticsParams: TPublishDiagnosticsParams;
@@ -190,34 +210,30 @@ var
 begin
   SourceCode := '';
 
+  // get source code for uri
   SourceCode := GetSourceCodeForUri(Uri);
+
+  // eventually compile source code
   if SourceCode <> '' then
     Result := FDelphiWebScript.Compile(SourceCode);
 
+  // check if the compilation was successful
   if Assigned(Result) and (Result.Msgs.Count > 0) then
   begin
+    // prepare to publis diagnostic
     PublishDiagnosticsParams := TPublishDiagnosticsParams.Create;
     try
       for Index := 0 to Result.Msgs.Count - 1 do
         if Result.Msgs.Msgs[Index] is TScriptMessage then
         begin
           ScriptMessage := TScriptMessage(Result.Msgs.Msgs[Index]);
-          if ScriptMessage is THintMessage then
-            PublishDiagnosticsParams.AddDiagnostic(ScriptMessage.Line,
-              ScriptMessage.Col, dsHint, ScriptMessage.Text)
-          else
-          if ScriptMessage is TWarningMessage then
-            PublishDiagnosticsParams.AddDiagnostic(ScriptMessage.Line,
-              ScriptMessage.Col, dsWarning, ScriptMessage.Text)
-          else
-          if ScriptMessage is TErrorMessage then
-            PublishDiagnosticsParams.AddDiagnostic(ScriptMessage.Line,
-              ScriptMessage.Col, dsError, ScriptMessage.Text)
-          else
-            PublishDiagnosticsParams.AddDiagnostic(ScriptMessage.Line,
-              ScriptMessage.Col, dsInformation, ScriptMessage.Text);
+          PublishDiagnosticsParams.AddDiagnostic(
+            ScriptMessage.Line, ScriptMessage.Col,
+            ScriptMessageTypeToDiagnosticSeverity(ScriptMessage),
+            ScriptMessage.Text);
         end;
 
+      // translate the publish diagnostics params to a notification and send it
       Params := TdwsJSONObject.Create;
       PublishDiagnosticsParams.WriteToJson(Params);
       SendNotification('textDocument/publishDiagnostics', Params);
@@ -254,7 +270,8 @@ begin
   SendNotification('telemetry/event', Params);
 end;
 
-procedure TDWScriptLanguageServer.UnregisterCapability(Method, Id: string);
+procedure TDWScriptLanguageServer.InternalRegisterAndUnregisterCapability(
+  Method, Id: string; IsRegister: Boolean);
 var
   Params: TdwsJSONObject;
   Registrations: TdwsJSONArray;
@@ -268,7 +285,20 @@ begin
   Registration.AddValue('method', Method);
   RegisterOptions := Registration.AddObject('registerOptions');
   RegisterOptions.AddArray('documentSelector').AddObject.AddValue('language', 'dwscript');
-  SendNotification('client/unregisterCapability', Params);
+  if IsRegister then
+    SendNotification('client/registerCapability', Params)
+  else
+    SendNotification('client/unregisterCapability', Params);
+end;
+
+procedure TDWScriptLanguageServer.UnregisterCapability(Method, Id: string);
+begin
+  InternalRegisterAndUnregisterCapability(Method, Id, True);
+end;
+
+procedure TDWScriptLanguageServer.RegisterCapability(Method, Id: string);
+begin
+  InternalRegisterAndUnregisterCapability(Method, Id, False);
 end;
 
 function TDWScriptLanguageServer.GetSourceCodeForUri(Uri: string): string;
@@ -299,25 +329,9 @@ begin
 //  ShowMessage('The DWScript language server is in an early alpha state');
 end;
 
-procedure TDWScriptLanguageServer.RegisterCapability(Method, Id: string);
-var
-  Params: TdwsJSONObject;
-  Registrations: TdwsJSONArray;
-  Registration: TdwsJSONObject;
-  RegisterOptions: TdwsJSONObject;
-begin
-  Params := TdwsJSONObject.Create;
-  Registrations := Params.AddArray('registrations');
-  Registration := Registrations.AddObject;
-  Registration.AddValue('id', Id);
-  Registration.AddValue('method', Method);
-  RegisterOptions := Registration.AddObject('registerOptions');
-  RegisterOptions.AddArray('documentSelector').AddObject.AddValue('language', 'dwscript');
-  SendNotification('client/registerCapability', Params);
-end;
-
 procedure TDWScriptLanguageServer.HandleShutDown;
 begin
+  // just answer the response to inform so far
   SendResponse;
 end;
 
@@ -349,20 +363,61 @@ end;
 procedure TDWScriptLanguageServer.HandleTextDocumentCompletion(Params: TdwsJSONObject);
 var
   TextDocumentPositionParams: TTextDocumentPositionParams;
+  Prog: IdwsProgram;
+  Suggestions: IdwsSuggestions;
+  ScriptSourceItem: TScriptSourceItem;
+  ScriptPos: TScriptPos;
+  Index: Integer;
+  CompletionList: TCompletionListResponse;
+  CompletionItem: TCompletionItem;
   Result: TdwsJSONObject;
 begin
   TextDocumentPositionParams := TTextDocumentPositionParams.Create;
   try
     TextDocumentPositionParams.ReadFromJson(Params);
+
+    // compile the current unit
+    Prog := Compile(TextDocumentPositionParams.TextDocument.Uri);
+
+    // get main module (TODO: locate the right file)
+    ScriptSourceItem := Prog.SourceList.FindScriptSourceItem(SYS_MainModule);
+
+    // locate script position
+    ScriptPos := TScriptPos.Create(ScriptSourceItem.SourceFile,
+      TextDocumentPositionParams.Position.Line + 1,
+      TextDocumentPositionParams.Position.Character + 1);
   finally
     TextDocumentPositionParams.Free;
   end;
 
-  Result := TdwsJSONObject.Create;
+  // create suggestions for the current script position
+  Suggestions := TdwsSuggestions.Create(Prog, ScriptPos, [soUnifyOverloads]);
+  if Suggestions.Count = 0 then
+    SendResponse
+  else
+  begin
+    Result := TdwsJSONObject.Create;
 
-  // not yet implemented
+    // create completion list
+    CompletionList := TCompletionListResponse.Create;
+    try
+      // the list is always incomplete as it changes dynamically
+      CompletionList.IsIncomplete := True;
 
-  SendResponse(Result);
+      for Index := 0 to Suggestions.Count - 1 do
+      begin
+        CompletionItem := TCompletionItem.Create;
+        CompletionItem.Detail := Suggestions.Caption[Index];
+        CompletionItem.InsertText := Suggestions.Code[Index];
+        CompletionList.Items.Add(CompletionItem);
+      end;
+
+      CompletionList.WriteToJson(Result);
+    finally
+      CompletionList.Free;
+    end;
+    SendResponse(Result);
+  end;
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentDefinition(Params: TdwsJSONObject);
@@ -382,6 +437,7 @@ begin
   try
     TextDocumentPositionParams.ReadFromJson(Params);
 
+    // compile the current unit
     Prog := Compile(TextDocumentPositionParams.TextDocument.Uri);
 
     Symbol := Prog.SymbolDictionary.FindSymbolAtPosition(
