@@ -1375,6 +1375,8 @@ end;
 procedure TTestLanguageServer.TestBasicCompletionSequence;
 var
   Response: TdwsJSONObject;
+  CompletionItem: TCompletionItem;
+  CompletionListResponse: TCompletionListResponse;
 const
   CFile = 'file:///c:/Test.dws';
   CTestUnit =
@@ -1389,7 +1391,21 @@ begin
   FLanguageServerHost.SendCompletionRequest(CFile, 4, 12);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
   try
-    CheckEquals('todo', Response['result'].ToString);
+    CompletionListResponse := TCompletionListResponse.Create;
+    try
+      CompletionListResponse.ReadFromJson(Response['result']);
+      CheckEquals(True, CompletionListResponse.IsIncomplete);
+      CheckTrue(CompletionListResponse.Items.Count > 0);
+
+      // check first completion item
+      CompletionItem := CompletionListResponse.Items[0];
+      CheckEquals('A : Integer', CompletionItem.Detail);
+      CheckEquals('A : Integer', CompletionItem.&Label);
+      CheckEquals('A', CompletionItem.InsertText);
+      CheckEquals(Integer(itValue), Integer(CompletionItem.Kind));
+    finally
+      CompletionListResponse.Free;
+    end;
   finally
     Response.Free;
   end;

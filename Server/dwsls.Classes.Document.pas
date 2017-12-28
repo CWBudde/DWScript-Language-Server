@@ -165,6 +165,7 @@ type
   TCompletionItem = class(TJsonClass)
   type
     TCompletionItemKind = (
+      itUnknown = 0,
       itText = 1,
       itMethod = 2,
       itFunction = 3,
@@ -182,7 +183,14 @@ type
       itSnippet = 15,
       itColor = 16,
       itFile = 17,
-      itReference = 18
+      itReference = 18,
+      itFolder = 19,
+      itEnumMember = 20,
+      itConstant = 21,
+      itStruct = 22,
+      itEvent = 23,
+      itOperator = 24,
+      itTypeParameter = 25
     );
     TInsertTextFormat = (
       tfPlainText = 1,

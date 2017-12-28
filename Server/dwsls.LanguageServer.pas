@@ -408,7 +408,53 @@ begin
       for Index := 0 to Suggestions.Count - 1 do
       begin
         CompletionItem := TCompletionItem.Create;
+        CompletionItem.&Label := Suggestions.Caption[Index];
         CompletionItem.Detail := Suggestions.Caption[Index];
+        case Suggestions.Category[Index] of
+          scUnknown:
+            CompletionItem.Kind := itUnknown;
+          scUnit:
+            CompletionItem.Kind := itUnit;
+          scType:
+            CompletionItem.Kind := itTypeParameter;
+          scClass:
+            CompletionItem.Kind := itClass;
+          scRecord:
+            CompletionItem.Kind := itStruct;
+          scInterface:
+            CompletionItem.Kind := itInterface;
+          scDelegate:
+            CompletionItem.Kind := itEvent;
+          scFunction:
+            CompletionItem.Kind := itFunction;
+          scProcedure:
+            CompletionItem.Kind := itFunction;
+          scMethod:
+            CompletionItem.Kind := itMethod;
+          scConstructor:
+            CompletionItem.Kind := itConstructor;
+          scDestructor:
+            CompletionItem.Kind := itConstructor;
+          scProperty:
+            CompletionItem.Kind := itProperty;
+          scEnum:
+            CompletionItem.Kind := itEnum;
+          scElement:
+            CompletionItem.Kind := itEnumMember;
+          scParameter:
+            CompletionItem.Kind := itValue;
+          scField:
+            CompletionItem.Kind := itField;
+          scVariable:
+            CompletionItem.Kind := itVariable;
+          scConst:
+            CompletionItem.Kind := itConstant;
+          scReservedWord:
+            CompletionItem.Kind := itKeyword;
+          scSpecialFunction:
+            CompletionItem.Kind := itOperator;
+        end;
+
         CompletionItem.InsertText := Suggestions.Code[Index];
         CompletionList.Items.Add(CompletionItem);
       end;
