@@ -306,6 +306,7 @@ type
     FContents: TStringList;
     FMarkupContents: TMarkupContent;
     FRange: TRange;
+    FHasRange: Boolean;
   public
     constructor Create;
     destructor Destroy; override;
@@ -316,6 +317,7 @@ type
     property MarkupContents: TMarkupContent read FMarkupContents;
     property Contents: TStringList read FContents;
     property Range: TRange read FRange;
+    property HasRange: Boolean read FHasRange write FHasRange;
   end;
 
   TReferenceContext = class(TJsonClass)
@@ -1210,6 +1212,7 @@ begin
   FContents := TStringList.Create;
   FMarkupContents := TMarkupContent.Create;
   FRange := TRange.Create;
+  FHasRange := False;
 end;
 
 destructor THoverResponse.Destroy;
@@ -1223,12 +1226,19 @@ end;
 
 procedure THoverResponse.ReadFromJson(const Value: TdwsJSONValue);
 var
-  ContentValue: TdwsJSONValue;
+  RangeValue, ContentValue: TdwsJSONValue;
   Index: Integer;
 begin
-  FRange.ReadFromJson(Value['range']);
+  // eventually read range
+  RangeValue := Value['range'];
+  FHasRange := RangeValue is TdwsJSONObject;
+  if FHasRange then
+    FRange.ReadFromJson(RangeValue);
+
+  // clear eventually existing contents
   FContents.Clear;
 
+  // read contents
   ContentValue := Value['contents'];
   if Assigned(ContentValue) then
     if ContentValue is TdwsJSONArray then
@@ -1248,7 +1258,11 @@ var
   ContentArray: TdwsJSONArray;
   Index: Integer;
 begin
-  FRange.WriteToJson(Value.AddObject('range'));
+  // eventually write the range
+  if FHasRange then
+    FRange.WriteToJson(Value.AddObject('range'));
+
+  // write contents
   case FContents.Count of
     0:
       FMarkupContents.WriteToJson(Value.AddObject('contents'));
@@ -1282,24 +1296,30 @@ end;
 constructor TReferenceParams.Create;
 begin
   inherited;
+
   FContext := TReferenceContext.Create;
 end;
 
 destructor TReferenceParams.Destroy;
 begin
   FContext.Free;
+
   inherited;
 end;
 
 procedure TReferenceParams.ReadFromJson(const Value: TdwsJSONValue);
 begin
   inherited;
+
+  // read context
   FContext.ReadFromJson(Value['context']);
 end;
 
 procedure TReferenceParams.WriteToJson(const Value: TdwsJSONObject);
 begin
   inherited;
+
+  // write context
   FContext.WriteToJson(Value.AddObject('context'));
 end;
 

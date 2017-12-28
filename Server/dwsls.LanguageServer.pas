@@ -12,7 +12,7 @@ uses
   dwsCodeGen, dwsUnitSymbols, dwsCompilerContext, dwsJson, dwsXPlatform,
   dwsUtils, dwsSymbolDictionary, dwsls.Classes.Capabilities,
   dwsls.Classes.Common, dwsls.Classes.Document, dwsls.Classes.Workspace,
-  dwsls.Utils;
+  dwsls.Utils, dwsls.Classes.JSON;
 
 type
   TOnOutput = procedure(const Output: string) of object;
@@ -46,6 +46,7 @@ type
     procedure SendNotification(Method: string; Params: TdwsJSONObject = nil); overload;
     procedure SendRequest(Method: string; Params: TdwsJSONObject = nil);
     procedure SendErrorResponse(ErrorCode: TErrorCodes; ErrorMessage: string);
+    procedure SendResponse(JsonClass: TJsonClass; Error: TdwsJSONObject = nil); overload;
     procedure SendResponse(Result: TdwsJSONValue; Error: TdwsJSONObject = nil); overload;
     procedure SendResponse(Result: string; Error: TdwsJSONObject = nil); overload;
     procedure SendResponse(Result: Integer; Error: TdwsJSONObject = nil); overload;
@@ -379,7 +380,7 @@ begin
     // compile the current unit
     Prog := Compile(TextDocumentPositionParams.TextDocument.Uri);
 
-    // get main module (TODO: locate the right file)
+    // get main module (TODO: locate the correct file)
     ScriptSourceItem := Prog.SourceList.FindScriptSourceItem(SYS_MainModule);
 
     // locate script position
@@ -425,7 +426,6 @@ var
   TextDocumentPositionParams: TTextDocumentPositionParams;
   Location: TLocation;
   Prog: IdwsProgram;
-  Result: TdwsJSONObject;
   Symbol: TSymbol;
   SymbolPosList: TSymbolPositionList;
   SymbolPos: TSymbolPosition;
@@ -440,37 +440,41 @@ begin
     // compile the current unit
     Prog := Compile(TextDocumentPositionParams.TextDocument.Uri);
 
-    Symbol := Prog.SymbolDictionary.FindSymbolAtPosition(
-      TextDocumentPositionParams.Position.Character + 1,
-      TextDocumentPositionParams.Position.Line + 1,
-      SYS_MainModule);
-    if Assigned(Symbol) then
-      SymbolPosList := Prog.SymbolDictionary.FindSymbolPosList(Symbol);
+    if Assigned(Prog) then
+    begin
+      // get the symbol at the current position for the main module
+      // TODO: locate the correct file
+      Symbol := Prog.SymbolDictionary.FindSymbolAtPosition(
+        TextDocumentPositionParams.Position.Character + 1,
+        TextDocumentPositionParams.Position.Line + 1,
+        SYS_MainModule);
+    end;
+
   finally
     TextDocumentPositionParams.Free;
   end;
 
-  if Assigned(Prog) then
+  // eventually get te list of positions for the current symbol
+  if Assigned(Symbol) then
+    SymbolPosList := Prog.SymbolDictionary.FindSymbolPosList(Symbol);
+
+  if Assigned(SymbolPosList) then
   begin
-    if Assigned(SymbolPosList) then
-    begin
-      SymbolPos := SymbolPosList[0];
-      Location := TLocation.Create;
-      try
-        Location.Uri := SymbolPos.ScriptPos.SourceFile.Location;
-        Location.Range.Start.Line := SymbolPos.ScriptPos.Line;
-        Location.Range.Start.Character := SymbolPos.ScriptPos.Col;
-        Location.Range.&End.Line := SymbolPos.ScriptPos.Line;
-        Location.Range.&End.Character := SymbolPos.ScriptPos.Col + Length(Symbol.Name);
-        Result := TdwsJSONObject.Create;
-        Location.WriteToJson(Result);
-        SendResponse(Result);
-      finally
-        Location.Free;
-      end;
-    end
-    else
-      SendResponse;
+    SymbolPos := SymbolPosList[0];
+    Location := TLocation.Create;
+    try
+      // set location based on the first symbol position
+      Location.Uri := SymbolPos.ScriptPos.SourceFile.Location;
+      Location.Range.Start.Line := SymbolPos.ScriptPos.Line;
+      Location.Range.Start.Character := SymbolPos.ScriptPos.Col;
+      Location.Range.&End.Line := SymbolPos.ScriptPos.Line;
+      Location.Range.&End.Character := SymbolPos.ScriptPos.Col + Length(Symbol.Name);
+
+      // send response
+      SendResponse(Location);
+    finally
+      Location.Free;
+    end;
   end
   else
     SendResponse;
@@ -591,60 +595,13 @@ begin
   try
     TextDocumentPositionParams.ReadFromJson(Params);
 
-    Prog := Compile(TextDocumentPositionParams.TextDocument.Uri);
-
-    Symbol := Prog.SymbolDictionary.FindSymbolAtPosition(
-      TextDocumentPositionParams.Position.Character + 1,
-      TextDocumentPositionParams.Position.Line + 1,
-      SYS_MainModule);
-    if Assigned(Symbol) then
-      SymbolPosList := Prog.SymbolDictionary.FindSymbolPosList(Symbol);
-  finally
-    TextDocumentPositionParams.Free;
-  end;
-
-  if Assigned(Prog) then
-  begin
-    Result := TdwsJSONArray.Create;
-
-    if Assigned(SymbolPosList) then
-      for SymbolPos in SymbolPosList do
-      begin
-        DocumentHighlight := TDocumentHighlight.Create;
-        try
-          DocumentHighlight.Kind := hkText;
-          DocumentHighlight.Range.Start.Line := SymbolPos.ScriptPos.Line;
-          DocumentHighlight.Range.Start.Character := SymbolPos.ScriptPos.Col;
-          DocumentHighlight.Range.&End.Line := SymbolPos.ScriptPos.Line;
-          DocumentHighlight.Range.&End.Character := SymbolPos.ScriptPos.Col + Length(Symbol.Name);
-          DocumentHighlight.WriteToJson(Result.AddObject);
-        finally
-          DocumentHighlight.Free;
-        end;
-      end;
-
-    SendResponse(Result);
-  end;
-end;
-
-procedure TDWScriptLanguageServer.HandleTextDocumentHover(Params: TdwsJSONObject);
-var
-  TextDocumentPositionParams: TTextDocumentPositionParams;
-  Prog: IdwsProgram;
-  Symbol: TSymbol;
-  Range: TRange;
-  Result: TdwsJSONObject;
-begin
-  Symbol := nil;
-  Prog := nil;
-  TextDocumentPositionParams := TTextDocumentPositionParams.Create;
-  try
-    TextDocumentPositionParams.ReadFromJson(Params);
-
+    // compile the current unit
     Prog := Compile(TextDocumentPositionParams.TextDocument.Uri);
 
     if Assigned(Prog) then
     begin
+      // get the symbol at the current position for the main module
+      // TODO: locate the correct file
       Symbol := Prog.SymbolDictionary.FindSymbolAtPosition(
         TextDocumentPositionParams.Position.Character + 1,
         TextDocumentPositionParams.Position.Line + 1,
@@ -654,23 +611,82 @@ begin
     TextDocumentPositionParams.Free;
   end;
 
-  Result := TdwsJSONObject.Create;
-
-  // add contents here
+  // eventually get te list of positions for the current symbol
   if Assigned(Symbol) then
-    Result.AddValue('contents', 'Symbol: ' + Symbol.ToString)
+    SymbolPosList := Prog.SymbolDictionary.FindSymbolPosList(Symbol);
+
+  if Assigned(SymbolPosList) then
+  begin
+    Result := TdwsJSONArray.Create;
+
+    for SymbolPos in SymbolPosList do
+    begin
+      DocumentHighlight := TDocumentHighlight.Create;
+      try
+        DocumentHighlight.Kind := hkText;
+        DocumentHighlight.Range.Start.Line := SymbolPos.ScriptPos.Line;
+        DocumentHighlight.Range.Start.Character := SymbolPos.ScriptPos.Col;
+        DocumentHighlight.Range.&End.Line := SymbolPos.ScriptPos.Line;
+        DocumentHighlight.Range.&End.Character := SymbolPos.ScriptPos.Col + Length(Symbol.Name);
+        DocumentHighlight.WriteToJson(Result.AddObject);
+      finally
+        DocumentHighlight.Free;
+      end;
+    end;
+
+    SendResponse(Result);
+  end
   else
-    Result.AddValue('contents', 'Hello from dwsls');
+    SendResponse;
+end;
 
-(*
-  // a range is not used at the moment
-  Range := TRange.Create;
+procedure TDWScriptLanguageServer.HandleTextDocumentHover(Params: TdwsJSONObject);
+var
+  TextDocumentPositionParams: TTextDocumentPositionParams;
+  Prog: IdwsProgram;
+  Symbol: TSymbol;
+  HoverResponse: THoverResponse;
+begin
+  Symbol := nil;
+  Prog := nil;
+  TextDocumentPositionParams := TTextDocumentPositionParams.Create;
+  try
+    TextDocumentPositionParams.ReadFromJson(Params);
 
-  // set range here
-  Range.WriteToJson(Result.AddValue('range'));
-*)
+    // compile the current unit
+    Prog := Compile(TextDocumentPositionParams.TextDocument.Uri);
 
-  SendResponse(Result);
+    if Assigned(Prog) then
+    begin
+      // get the symbol at the current position for the main module
+      // TODO: locate the correct file
+      Symbol := Prog.SymbolDictionary.FindSymbolAtPosition(
+        TextDocumentPositionParams.Position.Character + 1,
+        TextDocumentPositionParams.Position.Line + 1,
+        SYS_MainModule);
+    end;
+  finally
+    TextDocumentPositionParams.Free;
+  end;
+
+  // check if a symbol has been found
+  if Assigned(Symbol) then
+  begin
+    // create hover response
+    HoverResponse := THoverResponse.Create;
+    try
+      HoverResponse.HasRange := False;
+
+      // add contents here
+      HoverResponse.Contents.Add('Symbol: ' + Symbol.ToString);
+
+      SendResponse(HoverResponse);
+    finally
+      HoverResponse.Free;
+    end;
+  end
+  else
+    SendResponse;
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentLink(Params: TdwsJSONObject);
@@ -807,45 +823,57 @@ var
   SymbolPos: TSymbolPosition;
 begin
   Prog := nil;
+  Symbol := nil;
   SymbolPosList := nil;
+
   ReferenceParams := TReferenceParams.Create;
   try
     ReferenceParams.ReadFromJson(Params);
 
+    // compile the current unit
     Prog := Compile(ReferenceParams.TextDocument.Uri);
 
-    Symbol := Prog.SymbolDictionary.FindSymbolAtPosition(
-      ReferenceParams.Position.Character + 1,
-      ReferenceParams.Position.Line + 1,
-      SYS_MainModule);
-    if Assigned(Symbol) then
-      SymbolPosList := Prog.SymbolDictionary.FindSymbolPosList(Symbol);
+    if Assigned(Prog) then
+    begin
+      // get the symbol at the current position for the main module
+      // TODO: locate the correct file
+      Symbol := Prog.SymbolDictionary.FindSymbolAtPosition(
+        ReferenceParams.Position.Character + 1,
+        ReferenceParams.Position.Line + 1,
+        SYS_MainModule);
+    end;
   finally
     ReferenceParams.Free;
   end;
 
-  if Assigned(Prog) then
+  // eventually get te list of positions for the current symbol
+  if Assigned(Symbol) then
+    SymbolPosList := Prog.SymbolDictionary.FindSymbolPosList(Symbol);
+
+  if Assigned(SymbolPosList) then
   begin
     Result := TdwsJSONArray.Create;
 
-    if Assigned(SymbolPosList) then
-      for SymbolPos in SymbolPosList do
-      begin
-        Location := TLocation.Create;
-        try
-          Location.Uri := SymbolPos.ScriptPos.SourceFile.Location;
-          Location.Range.Start.Line := SymbolPos.ScriptPos.Line;
-          Location.Range.Start.Character := SymbolPos.ScriptPos.Col;
-          Location.Range.&End.Line := SymbolPos.ScriptPos.Line;
-          Location.Range.&End.Character := SymbolPos.ScriptPos.Col + Length(Symbol.Name);
-          Location.WriteToJson(Result.AddObject);
-        finally
-          Location.Free;
-        end;
+    for SymbolPos in SymbolPosList do
+    begin
+      // create location and translate between symbol position and location
+      Location := TLocation.Create;
+      try
+        Location.Uri := SymbolPos.ScriptPos.SourceFile.Location;
+        Location.Range.Start.Line := SymbolPos.ScriptPos.Line;
+        Location.Range.Start.Character := SymbolPos.ScriptPos.Col;
+        Location.Range.&End.Line := SymbolPos.ScriptPos.Line;
+        Location.Range.&End.Character := SymbolPos.ScriptPos.Col + Length(Symbol.Name);
+        Location.WriteToJson(Result.AddObject);
+      finally
+        Location.Free;
       end;
+    end;
 
     SendResponse(Result);
-  end;
+  end
+  else
+    SendResponse;
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentRenameSymbol(Params: TdwsJSONObject);
@@ -857,23 +885,34 @@ var
   WorkspaceEdit: TWorkspaceEdit;
   Result: TdwsJSONObject;
 begin
+  Prog := nil;
+  Symbol := nil;
+  SymbolPosList := nil;
+
   RenameParams := TRenameParams.Create;
   try
     RenameParams.ReadFromJson(Params);
 
+    // compile the current unit
     Prog := Compile(RenameParams.TextDocument.Uri);
 
-    Symbol := Prog.SymbolDictionary.FindSymbolAtPosition(
-      RenameParams.Position.Character + 1,
-      RenameParams.Position.Line + 1,
-      SYS_MainModule);
-    if Assigned(Symbol) then
-      SymbolPosList := Prog.SymbolDictionary.FindSymbolPosList(Symbol);
+    if Assigned(Prog) then
+    begin
+      // get the unit for the main module (TODO: locate the correct file)
+      Symbol := Prog.SymbolDictionary.FindSymbolAtPosition(
+        RenameParams.Position.Character + 1,
+        RenameParams.Position.Line + 1,
+        SYS_MainModule);
+    end;
   finally
     RenameParams.Free;
   end;
 
+  // eventually get te list of positions for the current symbol
   if Assigned(Symbol) then
+    SymbolPosList := Prog.SymbolDictionary.FindSymbolPosList(Symbol);
+
+  if Assigned(SymbolPosList) then
   begin
     Result := TdwsJSONObject.Create;
 
@@ -959,29 +998,37 @@ var
   SourceContext: TdwsSourceContext;
   ItemIndex: Integer;
   Symbol, CurrentSymbol: TSymbol;
-  FuncSymbol: TFuncSymbol;
   Overloads: TFuncSymbolList;
   SymbolPosList: TSymbolPositionList;
   SignatureHelp: TSignatureHelp;
-  SignatureInformation: TSignatureInformation;
 begin
+  Prog := nil;
+  SourceContext := nil;
+  Symbol := nil;
+
   TextDocumentPositionParams := TTextDocumentPositionParams.Create;
   try
     TextDocumentPositionParams.ReadFromJson(Params);
 
-    // compile program
+    // compile the current unit
     Prog := Compile(TextDocumentPositionParams.TextDocument.Uri);
 
-    SourceContext := Prog.SourceContextMap.FindContext(
-      TextDocumentPositionParams.Position.Character + 1,
-      TextDocumentPositionParams.Position.Line + 1,
-      SYS_MainModule);
-
-    // get symbol for the document position
-    Symbol := SourceContext.ParentSym;
+    if Assigned(Prog) then
+    begin
+      // get the source context at the current position for the main module
+      // TODO: locate the correct file
+      SourceContext := Prog.SourceContextMap.FindContext(
+        TextDocumentPositionParams.Position.Character + 1,
+        TextDocumentPositionParams.Position.Line + 1,
+        SYS_MainModule);
+    end;
   finally
     TextDocumentPositionParams.Free;
   end;
+
+  // eventually get symbol for the document position
+  if Assigned(SourceContext) then
+    Symbol := SourceContext.ParentSym;
 
   if (Symbol is TFuncSymbol) then
   begin
@@ -993,7 +1040,7 @@ begin
       // check if the symbol is a method symbol
       if (Symbol is TMethodSymbol) then
       begin
-        // The symbol is a method
+        // the symbol is a method
         Overloads := TFuncSymbolList.Create;
         try
           CollectMethodOverloads(TMethodSymbol(Symbol), Overloads);
@@ -1005,7 +1052,7 @@ begin
       end
       else
       begin
-        // The symbol is a general function
+        // the symbol is a general function
         FunctionToSignatureHelp(TFuncSymbol(Symbol), SignatureHelp);
 
         if TFuncSymbol(Symbol).IsOverloaded then
@@ -1127,6 +1174,7 @@ begin
   try
     DocumentSymbolParams.ReadFromJson(Params);
 
+    // compile the current unit
     Prog := Compile(DocumentSymbolParams.TextDocument.Uri);
   finally
     DocumentSymbolParams.Free;
@@ -1152,7 +1200,9 @@ begin
     end;
 
     SendResponse(Result);
-  end;
+  end
+  else
+    SendResponse;
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentWillSave(Params: TdwsJSONObject);
@@ -1489,6 +1539,18 @@ begin
     WriteOutput(Response.ToString);
   finally
     Response.Free;
+  end;
+end;
+
+procedure TDWScriptLanguageServer.SendResponse(JsonClass: TJsonClass; Error: TdwsJSONObject = nil);
+var
+  Response: TdwsJSONObject;
+begin
+  Response := TdwsJSONObject.Create;
+  try
+    JsonClass.WriteToJson(Response);
+  finally
+    SendResponse(Response, Error);
   end;
 end;
 
