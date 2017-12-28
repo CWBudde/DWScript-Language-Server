@@ -817,12 +817,14 @@ begin
     RenameParams.Free;
   end;
 
-  if False then
+  if Assigned(Symbol) then
   begin
     Result := TdwsJSONObject.Create;
 
     WorkspaceEdit := TWorkspaceEdit.Create;
     try
+      //WorkspaceEdit.
+
       WorkspaceEdit.WriteToJson(Result);
     finally
       WorkspaceEdit.Free;

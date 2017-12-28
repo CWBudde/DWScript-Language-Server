@@ -95,6 +95,8 @@ procedure TTestLanguageServerClasses.TestJsonApplyWorkspaceEditParams;
 var
   ApplyWorkspaceEditParams: TApplyWorkspaceEditParams;
   Edit: TTextDocumentEdit;
+  TextEditItem: TTextEditItem;
+  TextEdit: TTextEdit;
   Params: TdwsJSONObject;
 begin
   Params := TdwsJSONObject.Create;
@@ -104,6 +106,17 @@ begin
       Edit := TTextDocumentEdit.Create;
       Edit.TextDocument.Uri := 'c:\Test.dws';
       ApplyWorkspaceEditParams.WorkspaceEdit.DocumentChanges.Add(Edit);
+
+      TextEditItem := TTextEditItem.Create('c:\Test.dws');
+      TextEdit := TTextEdit.Create;
+      TextEdit.Range.Start.Line := 42;
+      TextEdit.Range.Start.Character := 47;
+      TextEdit.Range.&End.Line := 52;
+      TextEdit.Range.&End.Character := 57;
+      TextEdit.NewText := 'NewText';
+      TextEditItem.TextEdits.Add(TextEdit);
+      ApplyWorkspaceEditParams.WorkspaceEdit.Changes.Items.Add(TextEditItem);
+
       ApplyWorkspaceEditParams.WriteToJson(Params);
     finally
       ApplyWorkspaceEditParams.Free;
@@ -113,6 +126,12 @@ begin
     try
       ApplyWorkspaceEditParams.ReadFromJson(Params);
       CheckEquals('c:\Test.dws', ApplyWorkspaceEditParams.WorkspaceEdit.DocumentChanges[0].TextDocument.Uri);
+      CheckEquals('c:\Test.dws', ApplyWorkspaceEditParams.WorkspaceEdit.Changes.Items[0].Uri);
+      CheckEquals(42, ApplyWorkspaceEditParams.WorkspaceEdit.Changes.Items[0].TextEdits[0].Range.Start.Line);
+      CheckEquals(47, ApplyWorkspaceEditParams.WorkspaceEdit.Changes.Items[0].TextEdits[0].Range.Start.Character);
+      CheckEquals(52, ApplyWorkspaceEditParams.WorkspaceEdit.Changes.Items[0].TextEdits[0].Range.&End.Line);
+      CheckEquals(57, ApplyWorkspaceEditParams.WorkspaceEdit.Changes.Items[0].TextEdits[0].Range.&End.Character);
+      CheckEquals('NewText', ApplyWorkspaceEditParams.WorkspaceEdit.Changes.Items[0].TextEdits[0].NewText);
     finally
       ApplyWorkspaceEditParams.Free;
     end;

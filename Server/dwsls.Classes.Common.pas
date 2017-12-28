@@ -206,6 +206,8 @@ type
     property NewText: string read FNewText write FNewText;
   end;
 
+  TTextEdits = TObjectList<TTextEdit>;
+
   TTextDocumentIdentifier = class(TJsonClass)
   private
     FUri: string;
@@ -243,8 +245,6 @@ type
   end;
 
   TTextDocumentEdit = class(TJsonClass)
-  type
-    TTextEdits = TObjectList<TTextEdit>;
   private
     FTextDocument: TVersionedTextDocumentIdentifier;
     FEdits: TTextEdits;
@@ -259,12 +259,51 @@ type
     property Edits: TTextEdits read FEdits write FEdits;
   end;
 
+  TTextEditItem = class
+  private
+    FUri: string;
+    FHashCode: Cardinal;
+    FTextEdits: TTextEdits;
+  public
+    constructor Create(const Uri: string);
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue);
+    procedure WriteToJson(const Value: TdwsJSONArray);
+
+    property Uri: string read FUri;
+    property HashCode: Cardinal read FHashCode;
+    property TextEdits: TTextEdits read FTextEdits;
+  end;
+
+  TTextEditItemList = class(TSimpleList<TTextEditItem>)
+  private
+    function GetUriItems(const Uri: string): TTextEditItem; inline;
+  public
+    destructor Destroy; override;
+    function RemoveUri(const Uri: string): Boolean;
+
+    property Items[const Uri: string]: TTextEditItem read GetUriItems; default;
+  end;
+
+  TEditChanges = class(TJsonClass)
+  private
+    FItems: TTextEditItemList;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Items: TTextEditItemList read FItems;
+  end;
+
   TWorkspaceEdit = class(TJsonClass)
   type
     TTextDocumentEdits = TObjectList<TTextDocumentEdit>;
-//    TChanges = TObjectList<TBlub>;
   private
-//    FChanges: TChanges;
+    FChanges: TEditChanges;
     FDocumentChanges: TTextDocumentEdits;
   public
     constructor Create;
@@ -273,6 +312,7 @@ type
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
 
+    property Changes: TEditChanges read FChanges;
     property DocumentChanges: TTextDocumentEdits read FDocumentChanges;
   end;
 
@@ -744,27 +784,170 @@ begin
 end;
 
 
+{ TTextEditItem }
+
+constructor TTextEditItem.Create(const Uri: string);
+begin
+  inherited Create;
+
+  FUri := Uri;
+  FHashCode := SimpleStringHash(Uri);
+  FTextEdits := TTextEdits.Create;
+end;
+
+destructor TTextEditItem.Destroy;
+begin
+  FTextEdits.Free;
+
+  inherited;
+end;
+
+procedure TTextEditItem.ReadFromJson(const Value: TdwsJSONValue);
+var
+  Index: Integer;
+  TextEdit: TTextEdit;
+begin
+  for Index := 0 to Value.ElementCount - 1 do
+  begin
+    TextEdit := TTextEdit.Create;
+    TextEdit.ReadFromJson(Value.Elements[Index]);
+    TextEdits.Add(TextEdit)
+  end;
+end;
+
+procedure TTextEditItem.WriteToJson(const Value: TdwsJSONArray);
+var
+  Index: Integer;
+begin
+  for Index := 0 to TextEdits.Count - 1 do
+    TextEdits[Index].WriteToJson(Value.AddObject);
+end;
+
+
+{ TTextEditItemList }
+
+destructor TTextEditItemList.Destroy;
+begin
+  while Count > 0 do
+  begin
+    TObject(GetItems(0)).Free;
+    Extract(0);
+  end;
+
+  inherited;
+end;
+
+function TTextEditItemList.GetUriItems(const Uri: string): TTextEditItem;
+var
+  Index: Integer;
+  HashCode: Cardinal;
+  Item: TTextEditItem;
+begin
+  Result := nil;
+  if Count = 0 then Exit;
+  HashCode := SimpleStringHash(Uri);
+  for Index := 0 to Count - 1  do
+  begin
+    Item := GetItems(Index);
+    if (HashCode = Item.HashCode) and (Uri = Item.Uri) then
+      Exit(Item);
+  end;
+end;
+
+function TTextEditItemList.RemoveUri(const Uri: string): Boolean;
+var
+  Index: Integer;
+  HashCode: Cardinal;
+  Item: TTextEditItem;
+begin
+  if Count = 0 then Exit;
+  HashCode := SimpleStringHash(Uri);
+  for Index := 0 to Count - 1  do
+  begin
+    Item := GetItems(Index);
+    if (HashCode = Item.HashCode) and (Uri = Item.Uri) then
+    begin
+      Extract(Index);
+      Exit;
+    end;
+  end;
+end;
+
+
+{ TEditChanges }
+
+constructor TEditChanges.Create;
+begin
+  inherited;
+
+  FItems := TTextEditItemList.Create;
+end;
+
+destructor TEditChanges.Destroy;
+begin
+  FItems.Free;
+
+  inherited;
+end;
+
+procedure TEditChanges.ReadFromJson(const Value: TdwsJSONValue);
+var
+  Index, EditIndex: Integer;
+  TextEditItem: TTextEditItem;
+  EditsArray: TdwsJSONArray;
+begin
+  for Index := 0 to Value.ElementCount - 1 do
+  begin
+    TextEditItem := TTextEditItem.Create(Value.Names[Index]);
+    TextEditItem.ReadFromJson(Value.Elements[Index]);
+    FItems.Add(TextEditItem);
+  end;
+end;
+
+procedure TEditChanges.WriteToJson(const Value: TdwsJSONObject);
+var
+  Index, EditIndex: Integer;
+  EditsArray: TdwsJSONArray;
+begin
+  for Index := 0 to FItems.Count - 1 do
+  begin
+    EditsArray := Value.AddArray(FItems[Index].Uri);
+    FItems[Index].WriteToJson(EditsArray);
+  end;
+end;
+
+
 { TWorkspaceEdit }
 
 constructor TWorkspaceEdit.Create;
 begin
   inherited;
 
+  FChanges := TEditChanges.Create;
   FDocumentChanges := TTextDocumentEdits.Create;
 end;
 
 destructor TWorkspaceEdit.Destroy;
 begin
   FDocumentChanges.Free;
+  FChanges.Free;
+
   inherited;
 end;
 
 procedure TWorkspaceEdit.ReadFromJson(const Value: TdwsJSONValue);
 var
+  ChangesObject: TdwsJSONObject;
   DocumentChangeArray: TdwsJSONArray;
   TextDocumentEdit: TTextDocumentEdit;
   Index: Integer;
 begin
+  // eventually read changes
+  ChangesObject := TdwsJSONObject(Value['changes']);
+  if ChangesObject is TdwsJSONObject then
+    FChanges.ReadFromJson(ChangesObject);
+
+  // clear existing changes
   FDocumentChanges.Clear;
 
   // read arguments
@@ -779,9 +962,14 @@ end;
 
 procedure TWorkspaceEdit.WriteToJson(const Value: TdwsJSONObject);
 var
+  ChangesObject: TdwsJSONArray;
   DocumentChangeArray: TdwsJSONArray;
   Index: Integer;
 begin
+  // eventually write changes
+  if FChanges.Items.Count > 0 then
+    FChanges.WriteToJson(Value.AddObject('changes'));
+
   DocumentChangeArray := TdwsJSONObject(Value).AddArray('documentChanges');
   for Index := 0 to FDocumentChanges.Count - 1 do
     FDocumentChanges[Index].WriteToJson(DocumentChangeArray.AddObject);
