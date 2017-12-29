@@ -40,10 +40,13 @@
 				"id": "dwscript",
 				"aliases": [
 					"Delphi Web Script",
-					"DWS"
+					"DWScript",
+					"DWS",
+					"DWS Pascal"
 				],
 				"extensions": [
-					".dws"
+					".dws",
+					".pas"
 				],
 				"configuration": "./dwscript-configuration.json"
 			}

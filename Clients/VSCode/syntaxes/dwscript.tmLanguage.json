@@ -4,7 +4,8 @@
 	"scopeName": "source.dwscript",
 	"uuid": "0F537175-89D7-42E7-AA90-57CF949C599D",
 	"fileTypes": [
-		"dws"
+		"dws",
+		"pas"
 	],
 	"patterns": [{
 					"include": "#directive"
