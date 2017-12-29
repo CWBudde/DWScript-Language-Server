@@ -113,7 +113,7 @@ type
 implementation
 
 uses
-  SysUtils, dwsStrings, dwsSymbols, dwsPascalTokenizer, dwsTokenizer,
+  SysUtils, StrUtils, dwsStrings, dwsSymbols, dwsPascalTokenizer, dwsTokenizer,
   dwsScriptSource, dwsXXHash, dwsSuggestions, dwsContextMap;
 
 { TDWScriptLanguageServer }
@@ -352,13 +352,45 @@ begin
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentCodeAction(Params: TdwsJSONObject);
+var
+  CodeActionParams: TCodeActionParams;
+  Prog: IdwsProgram;
+//  Result: TdwsJSONObject;
 begin
-  // not yet implemented
+  CodeActionParams := TCodeActionParams .Create;
+  try
+    CodeActionParams.ReadFromJson(Params);
+
+    // compile the current unit
+    Prog := Compile(CodeActionParams.TextDocument.Uri);
+  finally
+    CodeActionParams.Free;
+  end;
+
+  // not implemented yet
+
+  SendResponse;
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentCodeLens(Params: TdwsJSONObject);
+var
+  CodeLensParams: TCodeLensParams;
+  Prog: IdwsProgram;
+//  Result: TdwsJSONObject;
 begin
-  // not yet implemented
+  CodeLensParams := TCodeLensParams.Create;
+  try
+    CodeLensParams.ReadFromJson(Params);
+
+    // compile the current unit
+    Prog := Compile(CodeLensParams.TextDocument.Uri);
+  finally
+    CodeLensParams.Free;
+  end;
+
+  // not implemented yet
+
+  SendResponse;
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentCompletion(Params: TdwsJSONObject);
@@ -605,23 +637,85 @@ begin
   end;
 end;
 
+procedure ReplaceTabs(const Source: string; TabSize: Integer;
+  const TextEdits: TTextEdits);
+var
+  LineIndex: Integer;
+  CharacterIndex: Integer;
+  StringList: TStringList;
+  TabString, CurrentString: string;
+  TextEdit: TTextEdit;
+begin
+  Assert(Assigned(TextEdits));
+  TabString := StringOfChar(' ', TabSize);
+  StringList := TStringList.Create;
+  try
+    StringList.Text := Source;
+    for LineIndex := 0 to StringList.Count - 1 do
+    begin
+      CharacterIndex := 1;
+      CurrentString := StringList[LineIndex];
+      while CharacterIndex < Length(CurrentString) do
+      begin
+        if CurrentString[CharacterIndex] = #9 then
+        begin
+          TextEdit := TTextEdit.Create;
+          TextEdit.Range.Start.Line := LineIndex;
+          TextEdit.Range.Start.Character := CharacterIndex;
+          TextEdit.Range.&End.Line := LineIndex;
+          TextEdit.Range.&End.Character := CharacterIndex + 1;
+          TextEdit.NewText := TabString;
+          TextEdits.Add(TextEdit);
+
+          Delete(CurrentString, CharacterIndex, 1);
+          Insert(TabString, CurrentString, CharacterIndex);
+          Inc(CharacterIndex, TabSize - 1);
+        end;
+
+        Inc(CharacterIndex);
+      end;
+    end;
+  finally
+    StringList.Free;
+  end;
+end;
+
 procedure TDWScriptLanguageServer.HandleTextDocumentFormatting(Params: TdwsJSONObject);
 var
   DocumentFormattingParams: TDocumentFormattingParams;
-  Result: TdwsJSONObject;
+  TextEdits: TTextEdits;
+  Index: Integer;
+  Source: string;
+  Result: TdwsJSONArray;
 begin
   DocumentFormattingParams := TDocumentFormattingParams.Create;
   try
     DocumentFormattingParams.ReadFromJson(Params);
+
+    Source := FTextDocumentItemList.Items[DocumentFormattingParams.TextDocument.Uri].Text;
+
+    TextEdits := TTextEdits.Create;
+    try
+      if DocumentFormattingParams.Options.InsertSpaces then
+        ReplaceTabs(Source, DocumentFormattingParams.Options.TabSize, TextEdits);
+
+      if TextEdits.Count > 0 then
+      begin
+        Result := TdwsJSONArray.Create;
+
+        for Index := 0 to TextEdits.Count - 1 do
+          TextEdits[Index].WriteToJson(Result.AddObject);
+
+        SendResponse(Result);
+      end
+      else
+        SendResponse;
+    finally
+      TextEdits.Free;
+    end;
   finally
     DocumentFormattingParams.Free;
   end;
-
-  Result := TdwsJSONObject.Create;
-
-  // not yet implemented
-
-  SendResponse(Result);
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentHighlight(Params: TdwsJSONObject);
@@ -926,11 +1020,15 @@ end;
 procedure TDWScriptLanguageServer.HandleTextDocumentRenameSymbol(Params: TdwsJSONObject);
 var
   RenameParams: TRenameParams;
+  CurrentUri, NewName: string;
   Prog: IdwsProgram;
   Symbol: TSymbol;
   SymbolPosList: TSymbolPositionList;
+  Index: Integer;
   WorkspaceEdit: TWorkspaceEdit;
   Result: TdwsJSONObject;
+  TextDocumentEdit: TTextDocumentEdit;
+  TextEdit: TTextEdit;
 begin
   Prog := nil;
   Symbol := nil;
@@ -939,6 +1037,8 @@ begin
   RenameParams := TRenameParams.Create;
   try
     RenameParams.ReadFromJson(Params);
+    CurrentUri := RenameParams.TextDocument.Uri;
+    NewName := RenameParams.NewName;
 
     // compile the current unit
     Prog := Compile(RenameParams.TextDocument.Uri);
@@ -965,8 +1065,22 @@ begin
 
     WorkspaceEdit := TWorkspaceEdit.Create;
     try
-      //WorkspaceEdit.
+      TextDocumentEdit := TTextDocumentEdit.Create;
+      TextDocumentEdit.TextDocument.Uri := CurrentUri;
 
+      for Index := 0 to SymbolPosList.Count - 1 do
+      begin
+        TextEdit := TTextEdit.Create;
+        TextEdit.Range.Start.Line := SymbolPosList[Index].ScriptPos.Line - 1;
+        TextEdit.Range.Start.Character := SymbolPosList[Index].ScriptPos.Col - 1;
+        TextEdit.Range.&End.Line := SymbolPosList[Index].ScriptPos.Line - 1;
+        TextEdit.Range.&End.Character := SymbolPosList[Index].ScriptPos.Col + Length(Symbol.Name) - 1;
+        TextEdit.NewText := NewName;
+
+        TextDocumentEdit.Edits.Add(TextEdit);
+      end;
+
+      WorkspaceEdit.DocumentChanges.Add(TextDocumentEdit);
       WorkspaceEdit.WriteToJson(Result);
     finally
       WorkspaceEdit.Free;
@@ -1479,7 +1593,7 @@ begin
     if Method = 'textDocument/codeAction' then
       HandleTextDocumentCodeAction(TdwsJsonObject(JsonRpc['params']))
     else
-    if Method = 'textDocument/codeLense' then
+    if Method = 'textDocument/codeLens' then
       HandleTextDocumentCodeLens(TdwsJsonObject(JsonRpc['params']))
     else
     if Method = 'textDocument/documentLink' then

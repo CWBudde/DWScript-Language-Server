@@ -1645,6 +1645,8 @@ end;
 procedure TTestLanguageServer.TestBasicFormattingSequence;
 var
   Response: TdwsJSONObject;
+  TextEditArray: TdwsJSONArray;
+  TextEdit: TTextEdit;
 const
   CFile = 'file:///c:/Test.dws';
   CTestUnit =
@@ -1652,8 +1654,8 @@ const
     'interface' + #13#10#13#10 +
     'implementation' + #13#10#13#10 +
     'function Add(A, B: Integer): Integer;' + #13#10 +
-    'begin' + #13#10 +
-    '  Result := A + B;' + #13#10 +
+    'begin' + #13#10#9 +
+    'Result := A + B;' + #13#10 +
     'end;' + #13#10#13#10 +
     'end.';
 begin
@@ -1662,7 +1664,20 @@ begin
   FLanguageServerHost.SendFormattingRequest(CFile, 2, True);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
   try
-    CheckEquals('todo', Response['result'].ToString);
+    CheckTrue(Response['result'] is TdwsJSONArray);
+    TextEditArray := TdwsJSONArray(Response['result']);
+    TextEdit := TTextEdit.Create;
+    try
+      CheckTrue(TextEditArray.ElementCount = 1);
+      TextEdit.ReadFromJson(TextEditArray[0]);
+      CheckEquals(8, TextEdit.Range.Start.Line);
+      CheckEquals(1, TextEdit.Range.Start.Character);
+      CheckEquals(8, TextEdit.Range.&End.Line);
+      CheckEquals(2, TextEdit.Range.&End.Character);
+      CheckEquals('  ', TextEdit.NewText);
+    finally
+      TextEdit.Free;
+    end;
   finally
     Response.Free;
   end;
@@ -1679,8 +1694,8 @@ const
     'interface' + #13#10#13#10 +
     'implementation' + #13#10#13#10 +
     'function Add(A, B: Integer): Integer;' + #13#10 +
-    'begin' + #13#10 +
-    '  Result := A + B;' + #13#10 +
+    'begin' + #13#10#9 +
+    'Result := A + B;' + #13#10 +
     'end;' + #13#10#13#10 +
     'end.';
 begin
@@ -1726,6 +1741,7 @@ end;
 procedure TTestLanguageServer.TestBasicDefinitionSequence;
 var
   Response: TdwsJSONObject;
+  Location: TLocation;
 const
   CFile = 'file:///c:/Test.dws';
   CTestUnit =
@@ -1740,7 +1756,17 @@ begin
   FLanguageServerHost.SendDefinitionRequest(CFile, 4, 12);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
   try
-    CheckEquals('todo', Response['result'].ToString);
+    Location := TLocation.Create;
+    try
+      Location.ReadFromJson(Response['result']);
+      CheckEquals(3, Location.Range.Start.Line);
+      CheckEquals(14, Location.Range.Start.Character);
+      CheckEquals(3, Location.Range.&End.Line);
+      CheckEquals(15, Location.Range.&End.Character);
+      CheckEquals(CFile, Location.Uri);
+    finally
+      Location.Free;
+    end;
   finally
     Response.Free;
   end;
@@ -1750,6 +1776,10 @@ end;
 procedure TTestLanguageServer.TestBasicCodeActionSequence;
 var
   Response: TdwsJSONObject;
+(*
+  CommandArray: TdwsJSONArray;
+  Command: TCommand;
+*)
 const
   CFile = 'file:///c:/Test.dws';
   CTestUnit =
@@ -1767,7 +1797,22 @@ begin
   FLanguageServerHost.SendCodeActionRequest(CFile);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
   try
-    CheckEquals('todo', Response['result'].ToString);
+    CheckTrue(Response['result'] = nil);
+(*
+    // TODO: Enable if there are custom commands available
+    CheckTrue(Response['result'] is TdwsJSONArray);
+    CommandArray := TdwsJSONArray(Response['result']);
+    Command := TCommand.Create;
+    try
+      CheckTrue(CommandArray.ElementCount > 0);
+      Command.ReadFromJson(CommandArray[0]);
+      CheckEquals('todo', Command.Title);
+      CheckEquals('todo', Command.Command);
+      CheckEquals(0, Command.Arguments.Count);
+    finally
+      Command.Free;
+    end;
+*)
   finally
     Response.Free;
   end;
@@ -1777,6 +1822,10 @@ end;
 procedure TTestLanguageServer.TestBasicCodeLensSequence;
 var
   Response: TdwsJSONObject;
+(*
+  CodeLensArray: TdwsJSONArray;
+  CodeLens: TCodeLens;
+*)
 const
   CFile = 'file:///c:/Test.dws';
   CTestUnit =
@@ -1794,7 +1843,22 @@ begin
   FLanguageServerHost.SendCodeLensRequest(CFile);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
   try
-    CheckEquals('todo', Response['result'].ToString);
+    CheckTrue(Response['result'] = nil);
+(*
+    // TODO: Enable if there are custom CodeLenss available
+    CheckTrue(Response['result'] is TdwsJSONArray);
+    CodeLensArray := TdwsJSONArray(Response['result']);
+    CodeLens := TCodeLens.Create;
+    try
+      CheckTrue(CodeLensArray.ElementCount > 0);
+      CodeLens.ReadFromJson(CodeLensArray[0]);
+      CheckEquals('todo', CodeLens.Title);
+      CheckEquals('todo', CodeLens.CodeLens);
+      CheckEquals(0, CodeLens.Arguments.Count);
+    finally
+      CodeLens.Free;
+    end;
+*)
   finally
     Response.Free;
   end;
@@ -1819,7 +1883,7 @@ begin
   FLanguageServerHost.SendDocumentLinkRequest(CFile);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
   try
-    CheckEquals('todo', Response['result'].ToString);
+    CheckEquals('[]', Response['result'].ToString);
   finally
     Response.Free;
   end;
@@ -1829,6 +1893,9 @@ end;
 procedure TTestLanguageServer.TestBasicRenameSequence;
 var
   Response: TdwsJSONObject;
+  WorkspaceEdit: TWorkspaceEdit;
+  TextDocumentEdit: TTextDocumentEdit;
+  TextEdit: TTextEdit;
 const
   CFile = 'file:///c:/Test.dws';
   CTestUnit =
@@ -1846,7 +1913,23 @@ begin
   FLanguageServerHost.SendRenameRequest(CFile, 6, 9, 'Sub');
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
   try
-    CheckEquals('todo', Response['result'].ToString);
+    WorkspaceEdit := TWorkspaceEdit.Create;
+    try
+      WorkspaceEdit.ReadFromJson(Response['result']);
+      CheckEquals(1, WorkspaceEdit.DocumentChanges.Count);
+      TextDocumentEdit := WorkspaceEdit.DocumentChanges[0];
+      CheckEquals(CFile, TextDocumentEdit.TextDocument.Uri);
+
+      CheckEquals(1, TextDocumentEdit.Edits.Count);
+      TextEdit := TextDocumentEdit.Edits[0];
+      CheckEquals('Sub', TextEdit.NewText);
+      CheckEquals(6, TextEdit.Range.Start.Line);
+      CheckEquals(9, TextEdit.Range.Start.Character);
+      CheckEquals(6, TextEdit.Range.&End.Line);
+      CheckEquals(12, TextEdit.Range.&End.Character);
+    finally
+      WorkspaceEdit.Free;
+    end;
   finally
     Response.Free;
   end;

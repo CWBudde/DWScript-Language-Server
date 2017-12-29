@@ -12,11 +12,12 @@ type
     FHashCode: Cardinal;
     FVersion: Integer;
     FText: string;
+  protected
+    property HashCode: Cardinal read FHashCode;
   public
     constructor Create(TextDocumentItem: TTextDocumentItem);
 
     property Uri: string read FUri;
-    property HashCode: Cardinal read FHashCode;
     property Version: Integer read FVersion write FVersion;
     property Text: string read FText write FText;
   end;
