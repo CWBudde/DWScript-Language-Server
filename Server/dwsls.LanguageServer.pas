@@ -936,20 +936,39 @@ end;
 procedure TDWScriptLanguageServer.HandleTextDocumentRangeFormatting;
 var
   DocumentRangeFormattingParams: TDocumentRangeFormattingParams;
-  Result: TdwsJSONObject;
+  TextEdits: TTextEdits;
+  Index: Integer;
+  Source: string;
+  Result: TdwsJSONArray;
 begin
   DocumentRangeFormattingParams := TDocumentRangeFormattingParams.Create;
   try
     DocumentRangeFormattingParams.ReadFromJson(Params);
+
+    Source := FTextDocumentItemList.Items[DocumentRangeFormattingParams.TextDocument.Uri].Text;
+
+    TextEdits := TTextEdits.Create;
+    try
+      if DocumentRangeFormattingParams.Options.InsertSpaces then
+        ReplaceTabs(Source, DocumentRangeFormattingParams.Options.TabSize, TextEdits);
+
+      if TextEdits.Count > 0 then
+      begin
+        Result := TdwsJSONArray.Create;
+
+        for Index := 0 to TextEdits.Count - 1 do
+          TextEdits[Index].WriteToJson(Result.AddObject);
+
+        SendResponse(Result);
+      end
+      else
+        SendResponse;
+    finally
+      TextEdits.Free;
+    end;
   finally
     DocumentRangeFormattingParams.Free;
   end;
-
-  Result := TdwsJSONObject.Create;
-
-  // not yet implemented
-
-  SendResponse(Result);
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentReferences(Params: TdwsJSONObject);
