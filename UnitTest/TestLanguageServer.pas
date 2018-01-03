@@ -1653,9 +1653,10 @@ const
     'unit Test;' + #13#10#13#10 +
     'interface' + #13#10#13#10 +
     'implementation' + #13#10#13#10 +
-    'function Add(A, B: Integer): Integer;' + #13#10 +
+    'function Foo(A, B: Integer): Integer;' + #13#10 +
     'begin' + #13#10#9 +
-    'Result := A + B;' + #13#10 +
+    'Result := A + B;' + #13#10#9 +
+    'Result := Result * Result;' + #13#10 +
     'end;' + #13#10#13#10 +
     'end.';
 begin
@@ -1668,7 +1669,7 @@ begin
     TextEditArray := TdwsJSONArray(Response['result']);
     TextEdit := TTextEdit.Create;
     try
-      CheckTrue(TextEditArray.ElementCount = 1);
+      CheckEquals(2, TextEditArray.ElementCount);
       TextEdit.ReadFromJson(TextEditArray[0]);
       CheckEquals(8, TextEdit.Range.Start.Line);
       CheckEquals(1, TextEdit.Range.Start.Character);
@@ -1687,24 +1688,40 @@ end;
 procedure TTestLanguageServer.TestBasicRangeFormattingSequence;
 var
   Response: TdwsJSONObject;
+  TextEditArray: TdwsJSONArray;
+  TextEdit: TTextEdit;
 const
   CFile = 'file:///c:/Test.dws';
   CTestUnit =
     'unit Test;' + #13#10#13#10 +
     'interface' + #13#10#13#10 +
     'implementation' + #13#10#13#10 +
-    'function Add(A, B: Integer): Integer;' + #13#10 +
+    'function Foo(A, B: Integer): Integer;' + #13#10 +
     'begin' + #13#10#9 +
-    'Result := A + B;' + #13#10 +
+    'Result := A + B;' + #13#10#9 +
+    'Result := Result * Result;' + #13#10 +
     'end;' + #13#10#13#10 +
     'end.';
 begin
   BasicInitialization;
   FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
-  FLanguageServerHost.SendRangeFormattingRequest(CFile, 2, True);
+  FLanguageServerHost.SendRangeFormattingRequest(CFile, 2, True, 9, 0, 9, 12);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
   try
-    CheckEquals('todo', Response['result'].ToString);
+    CheckTrue(Response['result'] is TdwsJSONArray);
+    TextEditArray := TdwsJSONArray(Response['result']);
+    TextEdit := TTextEdit.Create;
+    try
+      CheckEquals(1, TextEditArray.ElementCount);
+      TextEdit.ReadFromJson(TextEditArray[0]);
+      CheckEquals(9, TextEdit.Range.Start.Line);
+      CheckEquals(1, TextEdit.Range.Start.Character);
+      CheckEquals(9, TextEdit.Range.&End.Line);
+      CheckEquals(2, TextEdit.Range.&End.Character);
+      CheckEquals('  ', TextEdit.NewText);
+    finally
+      TextEdit.Free;
+    end;
   finally
     Response.Free;
   end;

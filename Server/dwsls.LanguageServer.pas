@@ -638,7 +638,7 @@ begin
 end;
 
 procedure ReplaceTabs(const Source: string; TabSize: Integer;
-  const TextEdits: TTextEdits);
+  const TextEdits: TTextEdits); overload;
 var
   LineIndex: Integer;
   CharacterIndex: Integer;
@@ -656,6 +656,60 @@ begin
       CharacterIndex := 1;
       CurrentString := StringList[LineIndex];
       while CharacterIndex < Length(CurrentString) do
+      begin
+        if CurrentString[CharacterIndex] = #9 then
+        begin
+          TextEdit := TTextEdit.Create;
+          TextEdit.Range.Start.Line := LineIndex;
+          TextEdit.Range.Start.Character := CharacterIndex;
+          TextEdit.Range.&End.Line := LineIndex;
+          TextEdit.Range.&End.Character := CharacterIndex + 1;
+          TextEdit.NewText := TabString;
+          TextEdits.Add(TextEdit);
+
+          Delete(CurrentString, CharacterIndex, 1);
+          Insert(TabString, CurrentString, CharacterIndex);
+          Inc(CharacterIndex, TabSize - 1);
+        end;
+
+        Inc(CharacterIndex);
+      end;
+    end;
+  finally
+    StringList.Free;
+  end;
+end;
+
+procedure ReplaceTabs(const Source: string; TabSize: Integer;
+  const TextEdits: TTextEdits; StartLine, StartCharacter,
+  EndLine, EndCharacter: Integer); overload;
+var
+  LineIndex: Integer;
+  CharacterIndex: Integer;
+  EndCharIndex: Integer;
+  StringList: TStringList;
+  TabString, CurrentString: string;
+  TextEdit: TTextEdit;
+begin
+  Assert(Assigned(TextEdits));
+  TabString := StringOfChar(' ', TabSize);
+  StringList := TStringList.Create;
+  try
+    StringList.Text := Source;
+    for LineIndex := StartLine to Min(EndLine, StringList.Count - 1) do
+    begin
+      if LineIndex = StartLine then
+        CharacterIndex := StartCharacter + 1
+      else
+        CharacterIndex := 1;
+      CurrentString := StringList[LineIndex];
+
+      if LineIndex = EndLine then
+        EndCharIndex := EndCharacter + 1
+      else
+        EndCharIndex := Length(CurrentString);
+
+      while CharacterIndex < EndCharIndex do
       begin
         if CurrentString[CharacterIndex] = #9 then
         begin
@@ -950,7 +1004,11 @@ begin
     TextEdits := TTextEdits.Create;
     try
       if DocumentRangeFormattingParams.Options.InsertSpaces then
-        ReplaceTabs(Source, DocumentRangeFormattingParams.Options.TabSize, TextEdits);
+        ReplaceTabs(Source, DocumentRangeFormattingParams.Options.TabSize,
+          TextEdits, DocumentRangeFormattingParams.Range.Start.Line,
+          DocumentRangeFormattingParams.Range.Start.Character,
+          DocumentRangeFormattingParams.Range.&End.Line,
+          DocumentRangeFormattingParams.Range.&End.Character);
 
       if TextEdits.Count > 0 then
       begin

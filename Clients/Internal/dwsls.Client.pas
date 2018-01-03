@@ -65,7 +65,8 @@ type
     procedure SendFormattingRequest(const Uri: string; TabSize: Integer;
       InsertSpaces: Boolean);
     procedure SendRangeFormattingRequest(const Uri: string; TabSize: Integer;
-      InsertSpaces: Boolean);
+      InsertSpaces: Boolean; StartLine, StartCharacter, EndLine,
+      EndCharacter: Integer);
     procedure SendOnTypeFormattingRequest(const Uri: string; Line,
       Character: Integer; TypeCharacter: string; TabSize: Integer;
       InsertSpaces: Boolean);
@@ -575,7 +576,8 @@ begin
 end;
 
 procedure TLanguageServerHost.SendRangeFormattingRequest(const Uri: string;
-  TabSize: Integer; InsertSpaces: Boolean);
+  TabSize: Integer; InsertSpaces: Boolean; StartLine, StartCharacter, EndLine,
+  EndCharacter: Integer);
 var
   DocumentRangeFormattingParams: TDocumentRangeFormattingParams;
   JsonParams: TdwsJSONObject;
@@ -586,6 +588,10 @@ begin
     DocumentRangeFormattingParams.TextDocument.Uri := Uri;
     DocumentRangeFormattingParams.Options.TabSize := TabSize;
     DocumentRangeFormattingParams.Options.InsertSpaces := InsertSpaces;
+    DocumentRangeFormattingParams.Range.Start.Line := StartLine;
+    DocumentRangeFormattingParams.Range.Start.Character := StartCharacter;
+    DocumentRangeFormattingParams.Range.&End.Line := EndLine;
+    DocumentRangeFormattingParams.Range.&End.Character := EndCharacter;
     DocumentRangeFormattingParams.WriteToJson(JsonParams);
   finally
     DocumentRangeFormattingParams.Free;
