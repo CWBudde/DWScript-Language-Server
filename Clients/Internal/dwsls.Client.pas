@@ -312,19 +312,16 @@ var
   JsonParams: TdwsJSONObject;
 begin
   JsonParams := TdwsJSONObject.Create;
-  try
-    WorkspaceSymbolParams := TWorkspaceSymbolParams.Create;
-    try
-      WorkspaceSymbolParams.Query := Query;
-      WorkspaceSymbolParams.WriteToJson(JsonParams);
-    finally
-      WorkspaceSymbolParams.Free;
-    end;
 
-    SendRequest('workspace/symbol', JsonParams);
+  WorkspaceSymbolParams := TWorkspaceSymbolParams.Create;
+  try
+    WorkspaceSymbolParams.Query := Query;
+    WorkspaceSymbolParams.WriteToJson(JsonParams);
   finally
-    JsonParams.Free;
+    WorkspaceSymbolParams.Free;
   end;
+
+  SendRequest('workspace/symbol', JsonParams);
 end;
 
 procedure TLanguageServerHost.SendDidOpenNotification(const Uri, Text: string; Version: Integer;

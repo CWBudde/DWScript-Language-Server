@@ -59,6 +59,7 @@ type
     procedure WriteOutput(const Text: string); inline;
 
     function Compile(Uri: string): IdwsProgram;
+    function CompileWorkspace: IdwsProgram;
     function LocateScriptSource(const Prog: IdwsProgram; const Uri: string): TScriptSourceItem;
     function LocateSymbol(const Prog: IdwsProgram; const Uri: string; Position: TPosition): TSymbol;
 
@@ -119,6 +120,12 @@ uses
   dwsXXHash, dwsSuggestions, dwsContextMap;
 
 { TDWScriptLanguageServer }
+
+function TDWScriptLanguageServer.CompileWorkspace: IdwsProgram;
+begin
+  // TODO
+  Result := nil;
+end;
 
 constructor TDWScriptLanguageServer.Create;
 begin
@@ -1511,7 +1518,11 @@ var
   Result: TdwsJSONObject;
 begin
   ApplyWorkspaceEditParams := TApplyWorkspaceEditParams.Create;
-  ApplyWorkspaceEditParams.ReadFromJson(Params);
+  try
+    ApplyWorkspaceEditParams.ReadFromJson(Params);
+  finally
+    ApplyWorkspaceEditParams.Free;
+  end;
 
   // yet to do
 
@@ -1563,16 +1574,51 @@ end;
 procedure TDWScriptLanguageServer.HandleWorkspaceSymbol(Params: TdwsJSONObject);
 var
   WorkspaceSymbolParams: TWorkspaceSymbolParams;
-  Result: TdwsJSONObject;
+  DocumentSymbolInformation: TDocumentSymbolInformation;
+  Prog: IdwsProgram;
+  SymbolPosList: TSymbolPositionList;
+  SymbolPos: TSymbolPosition;
+  Result: TdwsJSONArray;
 begin
+  Prog := nil;
+  SymbolPosList := nil;
+
   WorkspaceSymbolParams := TWorkspaceSymbolParams.Create;
-  WorkspaceSymbolParams.ReadFromJson(Params);
+  try
+    WorkspaceSymbolParams.ReadFromJson(Params);
 
-  // yet to do
+    // compile the workspace
+    Prog := CompileWorkspace;
 
-  Result := TdwsJSONObject.Create;
+    if Assigned(Prog) then
+      SymbolPosList := Prog.SymbolDictionary.FindSymbolPosList(WorkspaceSymbolParams.Query);
+  finally
+    WorkspaceSymbolParams.Free;
+  end;
 
-  SendResponse(Result);
+  if Assigned(SymbolPosList) then
+  begin
+    Result := TdwsJSONArray.Create;
+
+    for SymbolPos in SymbolPosList do
+    begin
+      DocumentSymbolInformation := TDocumentSymbolInformation.Create;
+      try
+        DocumentSymbolInformation.Name := SymbolPosList.Symbol.Name;
+        DocumentSymbolInformation.Kind := SymbolToSymbolKind(SymbolPosList.Symbol);
+        DocumentSymbolInformation.Location.Uri := SymbolPosList.Items[0].ScriptPos.SourceFile.Location;
+        DocumentSymbolInformation.Location.Range.Start.Line := SymbolPosList.Items[0].ScriptPos.Line;
+        DocumentSymbolInformation.Location.Range.Start.Character := SymbolPosList.Items[0].ScriptPos.Col;
+        DocumentSymbolInformation.WriteToJson(Result.AddObject);
+      finally
+        DocumentSymbolInformation.Free;
+      end;
+    end;
+
+    SendResponse(Result);
+  end
+  else
+    SendResponse;
 end;
 
 function TDWScriptLanguageServer.HandleJsonRpc(JsonRpc: TdwsJSONObject): Boolean;

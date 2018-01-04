@@ -72,7 +72,7 @@ type
     procedure TestBasicSignatureHelpSequence;
     procedure TestBasicFindReferenceSequence;
     procedure TestBasicDocumentHightlightSequence;
-    procedure TestBasicSymbolSequence;
+    procedure TestBasicDocumentSymbolSequence;
     procedure TestBasicFormattingSequence;
     procedure TestBasicRangeFormattingSequence;
     procedure TestBasicOnTypeFormattingSequence;
@@ -81,6 +81,7 @@ type
     procedure TestBasicCodeLensSequence;
     procedure TestBasicDocumentLinkSequence;
     procedure TestBasicRenameSequence;
+    procedure TestBasicWorkspaceSymbolSequence;
   end;
 
 implementation
@@ -1682,9 +1683,11 @@ begin
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
-procedure TTestLanguageServer.TestBasicSymbolSequence;
+procedure TTestLanguageServer.TestBasicDocumentSymbolSequence;
 var
   Response: TdwsJSONObject;
+  SymbolInformationArray: TdwsJSONArray;
+  DocumentSymbolInformation: TDocumentSymbolInformation;
 const
   CFile = 'file:///c:/Test.dws';
   CTestUnit =
@@ -1702,6 +1705,18 @@ begin
   FLanguageServerHost.SendDocumentSymbolRequest(CFile);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
   try
+    CheckTrue(Response['result'] is TdwsJSONArray);
+    SymbolInformationArray := TdwsJSONArray(Response['result']);
+    CheckEquals(5, SymbolInformationArray.ElementCount);
+
+    DocumentSymbolInformation := TDocumentSymbolInformation.Create;
+    try
+      DocumentSymbolInformation.ReadFromJson(SymbolInformationArray[0]);
+      CheckEquals('Result', DocumentSymbolInformation.Name);
+      CheckEquals(Integer(skNumber), Integer(DocumentSymbolInformation.Kind));
+    finally
+      DocumentSymbolInformation.Free;
+    end;
   finally
     Response.Free;
   end;
@@ -1733,9 +1748,9 @@ begin
   try
     CheckTrue(Response['result'] is TdwsJSONArray);
     TextEditArray := TdwsJSONArray(Response['result']);
+    CheckEquals(2, TextEditArray.ElementCount);
     TextEdit := TTextEdit.Create;
     try
-      CheckEquals(2, TextEditArray.ElementCount);
       TextEdit.ReadFromJson(TextEditArray[0]);
       CheckEquals(8, TextEdit.Range.Start.Line);
       CheckEquals(1, TextEdit.Range.Start.Character);
@@ -2013,6 +2028,33 @@ begin
     finally
       WorkspaceEdit.Free;
     end;
+  finally
+    Response.Free;
+  end;
+  FLanguageServerHost.SendRequest('shutdown');
+end;
+
+procedure TTestLanguageServer.TestBasicWorkspaceSymbolSequence;
+var
+  Response: TdwsJSONObject;
+const
+  CFile = 'file:///c:/Test.dws';
+  CTestUnit =
+    'unit Test;' + #13#10#13#10 +
+    'interface' + #13#10#13#10 +
+    'implementation' + #13#10#13#10 +
+    'function Add(A, B: Integer): Integer;' + #13#10 +
+    'begin' + #13#10 +
+    '  Result := A + B;' + #13#10 +
+    'end;' + #13#10#13#10 +
+    'end.';
+begin
+  BasicInitialization;
+  FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
+  FLanguageServerHost.SendWorkspaceSymbol('Add');
+  Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
+  try
+    // TODO
   finally
     Response.Free;
   end;
