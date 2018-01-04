@@ -10,9 +10,9 @@ interface
 uses
   Classes, dwsComp, dwsCompiler, dwsExprs, dwsErrors, dwsFunctions,
   dwsCodeGen, dwsUnitSymbols, dwsCompilerContext, dwsJson, dwsXPlatform,
-  dwsUtils, dwsSymbolDictionary, dwsls.Classes.Capabilities,
-  dwsls.Classes.Common, dwsls.Classes.Document, dwsls.Classes.Workspace,
-  dwsls.Utils, dwsls.Classes.JSON;
+  dwsUtils, dwsSymbolDictionary, dwsScriptSource, dwsSymbols,
+  dwsls.Classes.Capabilities, dwsls.Classes.Common, dwsls.Classes.Document,
+  dwsls.Classes.Workspace, dwsls.Utils, dwsls.Classes.JSON;
 
 type
   TOnOutput = procedure(const Output: string) of object;
@@ -59,6 +59,8 @@ type
     procedure WriteOutput(const Text: string); inline;
 
     function Compile(Uri: string): IdwsProgram;
+    function LocateScriptSource(const Prog: IdwsProgram; const Uri: string): TScriptSourceItem;
+    function LocateSymbol(const Prog: IdwsProgram; const Uri: string; Position: TPosition): TSymbol;
 
     procedure OnIncludeEventHandler(const ScriptName: string;
       var ScriptSource: string);
@@ -113,8 +115,8 @@ type
 implementation
 
 uses
-  SysUtils, StrUtils, dwsStrings, dwsSymbols, dwsPascalTokenizer, dwsTokenizer,
-  dwsScriptSource, dwsXXHash, dwsSuggestions, dwsContextMap;
+  SysUtils, StrUtils, dwsStrings, dwsPascalTokenizer, dwsTokenizer,
+  dwsXXHash, dwsSuggestions, dwsContextMap;
 
 { TDWScriptLanguageServer }
 
@@ -183,7 +185,7 @@ end;
 function TDWScriptLanguageServer.OnNeedUnitEventHandler(const UnitName: string;
   var UnitSource: string): IdwsUnit;
 begin
-  LogMessage('OnNeedUnitEventHandler: ' + UnitName);
+  UnitSource := FTextDocumentItemList.SourceCode[UnitName];
 end;
 
 function ScriptMessageTypeToDiagnosticSeverity(ScriptMessage: TScriptMessage): TDiagnosticSeverity;
@@ -214,6 +216,9 @@ begin
   // get source code for uri
   SourceCode := GetSourceCodeForUri(Uri);
 
+  if not IsProgram(SourceCode) then
+    SourceCode := 'uses ' + GetUnitNameFromUri(Uri) + ';';
+
   // eventually compile source code
   if SourceCode <> '' then
     Result := FDelphiWebScript.Compile(SourceCode);
@@ -241,6 +246,37 @@ begin
     finally
       PublishDiagnosticsParams.Free;
     end;
+  end;
+end;
+
+function TDWScriptLanguageServer.LocateScriptSource(const Prog: IdwsProgram;
+  const Uri: string): TScriptSourceItem;
+begin
+  if IsProgram(Uri) then
+    Result := Prog.SourceList.FindScriptSourceItem(SYS_MainModule)
+  else
+    Result := Prog.SourceList.FindScriptSourceItem(GetUnitNameFromUri(Uri));
+end;
+
+function TDWScriptLanguageServer.LocateSymbol(const Prog: IdwsProgram;
+  const Uri: string; Position: TPosition): TSymbol;
+var
+  ScriptSourceItem: TScriptSourceItem;
+  ScriptPos: TScriptPos;
+begin
+  Result := nil;
+
+  if Assigned(Prog) then
+  begin
+    // get script source item
+    ScriptSourceItem := LocateScriptSource(Prog, Uri);
+
+    // locate script position
+    ScriptPos := TScriptPos.Create(ScriptSourceItem.SourceFile,
+      Position.Line + 1, Position.Character + 1);
+
+    // get the symbol at the current script position
+    Result := Prog.SymbolDictionary.FindSymbolAtPosition(ScriptPos);
   end;
 end;
 
@@ -412,15 +448,26 @@ begin
     // compile the current unit
     Prog := Compile(TextDocumentPositionParams.TextDocument.Uri);
 
-    // get main module (TODO: locate the correct file)
-    ScriptSourceItem := Prog.SourceList.FindScriptSourceItem(SYS_MainModule);
+    if Assigned(Prog) then
+    begin
+      // get script source item
+      ScriptSourceItem := LocateScriptSource(Prog,
+        TextDocumentPositionParams.TextDocument.Uri);
 
-    // locate script position
-    ScriptPos := TScriptPos.Create(ScriptSourceItem.SourceFile,
-      TextDocumentPositionParams.Position.Line + 1,
-      TextDocumentPositionParams.Position.Character + 1);
+      // locate script position
+      ScriptPos := TScriptPos.Create(ScriptSourceItem.SourceFile,
+        TextDocumentPositionParams.Position.Line + 1,
+        TextDocumentPositionParams.Position.Character + 1);
+    end;
   finally
     TextDocumentPositionParams.Free;
+  end;
+
+  // eventually stop here
+  if not Assigned(ScriptSourceItem) then
+  begin
+    SendResponse;
+    Exit;
   end;
 
   // create suggestions for the current script position
@@ -518,16 +565,9 @@ begin
     // compile the current unit
     Prog := Compile(TextDocumentPositionParams.TextDocument.Uri);
 
-    if Assigned(Prog) then
-    begin
-      // get the symbol at the current position for the main module
-      // TODO: locate the correct file
-      Symbol := Prog.SymbolDictionary.FindSymbolAtPosition(
-        TextDocumentPositionParams.Position.Character + 1,
-        TextDocumentPositionParams.Position.Line + 1,
-        SYS_MainModule);
-    end;
-
+    // get symbol for current position
+    Symbol := LocateSymbol(Prog, TextDocumentPositionParams.TextDocument.Uri,
+      TextDocumentPositionParams.Position);
   finally
     TextDocumentPositionParams.Free;
   end;
@@ -792,15 +832,9 @@ begin
     // compile the current unit
     Prog := Compile(TextDocumentPositionParams.TextDocument.Uri);
 
-    if Assigned(Prog) then
-    begin
-      // get the symbol at the current position for the main module
-      // TODO: locate the correct file
-      Symbol := Prog.SymbolDictionary.FindSymbolAtPosition(
-        TextDocumentPositionParams.Position.Character + 1,
-        TextDocumentPositionParams.Position.Line + 1,
-        SYS_MainModule);
-    end;
+    // get symbol for current position
+    Symbol := LocateSymbol(Prog, TextDocumentPositionParams.TextDocument.Uri,
+      TextDocumentPositionParams.Position);
   finally
     TextDocumentPositionParams.Free;
   end;
@@ -850,15 +884,9 @@ begin
     // compile the current unit
     Prog := Compile(TextDocumentPositionParams.TextDocument.Uri);
 
-    if Assigned(Prog) then
-    begin
-      // get the symbol at the current position for the main module
-      // TODO: locate the correct file
-      Symbol := Prog.SymbolDictionary.FindSymbolAtPosition(
-        TextDocumentPositionParams.Position.Character + 1,
-        TextDocumentPositionParams.Position.Line + 1,
-        SYS_MainModule);
-    end;
+    // get symbol for current position
+    Symbol := LocateSymbol(Prog, TextDocumentPositionParams.TextDocument.Uri,
+      TextDocumentPositionParams.Position);
   finally
     TextDocumentPositionParams.Free;
   end;
@@ -1050,15 +1078,9 @@ begin
     // compile the current unit
     Prog := Compile(ReferenceParams.TextDocument.Uri);
 
-    if Assigned(Prog) then
-    begin
-      // get the symbol at the current position for the main module
-      // TODO: locate the correct file
-      Symbol := Prog.SymbolDictionary.FindSymbolAtPosition(
-        ReferenceParams.Position.Character + 1,
-        ReferenceParams.Position.Line + 1,
-        SYS_MainModule);
-    end;
+    // get symbol for current position
+    Symbol := LocateSymbol(Prog, ReferenceParams.TextDocument.Uri,
+      ReferenceParams.Position);
   finally
     ReferenceParams.Free;
   end;
@@ -1120,14 +1142,9 @@ begin
     // compile the current unit
     Prog := Compile(RenameParams.TextDocument.Uri);
 
-    if Assigned(Prog) then
-    begin
-      // get the unit for the main module (TODO: locate the correct file)
-      Symbol := Prog.SymbolDictionary.FindSymbolAtPosition(
-        RenameParams.Position.Character + 1,
-        RenameParams.Position.Line + 1,
-        SYS_MainModule);
-    end;
+    // get symbol for current position
+    Symbol := LocateSymbol(Prog, RenameParams.TextDocument.Uri,
+      RenameParams.Position);
   finally
     RenameParams.Free;
   end;

@@ -49,6 +49,12 @@ type
     procedure TestJsonApplyWorkspaceEditParams;
   end;
 
+  TTestUtils = class(TTestCase)
+  published
+    procedure TestGetUnitNameFromUri;
+    procedure TestCheckProgram;
+  end;
+
   TTestLanguageServer = class(TTestCase)
   strict private
     FLanguageServerHost: TLanguageServerHost;
@@ -80,7 +86,7 @@ type
 implementation
 
 uses
-  SysUtils;
+  SysUtils, dwsls.Utils;
 
 { TTestLanguageServerClasses }
 
@@ -1314,7 +1320,67 @@ begin
 end;
 
 
-{ TLanguageServerHost }
+{ TTestUtils }
+
+procedure TTestUtils.TestGetUnitNameFromUri;
+const
+  CUris: array of string = [
+    'Test',
+    'Test.dws',
+    'Test.dwscript',
+    'Test.pas',
+    'c:/Test',
+    'c:/Test.dws',
+    'c:/Test.dwscript',
+    'c:/Test.pas',
+    'file:///c:/Test',
+    'file:///c:/Test.dws',
+    'file:///c:/Test.dwscript',
+    'file:///c:/Test.pas',
+    'file://localhost/c:/Test',
+    'file://localhost/c:/Test.dws',
+    'file://localhost/c:/Test.dwscript',
+    'file://localhost/c:/Test.pas',
+    'file:///etc/Test',
+    'file:///etc/Test.dws',
+    'file:///etc/Test.dwscript',
+    'file:///etc/Test.pas',
+    'file://localhost/etc/Test',
+    'file://localhost/etc/Test.dws',
+    'file://localhost/etc/Test.pas'
+  ];
+var
+  Index: Integer;
+begin
+  for Index := Low(CUris) to High(CUris) do
+    CheckEquals('Test', GetUnitNameFromUri(CUris[Index]));
+end;
+
+procedure TTestUtils.TestCheckProgram;
+const
+  CTestProgram =
+    'program Test;' + #13#10#13#10 +
+    'function Add(A, B: Integer): Integer;' + #13#10 +
+    'begin' + #13#10 +
+    '  Result := A + B;' + #13#10 +
+    'end;';
+  CTestUnit =
+    'unit Test;' + #13#10#13#10 +
+    'interface' + #13#10#13#10 +
+    'implementation' + #13#10#13#10 +
+    'error' + #13#10#13#10 +
+    'function Add(A, B: Integer): Integer;' + #13#10 +
+    'begin' + #13#10 +
+    '  Result := A + B;' + #13#10 +
+    'end;' + #13#10#13#10 +
+    'end.';
+begin
+  CheckTrue(IsProgram(CTestProgram));
+  CheckFalse(IsProgram(CTestUnit));
+end;
+
+
+{ TTestLanguageServer }
 
 procedure TTestLanguageServer.SetUp;
 begin
@@ -1953,7 +2019,9 @@ begin
   FLanguageServerHost.SendRequest('shutdown');
 end;
 
+
 initialization
   RegisterTest(TTestLanguageServerClasses.Suite);
+  RegisterTest(TTestUtils.Suite);
   RegisterTest(TTestLanguageServer.Suite);
 end.
