@@ -1,9 +1,9 @@
-unit dwsls.Classes.Common;
+unit dwsc.Classes.Common;
 
 interface
 
 uses
-  Classes, dwsJSON, dwsUtils, dwsls.Classes.JSON;
+  Classes, dwsJSON, dwsUtils, dwsc.Classes.JSON;
 
 type
   TDiagnosticSeverity = (

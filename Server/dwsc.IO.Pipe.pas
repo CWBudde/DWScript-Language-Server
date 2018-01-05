@@ -1,4 +1,4 @@
-unit dwsls.IO.Pipe;
+unit dwsc.IO.Pipe;
 
 interface
 
@@ -8,7 +8,7 @@ interface
 
 
 uses
-  Windows, Classes, dwsXPlatform, dwsUtils, dwsls.LanguageServer;
+  Windows, Classes, dwsXPlatform, dwsUtils, dwsc.LanguageServer;
 
 type
   TDWScriptLanguageServerLoop = class

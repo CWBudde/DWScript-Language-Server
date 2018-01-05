@@ -1,9 +1,9 @@
-unit dwsls.Classes.Document;
+unit dwsc.Classes.Document;
 
 interface
 
 uses
-  Classes, dwsJSON, dwsUtils, dwsls.Classes.JSON, dwsls.Classes.Common;
+  Classes, dwsJSON, dwsUtils, dwsc.Classes.JSON, dwsc.Classes.Common;
 
 type
   TTextDocumentPositionParams = class(TJsonClass)

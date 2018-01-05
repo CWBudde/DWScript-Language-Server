@@ -1,9 +1,9 @@
-unit dwsls.Utils;
+unit dwsc.Utils;
 
 interface
 
 uses
-  dwsUtils, dwsls.Classes.Common;
+  dwsUtils, dwsc.Classes.Common;
 
 type
   TdwsTextDocumentItem = class

@@ -1,4 +1,4 @@
-unit dwsls.LanguageServer;
+unit dwsc.LanguageServer;
 
 interface
 
@@ -11,8 +11,8 @@ uses
   Classes, dwsComp, dwsCompiler, dwsExprs, dwsErrors, dwsFunctions,
   dwsCodeGen, dwsUnitSymbols, dwsCompilerContext, dwsJson, dwsXPlatform,
   dwsUtils, dwsSymbolDictionary, dwsScriptSource, dwsSymbols,
-  dwsls.Classes.Capabilities, dwsls.Classes.Common, dwsls.Classes.Document,
-  dwsls.Classes.Workspace, dwsls.Utils, dwsls.Classes.JSON;
+  dwsc.Classes.Capabilities, dwsc.Classes.Common, dwsc.Classes.Document,
+  dwsc.Classes.Workspace, dwsc.Utils, dwsc.Classes.JSON;
 
 type
   TOnOutput = procedure(const Output: string) of object;

@@ -1,9 +1,9 @@
-unit dwsls.Classes.Capabilities;
+unit dwsc.Classes.Capabilities;
 
 interface
 
 uses
-  Classes, dwsJson, dwsUtils, dwsls.Classes.JSON, dwsls.Classes.Common;
+  Classes, dwsJson, dwsUtils, dwsc.Classes.JSON, dwsc.Classes.Common;
 
 type
   TWorkspaceCapabilities = class(TJsonClass)

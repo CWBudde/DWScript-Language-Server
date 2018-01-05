@@ -1,11 +1,11 @@
-unit dwsls.Client;
+unit dwsc.Client;
 
 interface
 
 uses
-  Classes, SysUtils, dwsJson, dwsUtils, dwsls.Classes.Capabilities,
-  dwsls.Classes.Workspace, dwsls.Classes.Document, dwsls.Classes.Common,
-  dwsls.Classes.Json, dwsls.LanguageServer;
+  Classes, SysUtils, dwsJson, dwsUtils, dwsc.Classes.Capabilities,
+  dwsc.Classes.Workspace, dwsc.Classes.Document, dwsc.Classes.Common,
+  dwsc.Classes.Json, dwsc.LanguageServer;
 
 type
   TLanguageServerHost = class

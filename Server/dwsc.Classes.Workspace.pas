@@ -1,9 +1,9 @@
-unit dwsls.Classes.Workspace;
+unit dwsc.Classes.Workspace;
 
 interface
 
 uses
-  Classes, dwsJSON, dwsUtils, dwsls.Classes.Common, dwsls.Classes.JSON;
+  Classes, dwsJSON, dwsUtils, dwsc.Classes.Common, dwsc.Classes.JSON;
 
 type
   TDidChangeWatchedFilesParams = class(TJsonClass)

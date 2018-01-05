@@ -1,4 +1,4 @@
-unit dwsls.Classes.JSON;
+unit dwsc.Classes.JSON;
 
 interface
 
