@@ -231,6 +231,7 @@ type
     property AdditionalTextEdits: TObjectList<TTextEdit> read FAdditionalTextEdits;
     property CommitCharacters: TStringList read FCommitCharacters;
     property Command: TCommand read FCommand write FCommand;
+    property Data: TdwsJSONValue read FData;
    end;
 
   TCompletionListResponse = class(TJsonClass)
@@ -531,6 +532,23 @@ type
     procedure WriteToJson(const Value: TdwsJSONObject); override;
 
     property TextDocument: TTextDocumentIdentifier read FTextDocument;
+  end;
+
+  TCodeLens = class(TJsonClass)
+  private
+    FRange: TRange;
+    FCommand: string;
+    FData: TdwsJSONValue;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Range: TRange read FRange;
+    property Command: string read FCommand write FCommand;
+    property Data: TdwsJSONValue read FData;
   end;
 
   TDocumentLinkParams = class(TJsonClass)
@@ -991,6 +1009,9 @@ begin
     for Index := 0 to FCommitCharacters.Count - 1 do
       CommitCharactersArray.Add(FCommitCharacters[Index]);
   end;
+
+  if FData.ElementCount > 0 then
+    Value.Add('data', FData.Clone);
 end;
 
 
@@ -1508,6 +1529,41 @@ end;
 procedure TCodeLensParams.WriteToJson(const Value: TdwsJSONObject);
 begin
   FTextDocument.WriteToJson(Value.AddObject('textDocument'));
+end;
+
+
+{ TCodeLens }
+
+constructor TCodeLens.Create;
+begin
+  FRange := TRange.Create;
+  FData := TdwsJSONValue.Create;
+end;
+
+destructor TCodeLens.Destroy;
+begin
+  FRange.Free;
+  FData.Free;
+
+  inherited;
+end;
+
+procedure TCodeLens.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FRange.ReadFromJson(Value['range']);
+  if Assigned(Value['command']) then
+    FCommand := Value['command'].AsString;
+  if Assigned(Value['data']) then
+    FData := Value['data'];
+end;
+
+procedure TCodeLens.WriteToJson(const Value: TdwsJSONObject);
+begin
+  FRange.WriteToJson(Value.AddObject('range'));
+  if FCommand <> '' then
+    Value.AddValue('command', FCommand);
+  if FData.ElementCount > 0 then
+    Value.Add('data', FData.Clone);
 end;
 
 

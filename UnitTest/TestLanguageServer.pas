@@ -35,6 +35,7 @@ type
     procedure TestJsonDocumentSymbolInformation;
     procedure TestJsonCodeActionParams;
     procedure TestJsonCodeLensParams;
+    procedure TestJsonCodeLens;
     procedure TestJsonDocumentLinkParams;
     procedure TestJsonDocumentLinkResponse;
     procedure TestJsonDocumentHighlight;
@@ -309,6 +310,41 @@ begin
       CheckEquals('c:\Test.dws', CodeLensParams.TextDocument.Uri);
     finally
       CodeLensParams.Free;
+    end;
+  finally
+    Params.Free;
+  end;
+end;
+
+procedure TTestLanguageServerClasses.TestJsonCodeLens;
+var
+  CodeLens: TCodeLens;
+  Params: TdwsJSONObject;
+begin
+  Params := TdwsJSONObject.Create;
+  try
+    CodeLens := TCodeLens.Create;
+    try
+      CodeLens.Range.Start.Line := 4;
+      CodeLens.Range.Start.Character := 2;
+      CodeLens.Range.&End.Line := 4;
+      CodeLens.Range.&End.Character := 7;
+      CodeLens.Command := 'test';
+      CodeLens.WriteToJson(Params);
+    finally
+      CodeLens.Free;
+    end;
+
+    CodeLens := TCodeLens.Create;
+    try
+      CodeLens.ReadFromJson(Params);
+      CheckEquals(4, CodeLens.Range.Start.Line);
+      CheckEquals(2, CodeLens.Range.Start.Character);
+      CheckEquals(4, CodeLens.Range.&End.Line);
+      CheckEquals(7, CodeLens.Range.&End.Character);
+      CheckEquals('test', CodeLens.Command);
+    finally
+      CodeLens.Free;
     end;
   finally
     Params.Free;
