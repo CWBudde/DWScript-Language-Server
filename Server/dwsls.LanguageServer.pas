@@ -121,12 +121,6 @@ uses
 
 { TDWScriptLanguageServer }
 
-function TDWScriptLanguageServer.CompileWorkspace: IdwsProgram;
-begin
-  // TODO
-  Result := nil;
-end;
-
 constructor TDWScriptLanguageServer.Create;
 begin
   // create DWS compiler
@@ -218,6 +212,7 @@ var
   ScriptMessage: TScriptMessage;
   Index: Integer;
 begin
+  Result := nil;
   SourceCode := '';
 
   // get source code for uri
@@ -256,13 +251,84 @@ begin
   end;
 end;
 
+function TDWScriptLanguageServer.CompileWorkspace: IdwsProgram;
+var
+  PublishDiagnosticsParams: TPublishDiagnosticsParams;
+  Params: TdwsJSONObject;
+  SourceCode: string;
+  ScriptMessage: TScriptMessage;
+  Index: Integer;
+begin
+  Result := nil;
+  SourceCode := '';
+
+  if FTextDocumentItemList.Count > 0 then
+  begin
+    // look for programs
+    for Index := 0 to FTextDocumentItemList.Count - 1 do
+      if IsProgram(FTextDocumentItemList.Items[Index].Text) then
+      begin
+        SourceCode := FTextDocumentItemList.Items[Index].Text;
+        Break;
+      end;
+
+    // if no program is available compile all units
+    if SourceCode = '' then
+    begin
+      SourceCode := 'uses ';
+      for Index := 0 to FTextDocumentItemList.Count - 2 do
+        SourceCode := SourceCode + FTextDocumentItemList.Items[Index].UnitName + ', ';
+
+      SourceCode := SourceCode + FTextDocumentItemList.Items[FTextDocumentItemList.Count - 1].UnitName + ';'
+    end;
+  end;
+
+  // eventually compile source code
+  if SourceCode <> '' then
+    Result := FDelphiWebScript.Compile(SourceCode);
+
+  // check if the compilation was successful
+  if Assigned(Result) and (Result.Msgs.Count > 0) then
+  begin
+    // prepare to publis diagnostic
+    PublishDiagnosticsParams := TPublishDiagnosticsParams.Create;
+    try
+      for Index := 0 to Result.Msgs.Count - 1 do
+        if Result.Msgs.Msgs[Index] is TScriptMessage then
+        begin
+          ScriptMessage := TScriptMessage(Result.Msgs.Msgs[Index]);
+          PublishDiagnosticsParams.AddDiagnostic(
+            ScriptMessage.Line, ScriptMessage.Col,
+            ScriptMessageTypeToDiagnosticSeverity(ScriptMessage),
+            ScriptMessage.Text);
+        end;
+
+      // translate the publish diagnostics params to a notification and send it
+      Params := TdwsJSONObject.Create;
+      PublishDiagnosticsParams.WriteToJson(Params);
+      SendNotification('textDocument/publishDiagnostics', Params);
+    finally
+      PublishDiagnosticsParams.Free;
+    end;
+  end;
+end;
+
 function TDWScriptLanguageServer.LocateScriptSource(const Prog: IdwsProgram;
   const Uri: string): TScriptSourceItem;
+var
+  Item: TdwsTextDocumentItem;
+  SourceCode: string;
 begin
-  if IsProgram(Uri) then
-    Result := Prog.SourceList.FindScriptSourceItem(SYS_MainModule)
-  else
-    Result := Prog.SourceList.FindScriptSourceItem(GetUnitNameFromUri(Uri));
+  Result := nil;
+  Item := FTextDocumentItemList.Items[Uri];
+  if Assigned(Item) then
+  begin
+    SourceCode := Item.Text;
+    if IsProgram(SourceCode) then
+      Result := Prog.SourceList.FindScriptSourceItem(SYS_MainModule)
+    else
+      Result := Prog.SourceList.FindScriptSourceItem(GetUnitNameFromUri(Uri));
+  end;
 end;
 
 function TDWScriptLanguageServer.LocateSymbol(const Prog: IdwsProgram;
@@ -572,9 +638,10 @@ begin
     // compile the current unit
     Prog := Compile(TextDocumentPositionParams.TextDocument.Uri);
 
-    // get symbol for current position
-    Symbol := LocateSymbol(Prog, TextDocumentPositionParams.TextDocument.Uri,
-      TextDocumentPositionParams.Position);
+    // eventually get symbol for current position
+    if Assigned(Prog) then
+      Symbol := LocateSymbol(Prog, TextDocumentPositionParams.TextDocument.Uri,
+        TextDocumentPositionParams.Position);
   finally
     TextDocumentPositionParams.Free;
   end;
@@ -589,7 +656,7 @@ begin
     Location := TLocation.Create;
     try
       // set location based on the first symbol position
-      Location.Uri := SymbolPos.ScriptPos.SourceFile.Location;
+      Location.Uri := FTextDocumentItemList.GetUriForUnitName(SymbolPos.ScriptPos.SourceFile.Name);
       Location.Range.Start.Line := SymbolPos.ScriptPos.Line;
       Location.Range.Start.Character := SymbolPos.ScriptPos.Col;
       Location.Range.&End.Line := SymbolPos.ScriptPos.Line;
@@ -1105,8 +1172,7 @@ begin
       // create location and translate between symbol position and location
       Location := TLocation.Create;
       try
-        // TODO: Proper document management (does not find main module so far)
-        Location.Uri := SymbolPos.ScriptPos.SourceFile.Location;
+        Location.Uri := FTextDocumentItemList.GetUriForUnitName(SymbolPos.ScriptPos.SourceFile.Name);
         Location.Range.Start.Line := SymbolPos.ScriptPos.Line;
         Location.Range.Start.Character := SymbolPos.ScriptPos.Col;
         Location.Range.&End.Line := SymbolPos.ScriptPos.Line;
@@ -1452,7 +1518,7 @@ begin
       try
         DocumentSymbolInformation.Name := SymbolPosList.Symbol.Name;
         DocumentSymbolInformation.Kind := SymbolToSymbolKind(SymbolPosList.Symbol);
-        DocumentSymbolInformation.Location.Uri := SymbolPosList.Items[0].ScriptPos.SourceFile.Location;
+        DocumentSymbolInformation.Location.Uri := FTextDocumentItemList.GetUriForUnitName(SymbolPosList.Items[0].ScriptPos.SourceFile.Name);
         DocumentSymbolInformation.Location.Range.Start.Line := SymbolPosList.Items[0].ScriptPos.Line;
         DocumentSymbolInformation.Location.Range.Start.Character := SymbolPosList.Items[0].ScriptPos.Col;
         DocumentSymbolInformation.WriteToJson(Result.AddObject);
@@ -1606,7 +1672,7 @@ begin
       try
         DocumentSymbolInformation.Name := SymbolPosList.Symbol.Name;
         DocumentSymbolInformation.Kind := SymbolToSymbolKind(SymbolPosList.Symbol);
-        DocumentSymbolInformation.Location.Uri := SymbolPosList.Items[0].ScriptPos.SourceFile.Location;
+        DocumentSymbolInformation.Location.Uri := FTextDocumentItemList.GetUriForUnitName(SymbolPosList.Items[0].ScriptPos.SourceFile.Name);
         DocumentSymbolInformation.Location.Range.Start.Line := SymbolPosList.Items[0].ScriptPos.Line;
         DocumentSymbolInformation.Location.Range.Start.Character := SymbolPosList.Items[0].ScriptPos.Col;
         DocumentSymbolInformation.WriteToJson(Result.AddObject);

@@ -31,10 +31,11 @@ type
     destructor Destroy; override;
     function RemoveUri(const Uri: string): Boolean;
 
-    function GetSourceCodeForUnit(const UnitName: string): string;
+    function GetSourceCodeForUnitName(const UnitName: string): string;
+    function GetUriForUnitName(const UnitName: string): string;
 
     property Items[const Uri: string]: TdwsTextDocumentItem read GetUriItems; default;
-    property SourceCode[const UnitName: string]: string read GetSourceCodeForUnit;
+    property SourceCode[const UnitName: string]: string read GetSourceCodeForUnitName;
   end;
 
 function GetUnitNameFromUri(Uri: string): string;
@@ -142,7 +143,7 @@ begin
   inherited;
 end;
 
-function TdwsTextDocumentItemList.GetSourceCodeForUnit(const UnitName: string): string;
+function TdwsTextDocumentItemList.GetSourceCodeForUnitName(const UnitName: string): string;
 var
   Index: Integer;
   Item: TdwsTextDocumentItem;
@@ -153,6 +154,20 @@ begin
     Item := GetItems(Index);
     if UnicodeSameText(Item.UnitName, UnitName) then
       Exit(Item.Text);
+  end;
+end;
+
+function TdwsTextDocumentItemList.GetUriForUnitName(const UnitName: string): string;
+var
+  Index: Integer;
+  Item: TdwsTextDocumentItem;
+begin
+  Result := '';
+  for Index := 0 to Count - 1 do
+  begin
+    Item := GetItems(Index);
+    if UnicodeSameText(Item.UnitName, UnitName) then
+      Exit(Item.Uri);
   end;
 end;
 
