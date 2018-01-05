@@ -8,7 +8,7 @@ const fs = require('fs');
 
 function activate(context) {
     const executablePath = context.asAbsolutePath(path.join('bin', 'dwsc.exe'));
-    const serverOptions = {command: executablePath};    
+    const serverOptions = {command: executablePath; args: ['ls']};    
     
     // Options to control the language client
     let clientOptions = {
@@ -16,14 +16,14 @@ function activate(context) {
         documentSelector: ['dwscript'],
         synchronize: {
             // Synchronize the setting section 'languageServerExample' to the server
-            configurationSection: 'dwsls',
+            configurationSection: 'dwsc',
             // Notify the server about file changes to '.clientrc files contain in the workspace
             fileEvents: vscode.workspace.createFileSystemWatcher('**/*.dws')
         }
     };
     
     // Create the language client and start the client.
-    const disposable = new vscodeLanguageClient.LanguageClient('dwsls', 'DWScript Language Server', serverOptions, clientOptions).start();
+    const disposable = new vscodeLanguageClient.LanguageClient('dwsc', 'DWScript Language Server', serverOptions, clientOptions).start();
 
     // Push the disposable to the context's subscriptions so that the 
     // client can be deactivated on extension deactivation

@@ -33,7 +33,7 @@
 	"activationEvents": [
 		"onLanguage:dwscript"
 	],
-	"main": "src/dwsls",
+	"main": "src/dwsc",
 	"contributes": {
 		"languages": [
 			{
@@ -68,12 +68,12 @@
 			"type": "object",
 			"title": "DWScript configuration",
 			"properties": {
-				"dwsls.path": {
+				"dwsc.path": {
 					"type": "string",
-					"default": "dwsls",
-					"description": "The path to dwsls executable"
+					"default": "dwsc",
+					"description": "The path to dwsc executable"
 				},
-				"dwsls.trace.server": {
+				"dwsc.trace.server": {
 					"type": "string",
 					"enum": [
 						"off",
@@ -87,7 +87,7 @@
 		}
 	},
 	"bin": {
-		"dwsls": "./bin/dwsc.exe"
+		"dwsc": "./bin/dwsc.exe"
 	},
 	"dependencies": {
 		"vscode": "^1.1.5",
