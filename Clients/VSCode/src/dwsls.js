@@ -7,7 +7,7 @@ const cp = require('child_process');
 const fs = require('fs');
 
 function activate(context) {
-    const executablePath = context.asAbsolutePath(path.join('bin', 'dwsls.exe'));
+    const executablePath = context.asAbsolutePath(path.join('bin', 'dwsc.exe'));
     const serverOptions = {command: executablePath};    
     
     // Options to control the language client

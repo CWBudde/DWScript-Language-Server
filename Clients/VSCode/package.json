@@ -87,7 +87,7 @@
 		}
 	},
 	"bin": {
-		"dwsls": "./bin/dwsls.exe"
+		"dwsls": "./bin/dwsc.exe"
 	},
 	"dependencies": {
 		"vscode": "^1.1.5",
