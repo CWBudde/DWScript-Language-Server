@@ -76,6 +76,7 @@ type
     procedure SendDocumentLinkRequest(const Uri: string);
     procedure SendRenameRequest(const Uri: string; Line, Character: Integer;
       NewName: string);
+    procedure SendExecuteCommand(Command: string);
 
     property LastResponse: string read FLastResponse;
     property DiagnosticMessages: TDiagnostics read FDiagnosticMessages;
@@ -550,6 +551,23 @@ begin
   end;
 
   SendRequest('textDocument/documentSymbol', JsonParams);
+end;
+
+procedure TLanguageServerHost.SendExecuteCommand(Command: string);
+var
+  ExecuteCommandParams: TExecuteCommandParams;
+  JsonParams: TdwsJSONObject;
+begin
+  JsonParams := TdwsJSONObject.Create;
+  ExecuteCommandParams := TExecuteCommandParams.Create;
+  try
+    ExecuteCommandParams.Command := Command;
+    ExecuteCommandParams.WriteToJson(JsonParams);
+  finally
+    ExecuteCommandParams.Free;
+  end;
+
+  SendRequest('workspace/executeCommand', JsonParams);
 end;
 
 procedure TLanguageServerHost.SendFormattingRequest(const Uri: string;

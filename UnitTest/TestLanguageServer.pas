@@ -83,6 +83,7 @@ type
     procedure TestBasicDocumentLinkSequence;
     procedure TestBasicRenameSequence;
     procedure TestBasicWorkspaceSymbolSequence;
+    procedure TestBasicExecuteCommandSequence;
 
     procedure TestCrossUnitDefinitionSequence;
     procedure TestCrossUnitWorkspaceSymbolSequence;
@@ -1695,7 +1696,7 @@ var
   DocumentHighlight: TDocumentHighlight;
 const
   CFile = 'file:///c:/Test.dws';
-  CTestUnit =
+  CTestProgram =
     'program Test;' + #13#10#13#10 +
     'function Add(A, B: Integer): Integer;' + #13#10 +
     'begin' + #13#10 +
@@ -1703,7 +1704,7 @@ const
     'end;';
 begin
   BasicInitialization;
-  FLanguageServerHost.SendDidOpenNotification(CFile, CTestUnit);
+  FLanguageServerHost.SendDidOpenNotification(CFile, CTestProgram);
   FLanguageServerHost.SendDocumentHighlightRequest(CFile, 2, 13);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
   try
@@ -1761,6 +1762,30 @@ begin
     finally
       DocumentSymbolInformation.Free;
     end;
+  finally
+    Response.Free;
+  end;
+  FLanguageServerHost.SendRequest('shutdown');
+end;
+
+procedure TTestLanguageServer.TestBasicExecuteCommandSequence;
+var
+  Response: TdwsJSONObject;
+const
+  CFile = 'file:///c:/Test.dws';
+  CTestProgram =
+    'program Test;' + #13#10#13#10 +
+    'function Add(A, B: Integer): Integer;' + #13#10 +
+    'begin' + #13#10 +
+    '  Result := A + B;' + #13#10 +
+    'end;';
+begin
+  BasicInitialization;
+  FLanguageServerHost.SendDidOpenNotification(CFile, CTestProgram);
+  FLanguageServerHost.SendExecuteCommand('build');
+  Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
+  try
+    CheckTrue(Response['result'].IsNull);
   finally
     Response.Free;
   end;
@@ -1942,7 +1967,7 @@ begin
   FLanguageServerHost.SendCodeActionRequest(CFile);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
   try
-    CheckTrue(Response['result'] = nil);
+    CheckTrue(Response['result'].IsNull);
 (*
     // TODO: Enable if there are custom commands available
     CheckTrue(Response['result'] is TdwsJSONArray);
@@ -1988,7 +2013,7 @@ begin
   FLanguageServerHost.SendCodeLensRequest(CFile);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
   try
-    CheckTrue(Response['result'] = nil);
+    CheckTrue(Response['result'].IsNull);
 (*
     // TODO: Enable if there are custom CodeLenss available
     CheckTrue(Response['result'] is TdwsJSONArray);

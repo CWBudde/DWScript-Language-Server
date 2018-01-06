@@ -672,7 +672,7 @@ begin
   Diagnostic.Range.&End.Character := Character;
   Diagnostic.Severity := Severity;
   Diagnostic.Message := Message;
-  Diagnostic.CodeAsString := 'dwsls';
+  Diagnostic.CodeAsString := 'dwsc';
   FDiagnostics.Add(Diagnostic);
 end;
 

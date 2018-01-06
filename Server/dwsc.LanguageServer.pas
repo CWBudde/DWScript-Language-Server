@@ -8,9 +8,9 @@ interface
 
 
 uses
-  Classes, dwsComp, dwsCompiler, dwsExprs, dwsErrors, dwsFunctions,
-  dwsCodeGen, dwsUnitSymbols, dwsCompilerContext, dwsJson, dwsXPlatform,
-  dwsUtils, dwsSymbolDictionary, dwsScriptSource, dwsSymbols,
+  SysUtils, Classes, dwsComp, dwsCompiler, dwsExprs, dwsErrors, dwsFunctions,
+  dwsCodeGen, dwsJSCodeGen, dwsUnitSymbols, dwsCompilerContext, dwsJson,
+  dwsXPlatform, dwsUtils, dwsSymbolDictionary, dwsScriptSource, dwsSymbols,
   dwsc.Classes.Capabilities, dwsc.Classes.Common, dwsc.Classes.Document,
   dwsc.Classes.Workspace, dwsc.Utils, dwsc.Classes.JSON;
 
@@ -28,6 +28,7 @@ type
 //    FWorkspace: TDWScriptWorkspace;
 
     FDelphiWebScript: TDelphiWebScript;
+    FJSCodeGen: TdwsJSCodeGen;
 
     FTextDocumentItemList: TdwsTextDocumentItemList;
 
@@ -108,6 +109,9 @@ type
 
     function Input(Body: string): Boolean;
 
+    function BuildWorkspace: Boolean;
+    procedure OpenFile(FileName: TFilename);
+
     property ServerCapabilities: TServerCapabilities read FServerCapabilities;
     property OnOutput: TOnOutput read FOnOutput write FOnOutput;
     property OnLog: TOnOutput read FOnLog write FOnLog;
@@ -116,7 +120,7 @@ type
 implementation
 
 uses
-  SysUtils, StrUtils, dwsStrings, dwsPascalTokenizer, dwsTokenizer,
+  StrUtils, dwsStrings, dwsPascalTokenizer, dwsTokenizer,
   dwsXXHash, dwsSuggestions, dwsContextMap;
 
 { TDWScriptLanguageServer }
@@ -129,6 +133,14 @@ begin
     coSymbolDictionary, coContextMap];
   FDelphiWebScript.OnNeedUnit := OnNeedUnitEventHandler;
   FDelphiWebScript.OnInclude := OnIncludeEventHandler;
+
+  // create JS codegen
+  FJSCodeGen := TdwsJSCodeGen.Create;
+  FJSCodeGen.Options := [cgoNoRangeChecks, cgoNoCheckInstantiated,
+    cgoNoCheckLoopStep, cgoNoConditions, cgoNoInlineMagics, cgoDeVirtualize,
+    cgoNoRTTI, cgoNoFinalizations, cgoIgnorePublishedInImplementation];
+  FJSCodeGen.Verbosity := cgovNone;
+  FJSCodeGen.MainBodyName := '';
 
   // create capatibilities instances
   FClientCapabilities := TClientCapabilities.Create;
@@ -146,6 +158,7 @@ begin
   FServerCapabilities.Free;
   FClientCapabilities.Free;
 
+  FJSCodeGen.Free;
   FDelphiWebScript.Free;
 
   inherited;
@@ -189,6 +202,11 @@ begin
   UnitSource := FTextDocumentItemList.SourceCode[UnitName];
 end;
 
+procedure TDWScriptLanguageServer.OpenFile(FileName: TFilename);
+begin
+
+end;
+
 function ScriptMessageTypeToDiagnosticSeverity(ScriptMessage: TScriptMessage): TDiagnosticSeverity;
 begin
   // convert the script message class to a diagnostic severity
@@ -202,6 +220,18 @@ begin
     Result := dsError
   else
     Result := dsInformation;
+end;
+
+function TDWScriptLanguageServer.BuildWorkspace: Boolean;
+var
+  Prog: IdwsProgram;
+begin
+  Prog := CompileWorkspace;
+  Result := Assigned(Prog);
+  if Result then
+  begin
+
+  end;
 end;
 
 function TDWScriptLanguageServer.Compile(Uri: string): IdwsProgram;
@@ -1628,13 +1658,15 @@ var
   Result: TdwsJSONObject;
 begin
   ExecuteCommandParams := TExecuteCommandParams.Create;
-  ExecuteCommandParams.ReadFromJson(Params);
+  try
+    ExecuteCommandParams.ReadFromJson(Params);
+    if ExecuteCommandParams.Command = 'build' then
+      BuildWorkspace;
+  finally
+    ExecuteCommandParams.Free;
+  end;
 
-  // yet to do
-
-  Result := TdwsJSONObject.Create;
-
-  SendResponse(Result);
+  SendResponse;
 end;
 
 procedure TDWScriptLanguageServer.HandleWorkspaceSymbol(Params: TdwsJSONObject);
@@ -1903,6 +1935,7 @@ begin
   Response := CreateJsonRpc;
   try
     Response.AddValue('id', FCurrentId);
+    Response.Add('result', nil);
     WriteOutput(Response.ToString);
   finally
     Response.Free;
