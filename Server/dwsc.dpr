@@ -102,16 +102,11 @@ var
   Arguments: TCommandLineArguments;
 
 begin
-  SaveTextToUTF8File('A:\Crazy.txt', ParamStr(0));
-
   Arguments := TCommandLineArguments.Create;
-
-  SaveTextToUTF8File('A:\Blub.txt', Arguments.AsJson.ToBeautifiedString);
 
   // check if language server option is used
   if Arguments.HasOption('type') then
   begin
-    SaveTextToUTF8File('A:\ServerLoop.txt', 'Toll');
     RunLanguageServerLoop;
     Exit;
   end
