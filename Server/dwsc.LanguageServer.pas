@@ -9,10 +9,11 @@ interface
 
 uses
   SysUtils, Classes, dwsComp, dwsCompiler, dwsExprs, dwsErrors, dwsFunctions,
-  dwsCodeGen, dwsJSCodeGen, dwsUnitSymbols, dwsCompilerContext, dwsJson,
-  dwsXPlatform, dwsUtils, dwsSymbolDictionary, dwsScriptSource, dwsSymbols,
-  dwsc.Classes.Capabilities, dwsc.Classes.Common, dwsc.Classes.Document,
-  dwsc.Classes.Workspace, dwsc.Utils, dwsc.Classes.JSON;
+  dwsCodeGen, dwsJSCodeGen, dwsJSLibModule, dwsUnitSymbols, dwsCompilerContext,
+  dwsJson, dwsXPlatform, dwsUtils, dwsSymbolDictionary, dwsScriptSource,
+  dwsSymbols, dwsc.Classes.JSON, dwsc.Classes.Common, dwsc.Classes.Document,
+  dwsc.Classes.Capabilities, dwsc.Classes.Workspace, dwsc.Classes.Configuration,
+  dwsc.Utils;
 
 type
   TOnOutput = procedure(const Output: string) of object;
@@ -29,7 +30,9 @@ type
 
     FDelphiWebScript: TDelphiWebScript;
     FJSCodeGen: TdwsJSCodeGen;
+    FJSCodeGenLib: TdwsJSLibModule;
 
+    FConfiguration: TConfiguration;
     FTextDocumentItemList: TdwsTextDocumentItemList;
 
     {$IFDEF DEBUGLOG}
@@ -109,7 +112,8 @@ type
 
     function Input(Body: string): Boolean;
 
-    function BuildWorkspace: Boolean;
+    function BuildWorkspace(Configuration: TConfiguration = nil): Boolean;
+    procedure ConfigureCompiler(Configuration: TConfiguration);
     procedure OpenFile(FileName: TFilename);
 
     property ServerCapabilities: TServerCapabilities read FServerCapabilities;
@@ -142,6 +146,12 @@ begin
   FJSCodeGen.Verbosity := cgovNone;
   FJSCodeGen.MainBodyName := '';
 
+  // create JS lib module (required for JavaScript 'asm' sections)
+  FJSCodeGenLib := TdwsJSLibModule.Create(nil);
+  FJSCodeGenLib.Script := FDelphiWebScript;
+
+  FConfiguration := TConfiguration.Create;
+
   // create capatibilities instances
   FClientCapabilities := TClientCapabilities.Create;
   FServerCapabilities := TServerCapabilities.Create;
@@ -152,12 +162,16 @@ end;
 
 destructor TDWScriptLanguageServer.Destroy;
 begin
+  FConfiguration.Free;
+  FConfiguration := nil;
+
   FTextDocumentItemList.Free;
   FTextDocumentItemList := nil;
 
   FServerCapabilities.Free;
   FClientCapabilities.Free;
 
+  FJSCodeGenLib.Free;
   FJSCodeGen.Free;
   FDelphiWebScript.Free;
 
@@ -222,16 +236,49 @@ begin
     Result := dsInformation;
 end;
 
-function TDWScriptLanguageServer.BuildWorkspace: Boolean;
+function TDWScriptLanguageServer.BuildWorkspace(Configuration: TConfiguration = nil): Boolean;
 var
-  Prog: IdwsProgram;
+  CompiledProgram: IdwsProgram;
+  OutputFileName: string;
+  CodeJS: string;
 begin
-  Prog := CompileWorkspace;
-  Result := Assigned(Prog);
+  if Assigned(Configuration) then
+    ConfigureCompiler(Configuration)
+  else
+    ConfigureCompiler(FConfiguration);
+
+  CompiledProgram := CompileWorkspace;
+  Result := Assigned(CompiledProgram);
   if Result then
   begin
+    LogMessage('Compilation successful', msInfo);
 
-  end;
+    if FConfiguration.Output.FileName <> '' then
+    begin
+
+(*
+      OutputFileName := Project.RootPath + Project.Options.Output.Path +
+        Project.Options.Output.FileName;
+      OutputFileName := ExpandFileName(OutputFileName);
+
+      WriteLn('Generating Code...');
+*)
+
+      FJSCodeGen.Clear;
+      FJSCodeGen.CompileProgram(CompiledProgram);
+      CodeJS := FJSCodeGen.CompiledOutput(CompiledProgram);
+
+      if OutputFileName <> '' then
+      begin
+        SaveTextToUTF8File(OutputFileName, CodeJS);
+
+        LogMessage('Build successful', msInfo);
+      end;
+    end;
+
+  end
+  else
+    LogMessage('Compilation failed', msInfo);
 end;
 
 function TDWScriptLanguageServer.Compile(Uri: string): IdwsProgram;
@@ -341,6 +388,86 @@ begin
       PublishDiagnosticsParams.Free;
     end;
   end;
+end;
+
+procedure TDWScriptLanguageServer.ConfigureCompiler(
+  Configuration: TConfiguration);
+var
+  CompilerOptions: TCompilerOptions;
+  CodeGenOptions: TdwsCodeGenOptions;
+begin
+  CompilerOptions := FDelphiWebScript.Config.CompilerOptions;
+
+  if Configuration.CompilerConfiguration.Assertions then
+    Include(CompilerOptions, coAssertions)
+  else
+    Exclude(CompilerOptions, coAssertions);
+
+  if Configuration.CompilerConfiguration.Optimizations then
+    Include(CompilerOptions, coOptimize)
+  else
+    Exclude(CompilerOptions, coOptimize);
+
+  FDelphiWebScript.Config.CompilerOptions := CompilerOptions;
+  FDelphiWebScript.Config.HintsLevel := TdwsHintsLevel(Configuration.CompilerConfiguration.HintsLevel);
+  FDelphiWebScript.Config.Conditionals.Text := Configuration.CompilerConfiguration.ConditionalDefines;
+
+  CodeGenOptions := FJSCodeGen.Options;
+
+  if Configuration.CodeGenConfiguration.RangeChecks then
+    Exclude(CodeGenOptions, cgoNoRangeChecks)
+  else
+    Include(CodeGenOptions, cgoNoRangeChecks);
+  if Configuration.CodeGenConfiguration.InstanceChecks then
+    Exclude(CodeGenOptions, cgoNoCheckInstantiated)
+  else
+    Include(CodeGenOptions, cgoNoCheckInstantiated);
+  if Configuration.CodeGenConfiguration.LoopChecks then
+    Exclude(CodeGenOptions, cgoNoCheckLoopStep)
+  else
+    Include(CodeGenOptions, cgoNoCheckLoopStep);
+  if Configuration.CodeGenConfiguration.InstanceChecks then
+    Exclude(CodeGenOptions, cgoNoConditions)
+  else
+    Include(CodeGenOptions, cgoNoConditions);
+  if Configuration.CodeGenConfiguration.InlineMagics then
+    Exclude(CodeGenOptions, cgoNoInlineMagics)
+  else
+    Include(CodeGenOptions, cgoNoInlineMagics);
+  if Configuration.CodeGenConfiguration.Obfuscation then
+    Include(CodeGenOptions, cgoObfuscate)
+  else
+    Exclude(CodeGenOptions, cgoObfuscate);
+  if Configuration.CodeGenConfiguration.EmitSourceLocation then
+    Exclude(CodeGenOptions, cgoNoSourceLocations)
+  else
+    Include(CodeGenOptions, cgoNoSourceLocations);
+  if Configuration.CodeGenConfiguration.OptimizeForSize then
+    Include(CodeGenOptions, cgoOptimizeForSize)
+  else
+    Exclude(CodeGenOptions, cgoOptimizeForSize);
+  if Configuration.CodeGenConfiguration.SmartLinking then
+    Include(CodeGenOptions, cgoSmartLink)
+  else
+    Exclude(CodeGenOptions, cgoSmartLink);
+  if Configuration.CodeGenConfiguration.Devirtualize then
+    Include(CodeGenOptions, cgoDeVirtualize)
+  else
+    Exclude(CodeGenOptions, cgoDeVirtualize);
+  if Configuration.CodeGenConfiguration.EmitRTTI then
+    Exclude(CodeGenOptions, cgoNoRTTI)
+  else
+    Include(CodeGenOptions, cgoNoRTTI);
+  if Configuration.CodeGenConfiguration.EmitFinalization then
+    Exclude(CodeGenOptions, cgoNoFinalizations)
+  else
+    Include(CodeGenOptions, cgoNoFinalizations);
+  if Configuration.CodeGenConfiguration.IgnorePublishedInImplementation then
+    Include(CodeGenOptions, cgoIgnorePublishedInImplementation)
+  else
+    Exclude(CodeGenOptions, cgoIgnorePublishedInImplementation);
+
+  FJSCodeGen.Options := CodeGenOptions;
 end;
 
 function TDWScriptLanguageServer.LocateScriptSource(const Prog: IdwsProgram;

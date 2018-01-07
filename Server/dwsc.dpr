@@ -5,6 +5,7 @@ program dwsc;
 uses
   System.SysUtils,
   dwsJson,
+  dwsXPlatform,
   dwsc.Classes.Capabilities in 'dwsc.Classes.Capabilities.pas',
   dwsc.Classes.Common in 'dwsc.Classes.Common.pas',
   dwsc.Classes.Document in 'dwsc.Classes.Document.pas',
@@ -13,7 +14,8 @@ uses
   dwsc.CommandLine.Arguments in 'dwsc.CommandLine.Arguments.pas',
   dwsc.IO.Pipe in 'dwsc.IO.Pipe.pas',
   dwsc.LanguageServer in 'dwsc.LanguageServer.pas',
-  dwsc.Utils in 'dwsc.Utils.pas';
+  dwsc.Utils in 'dwsc.Utils.pas',
+  dwsc.Classes.Configuration in 'dwsc.Classes.Configuration.pas';
 
 procedure WriteArgumentHelp;
 begin
@@ -62,8 +64,6 @@ procedure Compile(Arguments: TCommandLineArguments);
 var
   FileIndex: Integer;
   FileName: TFileName;
-  FileExtension: string;
-  RtlDirectory: string;
   LanguageServer: TDWScriptLanguageServer;
 begin
   LanguageServer := TDWScriptLanguageServer.Create;
@@ -102,15 +102,20 @@ var
   Arguments: TCommandLineArguments;
 
 begin
+  SaveTextToUTF8File('A:\Crazy.txt', ParamStr(0));
+
   Arguments := TCommandLineArguments.Create;
 
+  SaveTextToUTF8File('A:\Blub.txt', Arguments.AsJson.ToBeautifiedString);
+
   // check if language server option is used
-  if Arguments.HasOption('ls') then
+  if Arguments.HasOption('type') then
   begin
+    SaveTextToUTF8File('A:\ServerLoop.txt', 'Toll');
     RunLanguageServerLoop;
     Exit;
-  end;
-
+  end
+  else
   try
     // check if help option is supplied
     if Arguments.HasOption('h') or Arguments.HasOption('help') then

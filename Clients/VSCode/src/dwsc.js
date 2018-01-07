@@ -8,7 +8,7 @@ const fs = require('fs');
 
 function activate(context) {
     const executablePath = context.asAbsolutePath(path.join('bin', 'dwsc.exe'));
-    const serverOptions = {command: executablePath, args: ['-ls']};    
+    const serverOptions = {command: executablePath, args: ['-type=ls']};    
     
     // Options to control the language client
     let clientOptions = {

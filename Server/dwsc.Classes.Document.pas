@@ -794,7 +794,7 @@ begin
   if FHasRange then
   begin
     FRange.WriteToJson(Value.AddObject('range'));
-    Value['rangeLength'].AsInteger := FRangeLength;
+    Value.AddValue('rangeLength', FRangeLength);
   end;
 
   Value['text'].AsString := FText;

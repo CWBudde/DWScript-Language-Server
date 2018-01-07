@@ -3,7 +3,7 @@ unit dwsc.CommandLine.Arguments;
 interface
 
 uses
-  SysUtils, dwsUtils;
+  SysUtils, dwsUtils, dwsJSON;
 
 type
   TNameValuePair = record
@@ -24,11 +24,14 @@ type
     function GetOptionCount: Integer;
     function GetFileNames(Index: Integer): string;
     function GetFileNameCount: Integer;
+    function ToJson: TdwsJSONObject;
   public
     constructor Create;
 
     function HasOption(Name: string): Boolean;
     function GetOptionValue(Name: string; out Value: string): Boolean;
+
+    property AsJson: TdwsJSONObject read ToJson;
 
     property FileName[Index: Integer]: string read GetFileNames;
     property FileNameCount: Integer read GetFileNameCount;
@@ -151,6 +154,15 @@ begin
   for Index := Low(FOptions) to High(FOptions) do
     if Name = FOptions[Index].Name then
       Exit(True);
+end;
+
+function TCommandLineArguments.ToJson: TdwsJSONObject;
+var
+  Index: Integer;
+begin
+  Result := TdwsJSONObject.Create;
+  for Index := 0 to Length(FOptions) - 1 do
+    Result.AddValue(FOptions[Index].Name, FOptions[Index].Value);
 end;
 
 end.

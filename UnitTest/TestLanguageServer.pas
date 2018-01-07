@@ -1456,7 +1456,7 @@ begin
   FLanguageServerHost.LanguageServer.Input('{"jsonrpc":"2.0","method":"initialized","params":{}}');
   FLanguageServerHost.LanguageServer.Input('{"jsonrpc":"2.0","method":"workspace/didChangeConfiguration","params":{"settings":{"dwsls":{"path":"dwsls","trace":{"server":"verbose"}}}}}');
   FLanguageServerHost.LanguageServer.Input('{"jsonrpc":"2.0","id":1,"method":"shutdown","params":null}');
-  CheckEquals('{"jsonrpc":"2.0","id":1}', FLanguageServerHost.LastResponse);
+  CheckEquals('{"jsonrpc":"2.0","id":1,"result":null}', FLanguageServerHost.LastResponse);
 end;
 
 procedure TTestLanguageServer.TestBasicCompileSequence;
@@ -1640,7 +1640,7 @@ begin
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
   try
     // check for empty response (= no signature available)
-    CheckEquals('', Response['result'].ToString);
+    CheckTrue(Response['result'].IsNull);
   finally
     Response.Free;
   end;
@@ -2265,7 +2265,7 @@ begin
   FLanguageServerHost.SendDefinitionRequest(CFile, 8, 12);
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
   try
-    CheckTrue(Response['result'] = nil);
+    CheckTrue(Response['result'].IsNull);
   finally
     Response.Free;
   end;
@@ -2296,7 +2296,7 @@ begin
   FLanguageServerHost.SendWorkspaceSymbol('Add');
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
   try
-    CheckTrue(Response['result'] = nil);
+    CheckTrue(Response['result'].IsNull);
   finally
     Response.Free;
   end;
@@ -2308,7 +2308,7 @@ begin
   FLanguageServerHost.SendWorkspaceSymbol('Sub');
   Response := TdwsJSONObject(TdwsJSONValue.ParseString(FLanguageServerHost.LastResponse));
   try
-    CheckTrue(Response['result'] = nil);
+    CheckTrue(Response['result'].IsNull);
   finally
     Response.Free;
   end;
