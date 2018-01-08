@@ -10,7 +10,7 @@ uses
 type
   TLanguageServerHost = class
   private
-    FRequestIndex: Integer;
+    FRequestIndex: TRequestID;
     FInitialized: Boolean;
     FLastResponse: string;
     FLanguageServer: TDWScriptLanguageServer;
@@ -144,7 +144,7 @@ procedure TLanguageServerHost.HandleServerOutput(JsonRpc: TdwsJSONObject);
 var
   Method: string;
   Index: Integer;
-  ID: Integer;
+  ID: TRequestID;
   Request: TRequest;
 begin
   // test for a notification or request

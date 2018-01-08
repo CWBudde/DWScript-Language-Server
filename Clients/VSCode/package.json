@@ -192,7 +192,7 @@
 				},
 				"dwsc.codeGenSettings.indentSize": {
 					"type": "number",
-					"default": "",
+					"default": 2,
 					"description": "The amount of indention"
 				},
 				"dwsc.compilerSettings.verbosityLevel": {

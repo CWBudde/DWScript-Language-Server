@@ -74,13 +74,15 @@ type
 
     function HandleJsonRpc(JsonRpc: TdwsJSONObject): Boolean;
 
+    procedure CancelRequest(Params: TdwsJSONObject);
+
     procedure HandleInitialize(Params: TdwsJSONObject);
     procedure HandleShutDown;
     procedure HandleExit;
     procedure HandleInitialized;
-    procedure HandleCodeLensResolve;
-    procedure HandleCompletionItemResolve;
-    procedure HandleDocumentLinkResolve;
+    procedure HandleCodeLensResolve(Params: TdwsJSONObject);
+    procedure HandleCompletionItemResolve(Params: TdwsJSONObject);
+    procedure HandleDocumentLinkResolve(Params: TdwsJSONObject);
     procedure HandleTextDocumentCodeAction(Params: TdwsJSONObject);
     procedure HandleTextDocumentCodeLens(Params: TdwsJSONObject);
     procedure HandleTextDocumentCompletion(Params: TdwsJSONObject);
@@ -279,6 +281,15 @@ begin
   end
   else
     LogMessage('Compilation failed', msInfo);
+end;
+
+procedure TDWScriptLanguageServer.CancelRequest(Params: TdwsJSONObject);
+var
+  ID: Integer;
+begin
+  ID := Params['id'].AsInteger;
+
+  // not yet implemented
 end;
 
 function TDWScriptLanguageServer.Compile(Uri: string): IdwsProgram;
@@ -601,19 +612,55 @@ begin
   SendResponse;
 end;
 
-procedure TDWScriptLanguageServer.HandleCodeLensResolve;
+procedure TDWScriptLanguageServer.HandleCodeLensResolve(Params: TdwsJSONObject);
+var
+  CodeLens: TCodeLens;
+  Prog: IdwsProgram;
 begin
+  CodeLens := TCodeLens.Create;
+  try
+    CodeLens.ReadFromJson(Params);
+  finally
+    CodeLens.Free;
+  end;
+
   // not yet implemented
+
+  SendResponse;
 end;
 
-procedure TDWScriptLanguageServer.HandleCompletionItemResolve;
+procedure TDWScriptLanguageServer.HandleCompletionItemResolve(Params: TdwsJSONObject);
+var
+  CompletionItem: TCompletionItem;
+  Prog: IdwsProgram;
 begin
+  CompletionItem := TCompletionItem.Create;
+  try
+    CompletionItem.ReadFromJson(Params);
+  finally
+    CompletionItem.Free;
+  end;
+
   // not yet implemented
+
+  SendResponse;
 end;
 
-procedure TDWScriptLanguageServer.HandleDocumentLinkResolve;
+procedure TDWScriptLanguageServer.HandleDocumentLinkResolve(Params: TdwsJSONObject);
+var
+  DocumentLink: TDocumentLink;
+  Prog: IdwsProgram;
 begin
+  DocumentLink := TDocumentLink.Create;
+  try
+    DocumentLink.ReadFromJson(Params);
+  finally
+    DocumentLink.Free;
+  end;
+
   // not yet implemented
+
+  SendResponse;
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentCodeAction(Params: TdwsJSONObject);
@@ -632,7 +679,7 @@ begin
     CodeActionParams.Free;
   end;
 
-  // not implemented yet
+  // not yet implemented
 
   SendResponse;
 end;
@@ -653,7 +700,7 @@ begin
     CodeLensParams.Free;
   end;
 
-  // not implemented yet
+  // not yet implemented
 
   SendResponse;
 end;
@@ -1144,7 +1191,7 @@ end;
 procedure TDWScriptLanguageServer.HandleTextDocumentLink(Params: TdwsJSONObject);
 var
   DocumentLinkParams: TDocumentLinkParams;
-  DocumentLinkResponse: TDocumentLinkResponse;
+  DocumentLink: TDocumentLink;
   TokenizerRules: TPascalTokenizerStateRules;
   Tokenizer: TTokenizer;
   Messages: TdwsCompileMessageList;
@@ -1193,16 +1240,16 @@ begin
 
                 if ProtocolPos > 0 then
                 begin
-                  DocumentLinkResponse := TDocumentLinkResponse.Create;
+                  DocumentLink := TDocumentLink.Create;
                   try
-                    DocumentLinkResponse.Range.Start.Line := Token.FScriptPos.Line;
-                    DocumentLinkResponse.Range.Start.Character := Token.FScriptPos.Col + ProtocolPos;
-                    DocumentLinkResponse.Range.&End.Line := Token.FScriptPos.Line;
-                    DocumentLinkResponse.Range.&End.Character := Token.FScriptPos.Col + ProtocolPos + 7;
-                    DocumentLinkResponse.Target := Copy(Text, ProtocolPos, 7);
-                    DocumentLinkResponse.WriteToJson(Result.AddObject);
+                    DocumentLink.Range.Start.Line := Token.FScriptPos.Line;
+                    DocumentLink.Range.Start.Character := Token.FScriptPos.Col + ProtocolPos;
+                    DocumentLink.Range.&End.Line := Token.FScriptPos.Line;
+                    DocumentLink.Range.&End.Character := Token.FScriptPos.Col + ProtocolPos + 7;
+                    DocumentLink.Target := Copy(Text, ProtocolPos, 7);
+                    DocumentLink.WriteToJson(Result.AddObject);
                   finally
-                    DocumentLinkResponse.Free;
+                    DocumentLink.Free;
                   end;
                 end;
               end;
@@ -1554,7 +1601,7 @@ begin
       end;
 
 (*
-      // todo: determine the correct parameter number
+      // TODO: determine the correct parameter number
       SignatureHelp.ActiveSignature := 0;
       SignatureHelp.ActiveParameter := 0;
 *)
@@ -1850,6 +1897,7 @@ end;
 function TDWScriptLanguageServer.HandleJsonRpc(JsonRpc: TdwsJSONObject): Boolean;
 var
   Method: string;
+  Params: TdwsJsonObject;
 begin
   Result := False;
   if Assigned(JsonRpc['id']) then
@@ -1862,9 +1910,11 @@ begin
   end;
   Method := JsonRpc['method'].AsString;
 
+  Params := TdwsJsonObject(JsonRpc['params']);
+
   if Method = 'initialize' then
   begin
-    HandleInitialize(TdwsJSONObject(JsonRpc['params']));
+    HandleInitialize(Params);
     Exit;
   end
   else
@@ -1891,115 +1941,110 @@ begin
   end
   else
   if Pos('$/cancelRequest', Method) = 1 then
-  begin
-    // yet todo
-  end
+    CancelRequest(Params)
   else
   if Pos('workspace', Method) = 1 then
   begin
     // workspace related messages
     if Method = 'workspace/didChangeConfiguration' then
-      HandleWorkspaceChangeConfiguration(TdwsJsonObject(JsonRpc['params']))
+      HandleWorkspaceChangeConfiguration(Params)
     else
     if Method = 'workspace/didChangeWatchedFiles' then
-      HandleWorkspaceChangeWatchedFiles(TdwsJsonObject(JsonRpc['params']))
+      HandleWorkspaceChangeWatchedFiles(Params)
     else
     if Method = 'workspace/symbol' then
-      HandleWorkspaceSymbol(TdwsJsonObject(JsonRpc['params']))
+      HandleWorkspaceSymbol(Params)
     else
     if Method = 'workspace/executeCommand' then
-      HandleWorkspaceExecuteCommand(TdwsJsonObject(JsonRpc['params']))
+      HandleWorkspaceExecuteCommand(Params)
     else
     if Method = 'workspace/applyEdit' then
-      HandleWorkspaceApplyEdit(TdwsJsonObject(JsonRpc['params']));
+      HandleWorkspaceApplyEdit(Params);
   end
   else
   if Pos('textDocument', Method) = 1 then
   begin
     // text document related messages
     if Method = 'textDocument/didOpen' then
-      HandleTextDocumentDidOpen(TdwsJsonObject(JsonRpc['params']))
+      HandleTextDocumentDidOpen(Params)
     else
     if Method = 'textDocument/didChange' then
-      HandleTextDocumentDidChange(TdwsJsonObject(JsonRpc['params']))
+      HandleTextDocumentDidChange(Params)
     else
     if Method = 'textDocument/willSave' then
-      HandleTextDocumentWillSave(TdwsJsonObject(JsonRpc['params']))
+      HandleTextDocumentWillSave(Params)
     else
     if Method = 'textDocument/willSaveWaitUntil' then
-      HandleTextDocumentWillSaveWaitUntil(TdwsJsonObject(JsonRpc['params']))
+      HandleTextDocumentWillSaveWaitUntil(Params)
     else
     if Method = 'textDocument/didSave' then
-      HandleTextDocumentDidSave(TdwsJsonObject(JsonRpc['params']))
+      HandleTextDocumentDidSave(Params)
     else
     if Method = 'textDocument/didClose' then
-      HandleTextDocumentDidClose(TdwsJsonObject(JsonRpc['params']))
+      HandleTextDocumentDidClose(Params)
     else
     if Method = 'textDocument/completion' then
-      HandleTextDocumentCompletion(TdwsJsonObject(JsonRpc['params']))
+      HandleTextDocumentCompletion(Params)
     else
     if Method = 'textDocument/hover' then
-      HandleTextDocumentHover(TdwsJsonObject(JsonRpc['params']))
+      HandleTextDocumentHover(Params)
     else
     if Method = 'textDocument/signatureHelp' then
-      HandleTextDocumentSignatureHelp(TdwsJsonObject(JsonRpc['params']))
+      HandleTextDocumentSignatureHelp(Params)
     else
     if Method = 'textDocument/definition' then
-      HandleTextDocumentDefinition(TdwsJsonObject(JsonRpc['params']))
+      HandleTextDocumentDefinition(Params)
     else
     if Method = 'textDocument/references' then
-      HandleTextDocumentReferences(TdwsJsonObject(JsonRpc['params']))
+      HandleTextDocumentReferences(Params)
     else
     if Method = 'textDocument/documentHighlight' then
-      HandleTextDocumentHighlight(TdwsJsonObject(JsonRpc['params']))
+      HandleTextDocumentHighlight(Params)
     else
     if Method = 'textDocument/documentSymbol' then
-      HandleTextDocumentSymbol(TdwsJsonObject(JsonRpc['params']))
+      HandleTextDocumentSymbol(Params)
     else
     if Method = 'textDocument/codeAction' then
-      HandleTextDocumentCodeAction(TdwsJsonObject(JsonRpc['params']))
+      HandleTextDocumentCodeAction(Params)
     else
     if Method = 'textDocument/codeLens' then
-      HandleTextDocumentCodeLens(TdwsJsonObject(JsonRpc['params']))
+      HandleTextDocumentCodeLens(Params)
     else
     if Method = 'textDocument/documentLink' then
-      HandleTextDocumentLink(TdwsJsonObject(JsonRpc['params']))
+      HandleTextDocumentLink(Params)
     else
     if Method = 'textDocument/formatting' then
-      HandleTextDocumentFormatting(TdwsJsonObject(JsonRpc['params']))
+      HandleTextDocumentFormatting(Params)
     else
     if Method = 'textDocument/rangeFormatting' then
-      HandleTextDocumentRangeFormatting(TdwsJsonObject(JsonRpc['params']))
+      HandleTextDocumentRangeFormatting(Params)
     else
     if Method = 'textDocument/onTypeFormatting' then
-      HandleTextDocumentOnTypeFormatting(TdwsJsonObject(JsonRpc['params']))
+      HandleTextDocumentOnTypeFormatting(Params)
     else
     if Method = 'textDocument/rename' then
-      HandleTextDocumentRenameSymbol(TdwsJsonObject(JsonRpc['params']));
+      HandleTextDocumentRenameSymbol(Params);
   end
   else
   if Pos('completionItem', Method) = 1 then
   begin
     // workspace related messages
     if Method = 'completionItem/resolve' then
-      HandleCompletionItemResolve
-    else
+      HandleCompletionItemResolve(Params);
   end
   else
   if Pos('codeLens', Method) = 1 then
   begin
     // workspace related messages
     if Method = 'codeLens/resolve' then
-      HandleCodeLensResolve
-    else
+      HandleCodeLensResolve(Params);
   end
   else
   if Pos('documentLink', Method) = 1 then
   begin
     // workspace related messages
     if Method = 'documentLink/resolve' then
-      HandleDocumentLinkResolve
-    else
+      HandleDocumentLinkResolve(Params);
   end
 {$IFDEF DEBUGLOG}
   else

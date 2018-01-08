@@ -818,33 +818,33 @@ end;
 
 procedure TTestLanguageServerClasses.TestJsonDocumentLinkResponse;
 var
-  DocumentLinkResponse: TDocumentLinkResponse;
+  DocumentLink: TDocumentLink;
   Params: TdwsJSONObject;
 begin
   Params := TdwsJSONObject.Create;
   try
-    DocumentLinkResponse := TDocumentLinkResponse.Create;
+    DocumentLink := TDocumentLink.Create;
     try
-      DocumentLinkResponse.Range.Start.Line := 42;
-      DocumentLinkResponse.Range.Start.Character := 57;
-      DocumentLinkResponse.Range.&End.Line := 47;
-      DocumentLinkResponse.Range.&End.Character := 52;
-      DocumentLinkResponse.Target := 'https://github.com/CWBudde/DWScript-Language-Server';
-      DocumentLinkResponse.WriteToJson(Params);
+      DocumentLink.Range.Start.Line := 42;
+      DocumentLink.Range.Start.Character := 57;
+      DocumentLink.Range.&End.Line := 47;
+      DocumentLink.Range.&End.Character := 52;
+      DocumentLink.Target := 'https://github.com/CWBudde/DWScript-Language-Server';
+      DocumentLink.WriteToJson(Params);
     finally
-      DocumentLinkResponse.Free;
+      DocumentLink.Free;
     end;
 
-    DocumentLinkResponse := TDocumentLinkResponse.Create;
+    DocumentLink := TDocumentLink.Create;
     try
-      DocumentLinkResponse.ReadFromJson(Params);
-      CheckEquals(42, DocumentLinkResponse.Range.Start.Line);
-      CheckEquals(57, DocumentLinkResponse.Range.Start.Character);
-      CheckEquals(47, DocumentLinkResponse.Range.&End.Line);
-      CheckEquals(52, DocumentLinkResponse.Range.&End.Character);
-      CheckEquals('https://github.com/CWBudde/DWScript-Language-Server', DocumentLinkResponse.Target);
+      DocumentLink.ReadFromJson(Params);
+      CheckEquals(42, DocumentLink.Range.Start.Line);
+      CheckEquals(57, DocumentLink.Range.Start.Character);
+      CheckEquals(47, DocumentLink.Range.&End.Line);
+      CheckEquals(52, DocumentLink.Range.&End.Character);
+      CheckEquals('https://github.com/CWBudde/DWScript-Language-Server', DocumentLink.Target);
     finally
-      DocumentLinkResponse.Free;
+      DocumentLink.Free;
     end;
   finally
     Params.Free;

@@ -6,6 +6,8 @@ uses
   Classes, dwsJSON, dwsUtils, dwsc.Classes.JSON;
 
 type
+  TRequestID = Integer;
+
   TDiagnosticSeverity = (
     dsUnknown = 0,
     dsError = 1,
@@ -55,17 +57,17 @@ type
   TRequest = class(TMessage)
   private
     FMethod: string;
-    FId: Integer;
+    FId: TRequestID;
     FParams: TdwsJSONObject;
   public
-    constructor Create(Method: string; ID: Integer); overload;
-    constructor Create(Method: string; ID: Integer; Params: TdwsJSONObject); overload;
+    constructor Create(Method: string; ID: TRequestID); overload;
+    constructor Create(Method: string; ID: TRequestID; Params: TdwsJSONObject); overload;
     destructor Destroy; override;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
 
-    property ID: Integer read FId;
+    property ID: TRequestID read FId;
     property Method: string read FMethod;
     property Params: TdwsJSONObject read FParams;
   end;
@@ -383,12 +385,12 @@ end;
 
 { TRequest }
 
-constructor TRequest.Create(Method: string; ID: Integer);
+constructor TRequest.Create(Method: string; ID: TRequestID);
 begin
   Create(Method, ID, nil);
 end;
 
-constructor TRequest.Create(Method: string; ID: Integer;
+constructor TRequest.Create(Method: string; ID: TRequestID;
   Params: TdwsJSONObject);
 begin
   inherited Create;

@@ -564,7 +564,7 @@ type
     property TextDocument: TTextDocumentIdentifier read FTextDocument;
   end;
 
-  TDocumentLinkResponse = class(TJsonClass)
+  TDocumentLink = class(TJsonClass)
   private
     FTarget: string;
     FRange: TRange;
@@ -1591,26 +1591,26 @@ begin
 end;
 
 
-{ TDocumentLinkResponse }
+{ TDocumentLink }
 
-constructor TDocumentLinkResponse.Create;
+constructor TDocumentLink.Create;
 begin
   FRange := TRange.Create;
 end;
 
-destructor TDocumentLinkResponse.Destroy;
+destructor TDocumentLink.Destroy;
 begin
   FRange.Free;
   inherited;
 end;
 
-procedure TDocumentLinkResponse.ReadFromJson(const Value: TdwsJSONValue);
+procedure TDocumentLink.ReadFromJson(const Value: TdwsJSONValue);
 begin
   FRange.ReadFromJson(Value['range']);
   FTarget := Value['target'].AsString;
 end;
 
-procedure TDocumentLinkResponse.WriteToJson(const Value: TdwsJSONObject);
+procedure TDocumentLink.WriteToJson(const Value: TdwsJSONObject);
 begin
   FRange.WriteToJson(Value.AddObject('range'));
   Value.AddValue('target', FTarget);
