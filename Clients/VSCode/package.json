@@ -99,8 +99,8 @@
             "disabled", 
             "normal",
             "strict", 
-            "pedantic",
-          ]
+            "pedantic"
+          ],
 					"default": "strict",
 					"description": "The level at which hints are displayed in the diagnostic"
 				},
@@ -201,7 +201,7 @@
             "none", 
             "normal",
             "verbose" 
-          ]
+          ],
 					"default": "none",
 					"description": "The verbosity level at which the code is generated"
 				},
