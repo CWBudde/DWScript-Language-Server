@@ -7,16 +7,18 @@ const cp = require('child_process');
 const fs = require('fs');
 
 function activate(context) {
+    const serverFlags = vscode.workspace.getConfiguration('dwsc')['languageServerFlags'] || [];
     const executablePath = context.asAbsolutePath(path.join('bin', 'dwsc.exe'));
-    const serverOptions = {command: executablePath, args: ['-type=ls']};    
+    const serverOptions = {command: executablePath, args: ['-type=ls', ...serverFlags]};    
     
     // Options to control the language client
     let clientOptions = {
         // Register the server for plain text documents
         documentSelector: ['dwscript'],
         synchronize: {
-            // Synchronize the setting section 'languageServerExample' to the server
+            // Synchronize the setting section 'dwsc' to the server
             configurationSection: 'dwsc',
+
             // Notify the server about file changes to '.clientrc files contain in the workspace
             fileEvents: vscode.workspace.createFileSystemWatcher('**/*.dws')
         }

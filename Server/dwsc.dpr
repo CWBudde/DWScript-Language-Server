@@ -15,7 +15,7 @@ uses
   dwsc.IO.Pipe in 'dwsc.IO.Pipe.pas',
   dwsc.LanguageServer in 'dwsc.LanguageServer.pas',
   dwsc.Utils in 'dwsc.Utils.pas',
-  dwsc.Classes.Configuration in 'dwsc.Classes.Configuration.pas';
+  dwsc.Classes.Settings in 'dwsc.Classes.Settings.pas';
 
 procedure WriteArgumentHelp;
 begin

@@ -3,9 +3,23 @@ unit dwsc.Classes.Workspace;
 interface
 
 uses
-  Classes, dwsJSON, dwsUtils, dwsc.Classes.Common, dwsc.Classes.JSON;
+  Classes, dwsJSON, dwsUtils, dwsc.Classes.Common, dwsc.Classes.Settings,
+  dwsc.Classes.JSON;
 
 type
+  TDidChangeConfigurationParams = class(TJsonClass)
+  private
+    FSettings: TSettings;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Settings: TSettings read FSettings;
+  end;
+
   TDidChangeWatchedFilesParams = class(TJsonClass)
   type
     TFileEvents = TObjectList<TFileEvent>;
@@ -60,6 +74,37 @@ type
   end;
 
 implementation
+
+{ TDidChangeConfigurationParams }
+
+constructor TDidChangeConfigurationParams.Create;
+begin
+  FSettings := TSettings.Create;
+end;
+
+destructor TDidChangeConfigurationParams.Destroy;
+begin
+  FSettings.Free;
+
+  inherited;
+end;
+
+procedure TDidChangeConfigurationParams.ReadFromJson(
+  const Value: TdwsJSONValue);
+var
+  Settings: TdwsJSONObject;
+begin
+  Settings := TdwsJSONObject(Value['settings']);
+  if Settings is TdwsJSONObject then
+    FSettings.ReadFromJson(Settings['dwsc']);
+end;
+
+procedure TDidChangeConfigurationParams.WriteToJson(
+  const Value: TdwsJSONObject);
+begin
+  FSettings.WriteToJson(Value.AddObject('settings').AddObject('dwsc'));
+end;
+
 
 { TDidChangeWatchedFilesParams }
 

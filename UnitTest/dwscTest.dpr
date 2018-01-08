@@ -11,7 +11,7 @@ uses
   dwsc.Client in '..\Clients\Internal\dwsc.Client.pas',
   dwsc.Classes.Capabilities in '..\Server\dwsc.Classes.Capabilities.pas',
   dwsc.Classes.Common in '..\Server\dwsc.Classes.Common.pas',
-  dwsc.Classes.Configuration in '..\Server\dwsc.Classes.Configuration.pas',
+  dwsc.Classes.Settings in '..\Server\dwsc.Classes.Settings.pas',
   dwsc.Classes.Document in '..\Server\dwsc.Classes.Document.pas',
   dwsc.Classes.JSON in '..\Server\dwsc.Classes.JSON.pas',
   dwsc.Classes.Workspace in '..\Server\dwsc.Classes.Workspace.pas',

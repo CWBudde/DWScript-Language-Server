@@ -44,6 +44,7 @@ type
     procedure TestJsonDocumentOnTypeFormattingParams;
     procedure TestJsonDocumentRenameParams;
 
+    procedure TestJsonDidChangeConfigurationParams;
     procedure TestJsonDidChangeWatchedFilesParams;
     procedure TestJsonWorkspaceSymbolParams;
     procedure TestJsonExecuteCommandParams;
@@ -566,6 +567,38 @@ begin
       CheckEquals(42, DidChangeTextDocumentParams.TextDocument.Version);
     finally
       DidChangeTextDocumentParams.Free;
+    end;
+  finally
+    Params.Free;
+  end;
+end;
+
+procedure TTestLanguageServerClasses.TestJsonDidChangeConfigurationParams;
+var
+  DidChangeConfigurationParams: TDidChangeConfigurationParams;
+  FileEvent: TFileEvent;
+  Params: TdwsJSONObject;
+begin
+  Params := TdwsJSONObject.Create;
+  try
+    DidChangeConfigurationParams := TDidChangeConfigurationParams.Create;
+    try
+      DidChangeConfigurationParams.Settings.CompilerSettings.ConditionalDefines.Add('Test');
+      DidChangeConfigurationParams.Settings.CompilerSettings.LibraryPaths.Add('c:\Test');
+      DidChangeConfigurationParams.WriteToJson(Params);
+    finally
+      DidChangeConfigurationParams.Free;
+    end;
+
+    DidChangeConfigurationParams := TDidChangeConfigurationParams.Create;
+    try
+      DidChangeConfigurationParams.ReadFromJson(Params);
+      CheckEquals(1, DidChangeConfigurationParams.Settings.CompilerSettings.ConditionalDefines.Count);
+      CheckEquals('Test', DidChangeConfigurationParams.Settings.CompilerSettings.ConditionalDefines[0]);
+      CheckEquals(1, DidChangeConfigurationParams.Settings.CompilerSettings.LibraryPaths.Count);
+      CheckEquals('c:\Test', DidChangeConfigurationParams.Settings.CompilerSettings.LibraryPaths[0]);
+    finally
+      DidChangeConfigurationParams.Free;
     end;
   finally
     Params.Free;

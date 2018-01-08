@@ -82,6 +82,143 @@
 					],
 					"default": "off",
 					"description": "Traces the communication between VSCode and the DWScript Language Server service."
+				},
+				"dwsc.compilerSettings.assertion": {
+					"type": "boolean",
+					"default": true,
+					"description": "Whether or not to use assertions"
+				},
+				"dwsc.compilerSettings.optimizations": {
+					"type": "boolean",
+					"default": true,
+					"description": "Whether or not to use optimizations"
+				},
+				"dwsc.compilerSettings.hintsLevel": {
+					"type": "string",
+          "enum": [
+            "disabled", 
+            "normal",
+            "strict", 
+            "pedantic",
+          ]
+					"default": "strict",
+					"description": "The level at which hints are displayed in the diagnostic"
+				},
+				"dwsc.compilerSettings.libraryPaths": {
+					"type": "array",
+					"default": [],
+					"items": {
+						"type": "string"
+					},
+					"description": "Library paths"
+				},
+				"dwsc.compilerSettings.conditionalDefines": {
+					"type": "array",
+					"default": [],
+					"items": {
+						"type": "string"
+					},
+					"description": "Conditional defines"
+				},
+				"dwsc.codeGenSettings.rangeChecks": {
+					"type": "boolean",
+					"default": false,
+					"description": "Whether or not to use range checks"
+				},
+				"dwsc.codeGenSettings.instanceChecks": {
+					"type": "boolean",
+					"default": false,
+					"description": "Whether or not to use instance checks"
+				},
+				"dwsc.codeGenSettings.loopChecks": {
+					"type": "boolean",
+					"default": false,
+					"description": "Whether or not to use loop checks"
+				},
+				"dwsc.codeGenSettings.conditionChecks": {
+					"type": "boolean",
+					"default": false,
+					"description": "Whether or not to use condition checks"
+				},
+				"dwsc.codeGenSettings.inlineMagic": {
+					"type": "boolean",
+					"default": true,
+					"description": "Whether or not to use inline magic"
+				},
+				"dwsc.codeGenSettings.obfuscation": {
+					"type": "boolean",
+					"default": false,
+					"description": "Whether or not to use obfuscation"
+				},
+				"dwsc.codeGenSettings.emitSourceLocation": {
+					"type": "boolean",
+					"default": false,
+					"description": "Whether or not to emit source locations"
+				},
+				"dwsc.codeGenSettings.optimizeForSize": {
+					"type": "boolean",
+					"default": false,
+					"description": "Whether or not to optimize the code for size"
+				},
+				"dwsc.codeGenSettings.smartLinking": {
+					"type": "boolean",
+					"default": true,
+					"description": "Whether or not to use smart linking"
+				},
+				"dwsc.codeGenSettings.devirtualization": {
+					"type": "boolean",
+					"default": true,
+					"description": "Whether or not to use devirtualization"
+				},
+				"dwsc.codeGenSettings.emitRTTI": {
+					"type": "boolean",
+					"default": false,
+					"description": "Whether or not to emit RTTI"
+				},
+				"dwsc.codeGenSettings.emitFinalization": {
+					"type": "boolean",
+					"default": false,
+					"description": "Whether or not to emit a finalization section"
+				},
+				"dwsc.codeGenSettings.ignorePublishedInImplementation": {
+					"type": "boolean",
+					"default": false,
+					"description": "Whether or not to ignore the published in implementation"
+				},
+				"dwsc.codeGenSettings.mainBody": {
+					"type": "string",
+					"default": "",
+					"description": "The name of the main body (can be empty)"
+				},
+				"dwsc.codeGenSettings.indentSize": {
+					"type": "number",
+					"default": "",
+					"description": "The amount of indention"
+				},
+				"dwsc.compilerSettings.verbosityLevel": {
+					"type": "string",
+          "enum": [
+            "none", 
+            "normal",
+            "verbose" 
+          ]
+					"default": "none",
+					"description": "The verbosity level at which the code is generated"
+				},
+				"dwsc.filterSettings.editorMode": {
+					"type": "boolean",
+					"default": false,
+					"description": "Whether or not to use the editor mode"
+				},
+				"dwsc.outputSettings.path": {
+					"type": "string",
+					"default": "Output",
+					"description": "The subpath where the compiled output will appear"
+				},
+				"dwsc.outputSettings.fileName": {
+					"type": "string",
+					"default": "",
+					"description": "The name of the main output file (uses the program name if empty)"
 				}
 			}
 		}
@@ -93,5 +230,10 @@
 		"vscode": "^1.1.5",
 		"vscode-languageclient": "^3.4.2",
 		"vscode-languageserver": "^3.4.2"
+	},
+	"__metadata": {
+		"id": "04165cf4-cb04-4eb1-89af-8ae7c7008065",
+		"publisherId": "61aadec8-2b43-4e39-9b04-63080606cf6c",
+		"publisherDisplayName": "Christian-W. Budde"
 	}
 }

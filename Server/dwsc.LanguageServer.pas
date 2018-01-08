@@ -12,7 +12,7 @@ uses
   dwsCodeGen, dwsJSCodeGen, dwsJSLibModule, dwsUnitSymbols, dwsCompilerContext,
   dwsJson, dwsXPlatform, dwsUtils, dwsSymbolDictionary, dwsScriptSource,
   dwsSymbols, dwsc.Classes.JSON, dwsc.Classes.Common, dwsc.Classes.Document,
-  dwsc.Classes.Capabilities, dwsc.Classes.Workspace, dwsc.Classes.Configuration,
+  dwsc.Classes.Capabilities, dwsc.Classes.Workspace, dwsc.Classes.Settings,
   dwsc.Utils;
 
 type
@@ -32,7 +32,7 @@ type
     FJSCodeGen: TdwsJSCodeGen;
     FJSCodeGenLib: TdwsJSLibModule;
 
-    FConfiguration: TConfiguration;
+    FSettings: TSettings;
     FTextDocumentItemList: TdwsTextDocumentItemList;
 
     {$IFDEF DEBUGLOG}
@@ -102,7 +102,7 @@ type
     procedure HandleTextDocumentWillSave(Params: TdwsJSONObject);
     procedure HandleTextDocumentWillSaveWaitUntil(Params: TdwsJSONObject);
     procedure HandleWorkspaceApplyEdit(Params: TdwsJSONObject);
-    procedure HandleWorkspaceChangeConfiguration;
+    procedure HandleWorkspaceChangeConfiguration(Params: TdwsJSONObject);
     procedure HandleWorkspaceChangeWatchedFiles(Params: TdwsJSONObject);
     procedure HandleWorkspaceExecuteCommand(Params: TdwsJSONObject);
     procedure HandleWorkspaceSymbol(Params: TdwsJSONObject);
@@ -112,8 +112,8 @@ type
 
     function Input(Body: string): Boolean;
 
-    function BuildWorkspace(Configuration: TConfiguration = nil): Boolean;
-    procedure ConfigureCompiler(Configuration: TConfiguration);
+    function BuildWorkspace(Settings: TSettings = nil): Boolean;
+    procedure ConfigureCompiler(Settings: TSettings);
     procedure OpenFile(FileName: TFilename);
 
     property ServerCapabilities: TServerCapabilities read FServerCapabilities;
@@ -150,7 +150,7 @@ begin
   FJSCodeGenLib := TdwsJSLibModule.Create(nil);
   FJSCodeGenLib.Script := FDelphiWebScript;
 
-  FConfiguration := TConfiguration.Create;
+  FSettings := TSettings.Create;
 
   // create capatibilities instances
   FClientCapabilities := TClientCapabilities.Create;
@@ -162,8 +162,8 @@ end;
 
 destructor TDWScriptLanguageServer.Destroy;
 begin
-  FConfiguration.Free;
-  FConfiguration := nil;
+  FSettings.Free;
+  FSettings := nil;
 
   FTextDocumentItemList.Free;
   FTextDocumentItemList := nil;
@@ -236,16 +236,16 @@ begin
     Result := dsInformation;
 end;
 
-function TDWScriptLanguageServer.BuildWorkspace(Configuration: TConfiguration = nil): Boolean;
+function TDWScriptLanguageServer.BuildWorkspace(Settings: TSettings = nil): Boolean;
 var
   CompiledProgram: IdwsProgram;
   OutputFileName: string;
   CodeJS: string;
 begin
-  if Assigned(Configuration) then
-    ConfigureCompiler(Configuration)
+  if Assigned(Settings) then
+    ConfigureCompiler(Settings)
   else
-    ConfigureCompiler(FConfiguration);
+    ConfigureCompiler(FSettings);
 
   CompiledProgram := CompileWorkspace;
   Result := Assigned(CompiledProgram);
@@ -253,7 +253,7 @@ begin
   begin
     LogMessage('Compilation successful', msInfo);
 
-    if FConfiguration.Output.FileName <> '' then
+    if FSettings.Output.FileName <> '' then
     begin
 
 (*
@@ -390,79 +390,78 @@ begin
   end;
 end;
 
-procedure TDWScriptLanguageServer.ConfigureCompiler(
-  Configuration: TConfiguration);
+procedure TDWScriptLanguageServer.ConfigureCompiler(Settings: TSettings);
 var
   CompilerOptions: TCompilerOptions;
   CodeGenOptions: TdwsCodeGenOptions;
 begin
   CompilerOptions := FDelphiWebScript.Config.CompilerOptions;
 
-  if Configuration.CompilerConfiguration.Assertions then
+  if Settings.CompilerSettings.Assertions then
     Include(CompilerOptions, coAssertions)
   else
     Exclude(CompilerOptions, coAssertions);
 
-  if Configuration.CompilerConfiguration.Optimizations then
+  if Settings.CompilerSettings.Optimizations then
     Include(CompilerOptions, coOptimize)
   else
     Exclude(CompilerOptions, coOptimize);
 
   FDelphiWebScript.Config.CompilerOptions := CompilerOptions;
-  FDelphiWebScript.Config.HintsLevel := TdwsHintsLevel(Configuration.CompilerConfiguration.HintsLevel);
-  FDelphiWebScript.Config.Conditionals.Text := Configuration.CompilerConfiguration.ConditionalDefines;
+  FDelphiWebScript.Config.HintsLevel := TdwsHintsLevel(Settings.CompilerSettings.HintsLevel);
+  FDelphiWebScript.Config.Conditionals.Text := Settings.CompilerSettings.ConditionalDefines.Text;
 
   CodeGenOptions := FJSCodeGen.Options;
 
-  if Configuration.CodeGenConfiguration.RangeChecks then
+  if Settings.CodeGenSettings.RangeChecks then
     Exclude(CodeGenOptions, cgoNoRangeChecks)
   else
     Include(CodeGenOptions, cgoNoRangeChecks);
-  if Configuration.CodeGenConfiguration.InstanceChecks then
+  if Settings.CodeGenSettings.InstanceChecks then
     Exclude(CodeGenOptions, cgoNoCheckInstantiated)
   else
     Include(CodeGenOptions, cgoNoCheckInstantiated);
-  if Configuration.CodeGenConfiguration.LoopChecks then
+  if Settings.CodeGenSettings.LoopChecks then
     Exclude(CodeGenOptions, cgoNoCheckLoopStep)
   else
     Include(CodeGenOptions, cgoNoCheckLoopStep);
-  if Configuration.CodeGenConfiguration.InstanceChecks then
+  if Settings.CodeGenSettings.InstanceChecks then
     Exclude(CodeGenOptions, cgoNoConditions)
   else
     Include(CodeGenOptions, cgoNoConditions);
-  if Configuration.CodeGenConfiguration.InlineMagics then
+  if Settings.CodeGenSettings.InlineMagics then
     Exclude(CodeGenOptions, cgoNoInlineMagics)
   else
     Include(CodeGenOptions, cgoNoInlineMagics);
-  if Configuration.CodeGenConfiguration.Obfuscation then
+  if Settings.CodeGenSettings.Obfuscation then
     Include(CodeGenOptions, cgoObfuscate)
   else
     Exclude(CodeGenOptions, cgoObfuscate);
-  if Configuration.CodeGenConfiguration.EmitSourceLocation then
+  if Settings.CodeGenSettings.EmitSourceLocation then
     Exclude(CodeGenOptions, cgoNoSourceLocations)
   else
     Include(CodeGenOptions, cgoNoSourceLocations);
-  if Configuration.CodeGenConfiguration.OptimizeForSize then
+  if Settings.CodeGenSettings.OptimizeForSize then
     Include(CodeGenOptions, cgoOptimizeForSize)
   else
     Exclude(CodeGenOptions, cgoOptimizeForSize);
-  if Configuration.CodeGenConfiguration.SmartLinking then
+  if Settings.CodeGenSettings.SmartLinking then
     Include(CodeGenOptions, cgoSmartLink)
   else
     Exclude(CodeGenOptions, cgoSmartLink);
-  if Configuration.CodeGenConfiguration.Devirtualize then
+  if Settings.CodeGenSettings.Devirtualize then
     Include(CodeGenOptions, cgoDeVirtualize)
   else
     Exclude(CodeGenOptions, cgoDeVirtualize);
-  if Configuration.CodeGenConfiguration.EmitRTTI then
+  if Settings.CodeGenSettings.EmitRTTI then
     Exclude(CodeGenOptions, cgoNoRTTI)
   else
     Include(CodeGenOptions, cgoNoRTTI);
-  if Configuration.CodeGenConfiguration.EmitFinalization then
+  if Settings.CodeGenSettings.EmitFinalization then
     Exclude(CodeGenOptions, cgoNoFinalizations)
   else
     Include(CodeGenOptions, cgoNoFinalizations);
-  if Configuration.CodeGenConfiguration.IgnorePublishedInImplementation then
+  if Settings.CodeGenSettings.IgnorePublishedInImplementation then
     Include(CodeGenOptions, cgoIgnorePublishedInImplementation)
   else
     Exclude(CodeGenOptions, cgoIgnorePublishedInImplementation);
@@ -1755,9 +1754,17 @@ begin
   SendResponse(Result);
 end;
 
-procedure TDWScriptLanguageServer.HandleWorkspaceChangeConfiguration;
+procedure TDWScriptLanguageServer.HandleWorkspaceChangeConfiguration(Params: TdwsJSONObject);
+var
+  DidChangeConfigurationParams: TDidChangeConfigurationParams;
+  Result: TdwsJSONObject;
 begin
-  // yet to do
+  DidChangeConfigurationParams := TDidChangeConfigurationParams.Create;
+  try
+    DidChangeConfigurationParams.ReadFromJson(Params);
+  finally
+    DidChangeConfigurationParams.Free;
+  end;
 end;
 
 procedure TDWScriptLanguageServer.HandleWorkspaceChangeWatchedFiles(Params: TdwsJSONObject);
@@ -1771,12 +1778,6 @@ begin
   finally
     DidChangeWatchedFilesParams.Free;
   end;
-
-  // yet to do
-
-  Result := TdwsJSONObject.Create;
-
-  SendResponse(Result);
 end;
 
 procedure TDWScriptLanguageServer.HandleWorkspaceExecuteCommand(Params: TdwsJSONObject);
@@ -1898,7 +1899,7 @@ begin
   begin
     // workspace related messages
     if Method = 'workspace/didChangeConfiguration' then
-      HandleWorkspaceChangeConfiguration
+      HandleWorkspaceChangeConfiguration(TdwsJsonObject(JsonRpc['params']))
     else
     if Method = 'workspace/didChangeWatchedFiles' then
       HandleWorkspaceChangeWatchedFiles(TdwsJsonObject(JsonRpc['params']))
