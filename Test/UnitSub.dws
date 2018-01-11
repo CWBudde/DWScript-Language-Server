@@ -1,0 +1,14 @@
+unit UnitSub;
+
+interface
+
+function Sub(A, B: Integer): Integer;
+
+implementation
+
+function Sub(A, B: Integer): Integer;
+begin
+  Result := A + B;
+end;
+
+end.

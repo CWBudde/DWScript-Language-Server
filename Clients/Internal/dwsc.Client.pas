@@ -763,14 +763,22 @@ end;
 procedure TLanguageServerHost.SendInitialize(const RootPath, RootUri, Trace: string;
   ProcessID: Integer);
 var
+  InitializeParams: TInitializeParams;
   JsonObject: TdwsJSONObject;
 begin
   JsonObject := TdwsJSONObject.Create;
-  JsonObject.AddValue('processId', ProcessID);
-  JsonObject.AddValue('rootPath', RootPath);
-  JsonObject.AddValue('rootUri', RootUri);
-  FClientCapabilities.WriteToJson(JsonObject.AddObject('capabilities'));
-  JsonObject.AddValue('trace', Trace);
+
+  InitializeParams := TInitializeParams.Create;
+  try
+    InitializeParams.ProcessId := ProcessID;
+    InitializeParams.RootPath := RootPath;
+    InitializeParams.RootUri := RootUri;
+    InitializeParams.Trace := Trace;
+    InitializeParams.ClientCapabilities.CopyFrom(FClientCapabilities);
+    InitializeParams.WriteToJson(JsonObject);
+  finally
+    InitializeParams.Free;
+  end;
   SendRequest('initialize', JsonObject);
 end;
 

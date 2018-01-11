@@ -1,0 +1,18 @@
+unit Test.qerqer;
+
+interface
+
+{$DEFINE TEST}
+
+implementation
+
+(* A multi-line comment *)
+{ Another multi-line comment }
+// This is a comment
+
+function Add(A, B: Integer): Integer;
+sbegin
+  Result := A + B;
+end;
+
+end.

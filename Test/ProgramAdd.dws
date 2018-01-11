@@ -1,0 +1,8 @@
+program ProgrammAdd;
+
+function Add(A, B: Integer): Integer;
+begin
+  Result := A + B;
+end;
+
+Add(1, 2);
