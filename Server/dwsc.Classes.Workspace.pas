@@ -73,6 +73,16 @@ type
     property WorkspaceEdit: TWorkspaceEdit read FEdit;
   end;
 
+  TFilesParams  = class(TJsonClass)
+  private
+    FBase: string;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Base: string read FBase write FBase;
+  end;
+
 implementation
 
 { TDidChangeConfigurationParams }
@@ -221,5 +231,17 @@ begin
   FEdit.WriteToJson(Value.AddObject('edit'));
 end;
 
+
+{ TFilesParams }
+
+procedure TFilesParams.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FBase := Value['base'].AsString;
+end;
+
+procedure TFilesParams.WriteToJson(const Value: TdwsJSONObject);
+begin
+  Value.AddValue('base', FBase);
+end;
 
 end.

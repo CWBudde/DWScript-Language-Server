@@ -67,6 +67,8 @@ type
     function LocateScriptSource(const Prog: IdwsProgram; const Uri: string): TScriptSourceItem;
     function LocateSymbol(const Prog: IdwsProgram; const Uri: string; Position: TPosition): TSymbol;
 
+    procedure PublishDiagnostics(CompiledProgram: IdwsProgram);
+
     procedure OnIncludeEventHandler(const ScriptName: string;
       var ScriptSource: string);
     function OnNeedUnitEventHandler(const UnitName: string;
@@ -117,6 +119,8 @@ type
     function BuildWorkspace(Settings: TSettings = nil): Boolean;
     procedure ConfigureCompiler(Settings: TSettings);
     procedure OpenFile(FileName: TFilename);
+
+    procedure RequestContent;
 
     property ServerCapabilities: TServerCapabilities read FServerCapabilities;
     property OnOutput: TOnOutput read FOnOutput write FOnOutput;
@@ -218,11 +222,6 @@ begin
   UnitSource := FTextDocumentItemList.SourceCode[UnitName];
 end;
 
-procedure TDWScriptLanguageServer.OpenFile(FileName: TFilename);
-begin
-
-end;
-
 function ScriptMessageTypeToDiagnosticSeverity(ScriptMessage: TScriptMessage): TDiagnosticSeverity;
 begin
   // convert the script message class to a diagnostic severity
@@ -292,13 +291,78 @@ begin
   // not yet implemented
 end;
 
-function TDWScriptLanguageServer.Compile(Uri: string): IdwsProgram;
+procedure TDWScriptLanguageServer.OpenFile(FileName: TFilename);
+begin
+
+end;
+
+procedure TDWScriptLanguageServer.PublishDiagnostics(
+  CompiledProgram: IdwsProgram);
 var
   PublishDiagnosticsParams: TPublishDiagnosticsParams;
   Params: TdwsJSONObject;
-  SourceCode: string;
+  CurrentUnitName: string;
   ScriptMessage: TScriptMessage;
-  Index: Integer;
+  FileIndex, Index: Integer;
+begin
+  // check if the compilation was successful
+  if not Assigned(CompiledProgram) then
+    Exit;
+
+  if CompiledProgram.Msgs.Count = 0 then
+  begin
+    // publish empty diagnostic for each file (clears diagnostics)
+    PublishDiagnosticsParams := TPublishDiagnosticsParams.Create;
+    try
+      for FileIndex := 0 to FTextDocumentItemList.Count - 1 do
+      begin
+        PublishDiagnosticsParams.Uri := FTextDocumentItemList[FileIndex].Uri;
+        Params := TdwsJSONObject.Create;
+        PublishDiagnosticsParams.WriteToJson(Params);
+        SendNotification('textDocument/publishDiagnostics', Params);
+      end;
+    finally
+      PublishDiagnosticsParams.Free;
+    end;
+
+    Exit;
+  end;
+
+  // publish diagnostic for every single file
+  for FileIndex := 0 to FTextDocumentItemList.Count - 1 do
+  begin
+    PublishDiagnosticsParams := TPublishDiagnosticsParams.Create;
+    try
+      PublishDiagnosticsParams.Uri := FTextDocumentItemList[FileIndex].Uri;
+      CurrentUnitName := GetUnitNameFromUri(FTextDocumentItemList[FileIndex].Uri);
+      for Index := 0 to CompiledProgram.Msgs.Count - 1 do
+        if CompiledProgram.Msgs.Msgs[Index] is TScriptMessage then
+        begin
+          ScriptMessage := TScriptMessage(CompiledProgram.Msgs.Msgs[Index]);
+
+          // eusure that the current unit name matches the script message
+          if not UnicodeSameText(ScriptMessage.SourceName, CurrentUnitName) then
+            continue;
+
+          PublishDiagnosticsParams.AddDiagnostic(
+            ScriptMessage.Line - 1, ScriptMessage.Col - 1,
+            ScriptMessageTypeToDiagnosticSeverity(ScriptMessage),
+            ScriptMessage.Text);
+        end;
+
+      // translate the publish diagnostics params to a notification and send it
+      Params := TdwsJSONObject.Create;
+      PublishDiagnosticsParams.WriteToJson(Params);
+      SendNotification('textDocument/publishDiagnostics', Params);
+    finally
+      PublishDiagnosticsParams.Free;
+    end;
+  end;
+end;
+
+function TDWScriptLanguageServer.Compile(Uri: string): IdwsProgram;
+var
+  SourceCode: string;
 begin
   Result := nil;
   SourceCode := '';
@@ -313,30 +377,7 @@ begin
   if SourceCode <> '' then
     Result := FDelphiWebScript.Compile(SourceCode);
 
-  // check if the compilation was successful
-  if Assigned(Result) and (Result.Msgs.Count > 0) then
-  begin
-    // prepare to publis diagnostic
-    PublishDiagnosticsParams := TPublishDiagnosticsParams.Create;
-    try
-      for Index := 0 to Result.Msgs.Count - 1 do
-        if Result.Msgs.Msgs[Index] is TScriptMessage then
-        begin
-          ScriptMessage := TScriptMessage(Result.Msgs.Msgs[Index]);
-          PublishDiagnosticsParams.AddDiagnostic(
-            ScriptMessage.Line, ScriptMessage.Col,
-            ScriptMessageTypeToDiagnosticSeverity(ScriptMessage),
-            ScriptMessage.Text);
-        end;
-
-      // translate the publish diagnostics params to a notification and send it
-      Params := TdwsJSONObject.Create;
-      PublishDiagnosticsParams.WriteToJson(Params);
-      SendNotification('textDocument/publishDiagnostics', Params);
-    finally
-      PublishDiagnosticsParams.Free;
-    end;
-  end;
+  PublishDiagnostics(Result);
 end;
 
 function TDWScriptLanguageServer.CompileWorkspace: IdwsProgram;
@@ -578,6 +619,11 @@ begin
   InternalRegisterAndUnregisterCapability(Method, Id, False);
 end;
 
+procedure TDWScriptLanguageServer.RequestContent;
+begin
+  // yet todo (see https://github.com/sourcegraph/language-server-protocol/blob/master/extension-files.md#content-request)
+end;
+
 function TDWScriptLanguageServer.GetSourceCodeForUri(Uri: string): string;
 var
   TextDocumentItem: TdwsTextDocumentItem;
@@ -595,8 +641,18 @@ begin
 end;
 
 procedure TDWScriptLanguageServer.HandleInitialize(Params: TdwsJSONObject);
+var
+  InitializeParams: TInitializeParams;
 begin
-  FClientCapabilities.ReadFromJson(Params);
+  InitializeParams := TInitializeParams.Create;
+  try
+    InitializeParams.ReadFromJson(Params);
+
+    FClientCapabilities.CopyFrom(InitializeParams.ClientCapabilities);
+  finally
+    InitializeParams.Free;
+  end;
+
   SendInitializeResponse;
 end;
 

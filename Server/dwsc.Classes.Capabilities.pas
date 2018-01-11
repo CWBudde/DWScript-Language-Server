@@ -3,7 +3,8 @@ unit dwsc.Classes.Capabilities;
 interface
 
 uses
-  Classes, dwsJson, dwsUtils, dwsc.Classes.JSON, dwsc.Classes.Common;
+  Classes, dwsJson, dwsUtils, dwsc.Classes.JSON, dwsc.Classes.Common,
+  dwsc.Classes.Settings;
 
 type
   TWorkspaceCapabilities = class(TJsonClass)
@@ -98,6 +99,8 @@ type
   private
     FWorkspaceCapabilities: TWorkspaceCapabilities;
     FTextDocumentCapabilities: TTextDocumentCapabilities;
+    FFilesProvider: Boolean;
+    FContentProvider: Boolean;
   public
     constructor Create;
     destructor Destroy; override;
@@ -107,6 +110,30 @@ type
 
     property WorkspaceCapabilities: TWorkspaceCapabilities read FWorkspaceCapabilities;
     property TextDocumentCapabilities: TTextDocumentCapabilities read FTextDocumentCapabilities;
+    property FilesProvider: Boolean read FFilesProvider;
+    property ContentProvider: Boolean read FContentProvider;
+  end;
+
+  TInitializeParams = class(TJsonClass)
+  private
+    FProcessID: Integer;
+    FRootPath: string;
+    FRootUri: string;
+    FInitializationOptions: TSettings;
+    FCapabilities: TClientCapabilities;
+    FTrace: string;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property ProcessId: Integer read FProcessId write FProcessId;
+    property RootPath: string read FRootPath write FRootPath;
+    property RootUri: string read FRootUri write FRootUri;
+    property ClientCapabilities: TClientCapabilities read FCapabilities;
+    property Trace: string read FTrace write FTrace;
   end;
 
   TSaveOptions = class(TJsonClass)
@@ -453,12 +480,19 @@ begin
     FWorkspaceCapabilities.ReadFromJson(TdwsJSONObject(Value.Items['workspace']));
   if Value['textDocument'] is TdwsJSONObject then
     FTextDocumentCapabilities.ReadFromJson(TdwsJSONObject(Value.Items['textDocument']));
+
+  if Assigned(Value['xfilesProvider']) then
+    FFilesProvider := Value['xfilesProvider'].AsBoolean;
+  if Assigned(Value['xcontentProvider']) then
+    FContentProvider := Value['xcontentProvider'].AsBoolean;
 end;
 
 procedure TClientCapabilities.WriteToJson(const Value: TdwsJSONObject);
 begin
   FWorkspaceCapabilities.WriteToJson(Value.AddObject('workspace'));
   FTextDocumentCapabilities.WriteToJson(Value.AddObject('textDocument'));
+  Value.AddValue('xfilesProvider', FFilesProvider);
+  Value.AddValue('xcontentProvider', FContentProvider);
 end;
 
 
@@ -697,6 +731,7 @@ begin
   FCodeLensProvider := TCodeLensOptions.Create;
   FDocumentOnTypeFormattingProvider := TDocumentOnTypeFormattingOptions.Create;
   FDocumentLinkProvider := TDocumentLinkOptions.Create;
+  FDocumentLinkProvider.ResolveProvider := False;
   FExecuteCommandProvider := TExecuteCommandOptions.Create;
 
   HoverProvider := True;
@@ -705,9 +740,9 @@ begin
   DocumentHighlightProvider := True;
   DocumentSymbolProvider := True;
   WorkspaceSymbolProvider := True;
-  CodeActionProvider := True;
-  DocumentFormattingProvider := True;
-  DocumentRangeFormattingProvider := True;
+  CodeActionProvider := False;
+  DocumentFormattingProvider := False;
+  DocumentRangeFormattingProvider := False;
   RenameProvider := True;
 end;
 
@@ -767,6 +802,51 @@ begin
   Value.AddValue('renameProvider', FRenameProvider);
   FDocumentLinkProvider.WriteToJson(Value.AddObject('documentLinkProvider'));
   FExecuteCommandProvider.WriteToJson(Value.AddObject('executeCommandProvider'));
+end;
+
+
+{ TInitializeParams }
+
+constructor TInitializeParams.Create;
+begin
+  FCapabilities := TClientCapabilities.Create;
+  FInitializationOptions := TSettings.Create;
+end;
+
+destructor TInitializeParams.Destroy;
+begin
+  FInitializationOptions.Free;
+  FCapabilities.Free;
+
+  inherited;
+end;
+
+procedure TInitializeParams.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FProcessID := Value['processId'].AsInteger;
+  FRootPath := Value['rootPath'].AsString;
+  FRootUri := Value['rootUri'].AsString;
+
+  FInitializationOptions.ReadFromJson(Value['initializationOptions']);
+  FCapabilities.ReadFromJson(Value['capabilities']);
+
+  FTrace := Value['trace'].AsString;
+
+  inherited;
+end;
+
+procedure TInitializeParams.WriteToJson(const Value: TdwsJSONObject);
+begin
+  Value.AddValue('processId', FProcessId);
+  Value.AddValue('rootPath', FRootPath);
+  Value.AddValue('rootUri', FRootUri);
+
+  FInitializationOptions.WriteToJson(Value.AddObject('initializationOptions'));
+  FCapabilities.WriteToJson(Value.AddObject('capabilities'));
+
+  Value.AddValue('trace', FTrace);
+
+  inherited;
 end;
 
 end.

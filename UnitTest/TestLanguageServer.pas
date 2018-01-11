@@ -19,6 +19,7 @@ type
     procedure TestJsonCommand;
     procedure TestJsonDiagnostics;
 
+    procedure TestJsonInitializeParams;
     procedure TestJsonTextDocumentPositionParams;
     procedure TestJsonPublishDiagnosticsParams;
     procedure TestJsonDidOpenTextDocumentParams;
@@ -1129,6 +1130,39 @@ begin
       CheckEquals('Foo/nBar', HoverResponse.MarkupContents.Value);
     finally
       HoverResponse.Free;
+    end;
+  finally
+    Params.Free;
+  end;
+end;
+
+procedure TTestLanguageServerClasses.TestJsonInitializeParams;
+var
+  InitializeParams: TInitializeParams;
+  Params: TdwsJSONObject;
+begin
+  Params := TdwsJSONObject.Create;
+  try
+    InitializeParams := TInitializeParams.Create;
+    try
+      InitializeParams.ProcessId := 42;
+      InitializeParams.RootUri := 'file:///c:/Test.dws';
+      InitializeParams.RootPath := 'file:///c:/';
+      InitializeParams.Trace := 'off';
+      InitializeParams.WriteToJson(Params);
+    finally
+      InitializeParams.Free;
+    end;
+
+    InitializeParams := TInitializeParams.Create;
+    try
+      InitializeParams.ReadFromJson(Params);
+      CheckEquals(42, InitializeParams.ProcessId);
+      CheckEquals('file:///c:/Test.dws', InitializeParams.RootUri);
+      CheckEquals('file:///c:/', InitializeParams.RootPath);
+      CheckEquals('off', InitializeParams.Trace);
+    finally
+      InitializeParams.Free;
     end;
   finally
     Params.Free;

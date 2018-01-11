@@ -589,6 +589,19 @@ type
     property NewName: string read FNewName write FNewName;
   end;
 
+  TContentRequestParams = class(TJsonClass)
+  private
+    FTextDocument: TTextDocumentIdentifier;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property TextDocument: TTextDocumentIdentifier read FTextDocument;
+  end;
+
 implementation
 
 { TTextDocumentPositionParams }
@@ -1740,6 +1753,30 @@ begin
   inherited;
 
   Value.AddValue('newName', FNewName);
+end;
+
+
+{ TContentRequestParams }
+
+constructor TContentRequestParams.Create;
+begin
+  FTextDocument := TTextDocumentIdentifier.Create;
+end;
+
+destructor TContentRequestParams.Destroy;
+begin
+  FTextDocument.Free;
+  inherited;
+end;
+
+procedure TContentRequestParams.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FTextDocument.ReadFromJson(Value['textDocument']);
+end;
+
+procedure TContentRequestParams.WriteToJson(const Value: TdwsJSONObject);
+begin
+  FTextDocument.WriteToJson(Value.AddObject('textDocument'));
 end;
 
 end.
