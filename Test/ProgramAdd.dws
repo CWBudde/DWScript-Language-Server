@@ -1,5 +1,8 @@
 program ProgrammAdd;
 
+// The purpose of this program is to be used in unit tests
+// Project: https://github.com/CWBudde/DWScript-Language-Server
+
 function Add(A, B: Integer): Integer;
 begin
   Result := A + B;

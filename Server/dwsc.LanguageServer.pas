@@ -1691,6 +1691,9 @@ begin
   if Symbol is TUnitSymbol then
     Result := skModule
   else
+  if Symbol is TUnitMainSymbol then
+    Result := skModule
+  else
   if Symbol is TFieldSymbol then
     Result := skField
   else

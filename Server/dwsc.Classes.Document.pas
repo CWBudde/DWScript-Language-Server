@@ -427,6 +427,11 @@ type
     property ContainerName: string read FContainerName write FContainerName;
   end;
 
+  TDocumentSymbolInformationSortedList = class(TSortedList<TDocumentSymbolInformation>)
+  protected
+    function Compare(const A, B: TDocumentSymbolInformation): Integer; override;
+  end;
+
   TFormattingOptions = class(TJsonClass)
   private
     FTabSize: Integer;
@@ -603,6 +608,9 @@ type
   end;
 
 implementation
+
+uses
+  dwsXPlatform;
 
 { TTextDocumentPositionParams }
 
@@ -1446,6 +1454,21 @@ begin
   FLocation.WriteToJson(Value.AddObject('location'));
   if FContainerName <> '' then
     Value.AddValue('containerName', FContainerName);
+end;
+
+
+{ TDocumentSymbolInformationSortedList }
+
+function TDocumentSymbolInformationSortedList.Compare(const A,
+  B: TDocumentSymbolInformation): Integer;
+begin
+  if A.Name = B.Name then
+    if A.Location.Uri = B.Location.Uri then
+      Result := A.Location.Range.Start.Line - B.Location.Range.Start.Line
+    else
+      Result := UnicodeCompareStr(A.Location.Uri, B.Location.Uri)
+  else
+    Result := UnicodeCompareStr(A.Name, B.Name);
 end;
 
 
