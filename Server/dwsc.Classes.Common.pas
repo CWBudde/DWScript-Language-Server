@@ -145,6 +145,39 @@ type
     property Range: TRange read FRange write FRange;
   end;
 
+  TColor = class(TJsonClass)
+  private
+    FRed: Integer;
+    FGreen: Integer;
+    FBlue: Integer;
+    FAlpha: Integer;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Red: Integer read FRed write FRed;
+    property Green: Integer read FGreen write FGreen;
+    property Blue: Integer read FBlue write FBlue;
+    property Alpha: Integer read FAlpha write FAlpha;
+  end;
+
+  TDiagnosticRelatedInformation = class(TJsonClass)
+  private
+    FLocation: TLocation;
+    FMessage: string;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Location: TLocation read FLocation write FLocation;
+    property Message: string read FMessage write FMessage;
+  end;
+
+  TDiagnosticRelatedInformationList = TObjectList<TDiagnosticRelatedInformation>;
+
   TDiagnostic = class(TJsonClass)
   type
     TCodeType = (ctNone, ctString, ctNumber);
@@ -156,6 +189,7 @@ type
     FCodeType: TCodeType;
     FSource: string;
     FMessage: string;
+    FRelatedInformation: TDiagnosticRelatedInformationList;
     procedure SetCodeString(const Value: string);
     procedure SetCodeValue(const Value: Integer);
   public
@@ -172,6 +206,7 @@ type
     property CodeType: TCodeType read FCodeType write FCodeType;
     property Source: string read FSource write FSource;
     property Message: string read FMessage write FMessage;
+    property RelatedInformation: TDiagnosticRelatedInformationList read FRelatedInformation write FRelatedInformation;
   end;
 
   TDiagnostics = TObjectList<TDiagnostic>;
@@ -363,7 +398,7 @@ type
 implementation
 
 uses
-  dwsWebUtils;
+  dwsWebUtils, dwsXXHash;
 
 { TMessage }
 
@@ -481,6 +516,9 @@ end;
 
 procedure TDynamicRegistration.ReadFromJson(const Value: TdwsJSONValue);
 begin
+  if not Assigned(Value) then
+    Exit;
+
   FDynamicRegistration := Value['dynamicRegistration'].AsBoolean;
 end;
 
@@ -563,7 +601,7 @@ end;
 procedure TLocation.ReadFromJson(const Value: TdwsJSONValue);
 begin
   FRange.ReadFromJson(Value['range']);
-  FUri := WebUtils.DecodeURLEncoded(Value['uri'].AsString, 1);
+  FUri := WebUtils.DecodeURLEncoded(RawByteString(Value['uri'].AsString), 1);
 end;
 
 procedure TLocation.WriteToJson(const Value: TdwsJSONObject);
@@ -573,22 +611,74 @@ begin
 end;
 
 
+{ TColor }
+
+procedure TColor.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FRed := Value['red'].AsInteger;
+  FGreen := Value['green'].AsInteger;
+  FBlue := Value['blue'].AsInteger;
+  FAlpha := Value['alpha'].AsInteger;
+end;
+
+procedure TColor.WriteToJson(const Value: TdwsJSONObject);
+begin
+  Value.AddValue('red', FRed);
+  Value.AddValue('green', FGreen);
+  Value.AddValue('blue', FBlue);
+  Value.AddValue('alpha', FAlpha);
+end;
+
+
+{ TDiagnosticRelatedInformation }
+
+constructor TDiagnosticRelatedInformation.Create;
+begin
+  FLocation := TLocation.Create;
+end;
+
+destructor TDiagnosticRelatedInformation.Destroy;
+begin
+  FLocation.Free;
+  inherited;
+end;
+
+procedure TDiagnosticRelatedInformation.ReadFromJson(
+  const Value: TdwsJSONValue);
+begin
+  FLocation.ReadFromJson(Value['location']);
+  FMessage := Value['message'].AsString;
+end;
+
+procedure TDiagnosticRelatedInformation.WriteToJson(
+  const Value: TdwsJSONObject);
+begin
+  FLocation.WriteToJson(Value.AddObject('location'));
+  Value.AddValue('message', FMessage);
+end;
+
+
 { TDiagnostic }
 
 constructor TDiagnostic.Create;
 begin
   FRange := TRange.Create;
+  FRelatedInformation := TDiagnosticRelatedInformationList.Create;
 end;
 
 destructor TDiagnostic.Destroy;
 begin
+  FRelatedInformation.Free;
   FRange.Free;
   inherited;
 end;
 
 procedure TDiagnostic.ReadFromJson(const Value: TdwsJSONValue);
 var
+  Index: Integer;
   CodeValue: TdwsJSONValue;
+  RelatedInfoArray: TdwsJSONArray;
+  RelatedInfo: TDiagnosticRelatedInformation;
 begin
   FRange.ReadFromJson(Value['range']);
   FSource := Value['source'].AsString;
@@ -615,6 +705,15 @@ begin
   end
   else
     CodeType := ctNone;
+
+  // read related information
+  RelatedInfoArray := TdwsJSONArray(Value['relatedInformation']);
+  for Index := 0 to RelatedInfoArray.ElementCount - 1 do
+  begin
+    RelatedInfo := TDiagnosticRelatedInformation.Create;
+    RelatedInfo.ReadFromJson(RelatedInfoArray.Elements[Index]);
+    FRelatedInformation.Add(RelatedInfo);
+  end;
 end;
 
 procedure TDiagnostic.WriteToJson(const Value: TdwsJSONObject);
@@ -725,7 +824,7 @@ end;
 
 procedure TTextDocumentIdentifier.ReadFromJson(const Value: TdwsJSONValue);
 begin
-  FUri := WebUtils.DecodeURLEncoded(Value['uri'].AsString, 1);
+  FUri := WebUtils.DecodeURLEncoded(RawByteString(Value['uri'].AsString), 1);
 end;
 
 procedure TTextDocumentIdentifier.WriteToJson(const Value: TdwsJSONObject);
@@ -738,7 +837,7 @@ end;
 
 procedure TTextDocumentItem.ReadFromJson(const Value: TdwsJSONValue);
 begin
-  FUri := WebUtils.DecodeURLEncoded(Value['uri'].AsString, 1);
+  FUri := WebUtils.DecodeURLEncoded(RawByteString(Value['uri'].AsString), 1);
   FLanguageId := Value['languageId'].AsString;
   FVersion := Value['version'].AsInteger;
   FText := Value['text'].AsString;
@@ -875,7 +974,8 @@ var
   Item: TTextEditItem;
 begin
   Result := nil;
-  if Count = 0 then Exit;
+  if Count = 0 then
+    Exit;
   HashCode := SimpleStringHash(Uri);
   for Index := 0 to Count - 1  do
   begin
@@ -891,7 +991,9 @@ var
   HashCode: Cardinal;
   Item: TTextEditItem;
 begin
-  if Count = 0 then Exit;
+  Result := False;
+  if Count = 0 then
+    Exit;
   HashCode := SimpleStringHash(Uri);
   for Index := 0 to Count - 1  do
   begin
@@ -899,7 +1001,7 @@ begin
     if (HashCode = Item.HashCode) and (Uri = Item.Uri) then
     begin
       Extract(Index);
-      Exit;
+      Exit(True);
     end;
   end;
 end;
@@ -923,9 +1025,8 @@ end;
 
 procedure TEditChanges.ReadFromJson(const Value: TdwsJSONValue);
 var
-  Index, EditIndex: Integer;
+  Index: Integer;
   TextEditItem: TTextEditItem;
-  EditsArray: TdwsJSONArray;
 begin
   for Index := 0 to Value.ElementCount - 1 do
   begin
@@ -937,7 +1038,7 @@ end;
 
 procedure TEditChanges.WriteToJson(const Value: TdwsJSONObject);
 var
-  Index, EditIndex: Integer;
+  Index: Integer;
   EditsArray: TdwsJSONArray;
 begin
   for Index := 0 to FItems.Count - 1 do
@@ -993,7 +1094,6 @@ end;
 
 procedure TWorkspaceEdit.WriteToJson(const Value: TdwsJSONObject);
 var
-  ChangesObject: TdwsJSONArray;
   DocumentChangeArray: TdwsJSONArray;
   Index: Integer;
 begin
@@ -1055,7 +1155,7 @@ end;
 
 procedure TFileEvent.ReadFromJson(const Value: TdwsJSONValue);
 begin
-  FUri := WebUtils.DecodeURLEncoded(Value['uri'].AsString, 1);
+  FUri := WebUtils.DecodeURLEncoded(RawByteString(Value['uri'].AsString), 1);
   FType := TFileChangeType(Value['type'].AsInteger);
 end;
 

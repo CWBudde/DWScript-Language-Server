@@ -100,7 +100,7 @@ type
 implementation
 
 uses
-  SysUtils, ComObj, WinInet, ShLwApi, dwsXPlatform, dwsc.Utils;
+  SysUtils, dwsXPlatform, dwsc.Utils;
 
 { TTestLanguageServerClasses }
 
@@ -1505,16 +1505,6 @@ procedure TTestLanguageServer.TearDown;
 begin
   FLanguageServerHost.Free;
   FLanguageServerHost := nil;
-end;
-
-function FileNameToURI(const FileName: string): string;
-var
-  BufferLen: DWORD;
-begin
-  BufferLen := INTERNET_MAX_URL_LENGTH;
-  SetLength(Result, BufferLen);
-  OleCheck(UrlCreateFromPath(PChar(FileName), PChar(Result), @BufferLen, 0));
-  SetLength(Result, BufferLen);
 end;
 
 function TTestLanguageServer.OpenFile(FileName: string): string;

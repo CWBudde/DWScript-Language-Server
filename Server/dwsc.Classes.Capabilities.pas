@@ -54,6 +54,28 @@ type
     property SnippetSupport: Boolean read FSnippetSupport write FSnippetSupport;
   end;
 
+  TPublishDiagnosticsCapabilities = class(TJsonClass)
+  private
+    FRelatedInformation: Boolean;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property RelatedInformation: Boolean read FRelatedInformation write FRelatedInformation;
+  end;
+
+  TFoldingRangeCapabilities = class(TDynamicRegistration)
+  private
+    FRangeLimit: Integer;
+    FLimitFoldingOnly: Boolean;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property RangeLimit: Integer read FRangeLimit write FRangeLimit;
+    property LimitFoldingOnly: Boolean read FLimitFoldingOnly write FLimitFoldingOnly;
+  end;
+
   TTextDocumentCapabilities = class(TJsonClass)
   private
     FSignatureHelp: TDynamicRegistration;
@@ -64,13 +86,18 @@ type
     FDocumentSymbol: TDynamicRegistration;
     FDocumentHighlight: TDynamicRegistration;
     FDefinition: TDynamicRegistration;
+    FTypeDefinition: TDynamicRegistration;
+    FImplementation: TDynamicRegistration;
     FReferences: TDynamicRegistration;
     FDocumentLink: TDynamicRegistration;
+    FColorProvider: TDynamicRegistration;
     FCodeLens: TDynamicRegistration;
     FSynchronization: TSynchronizationCapabilities;
     FOnTypeFormatting: TDynamicRegistration;
     FCodeAction: TDynamicRegistration;
     FRangeFormatting: TDynamicRegistration;
+    FPublishDiagnostics: TPublishDiagnosticsCapabilities;
+    FFoldingCapbilities: TFoldingRangeCapabilities;
   public
     constructor Create;
     destructor Destroy; override;
@@ -89,10 +116,14 @@ type
     property RangeFormatting: TDynamicRegistration read FRangeFormatting;
     property OnTypeFormatting: TDynamicRegistration read FOnTypeFormatting;
     property Definition: TDynamicRegistration read FDefinition;
+    property TypeDefinition: TDynamicRegistration read FTypeDefinition;
+    property &Implementation: TDynamicRegistration read FImplementation;
     property CodeAction: TDynamicRegistration read FCodeAction;
     property CodeLens: TDynamicRegistration read FCodeLens;
     property DocumentLink: TDynamicRegistration read FDocumentLink;
+    property ColorProvider: TDynamicRegistration read FColorProvider;
     property Rename: TDynamicRegistration read FRename;
+    property PublishDiagnostics: TPublishDiagnosticsCapabilities read FPublishDiagnostics;
   end;
 
   TClientCapabilities = class(TJsonClass)
@@ -375,6 +406,46 @@ begin
 end;
 
 
+{ TPublishDiagnosticsCapabilities }
+
+procedure TPublishDiagnosticsCapabilities.ReadFromJson(
+  const Value: TdwsJSONValue);
+begin
+  if Assigned(Value['relatedInformation']) then
+    FRelatedInformation := Value['relatedInformation'].AsBoolean;
+end;
+
+procedure TPublishDiagnosticsCapabilities.WriteToJson(
+  const Value: TdwsJSONObject);
+begin
+  if FRelatedInformation then
+    Value.AddValue('relatedInformation', FRelatedInformation);
+end;
+
+
+{ TFoldingRangeCapabilities }
+
+procedure TFoldingRangeCapabilities.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  inherited;
+
+  if Assigned(Value['rangeLimit']) then
+    FRangeLimit := Value['rangeLimit'].AsInteger;
+  if Assigned(Value['lineFoldingOnly']) then
+    FLimitFoldingOnly := Value['lineFoldingOnly'].AsBoolean;
+end;
+
+procedure TFoldingRangeCapabilities.WriteToJson(const Value: TdwsJSONObject);
+begin
+  inherited;
+
+  if FRangeLimit <> 0 then
+    Value.AddValue('rangeLimit', FRangeLimit);
+  if FLimitFoldingOnly then
+    Value.AddValue('lineFoldingOnly', FLimitFoldingOnly);
+end;
+
+
 { TTextDocumentCapabilities }
 
 constructor TTextDocumentCapabilities.Create;
@@ -387,13 +458,18 @@ begin
   FDocumentSymbol := TDynamicRegistration.Create;
   FDocumentHighlight := TDynamicRegistration.Create;
   FDefinition := TDynamicRegistration.Create;
+  FImplementation := TDynamicRegistration.Create;
+  FTypeDefinition := TDynamicRegistration.Create;
   FReferences := TDynamicRegistration.Create;
   FDocumentLink := TDynamicRegistration.Create;
+  FColorProvider := TDynamicRegistration.Create;
   FCodeLens := TDynamicRegistration.Create;
   FSynchronization := TSynchronizationCapabilities.Create;
   FOnTypeFormatting := TDynamicRegistration.Create;
   FCodeAction := TDynamicRegistration.Create;
   FRangeFormatting := TDynamicRegistration.Create;
+  FPublishDiagnostics := TPublishDiagnosticsCapabilities.Create;
+  FFoldingCapbilities := TFoldingRangeCapabilities.Create;
 end;
 
 destructor TTextDocumentCapabilities.Destroy;
@@ -406,13 +482,18 @@ begin
   FDocumentSymbol.Free;
   FDocumentHighlight.Free;
   FDefinition.Free;
+  FTypeDefinition.Free;
+  FImplementation.Free;
   FReferences.Free;
   FDocumentLink.Free;
+  FColorProvider.Free;
   FCodeLens.Free;
   FSynchronization.Free;
   FOnTypeFormatting.Free;
   FCodeAction.Free;
   FRangeFormatting.Free;
+  FPublishDiagnostics.Free;
+  FFoldingCapbilities.Free;
 
   inherited;
 end;
@@ -428,12 +509,17 @@ begin
   FDocumentSymbol.ReadFromJson(Value['documentSymbol']);
   FDocumentHighlight.ReadFromJson(Value['documentHighlight']);
   FDefinition.ReadFromJson(Value['definition']);
+  FTypeDefinition.ReadFromJson(Value['typeDefinition']);
+  FImplementation.ReadFromJson(Value['implementation']);
   FReferences.ReadFromJson(Value['references']);
   FDocumentLink.ReadFromJson(Value['documentLink']);
+  FColorProvider.ReadFromJson(Value['colorProvider']);
   FCodeLens.ReadFromJson(Value['codeLens']);
   FOnTypeFormatting.ReadFromJson(Value['onTypeFormatting']);
   FCodeAction.ReadFromJson(Value['codeAction']);
   FRangeFormatting.ReadFromJson(Value['rangeFormatting']);
+  FPublishDiagnostics.ReadFromJson(Value['publishDiagnostics']);
+  FFoldingCapbilities.ReadFromJson(Value['foldingCapbilities']);
 end;
 
 procedure TTextDocumentCapabilities.WriteToJson(const Value: TdwsJSONObject);
@@ -447,12 +533,17 @@ begin
   FDocumentSymbol.WriteToJson(Value.AddObject('documentSymbol'));
   FDocumentHighlight.WriteToJson(Value.AddObject('documentHighlight'));
   FDefinition.WriteToJson(Value.AddObject('definition'));
+  FTypeDefinition.WriteToJson(Value.AddObject('typeDefinition'));
+  FImplementation.WriteToJson(Value.AddObject('implementation'));
   FReferences.WriteToJson(Value.AddObject('references'));
   FDocumentLink.WriteToJson(Value.AddObject('documentLink'));
+  FColorProvider.WriteToJson(Value.AddObject('colorProvider'));
   FCodeLens.WriteToJson(Value.AddObject('codeLens'));
   FOnTypeFormatting.WriteToJson(Value.AddObject('onTypeFormatting'));
   FCodeAction.WriteToJson(Value.AddObject('codeAction'));
   FRangeFormatting.WriteToJson(Value.AddObject('rangeFormatting'));
+  FPublishDiagnostics.WriteToJson(Value.AddObject('publishDiagnostics'));
+  FFoldingCapbilities.WriteToJson(Value.AddObject('foldingCapbilities'));
 end;
 
 

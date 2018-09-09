@@ -38,14 +38,36 @@ type
     property SourceCode[const UnitName: string]: string read GetSourceCodeForUnitName;
   end;
 
+function FileNameToURI(const FileName: string): string;
+function URIToFileName(const URI: string): string;
 function GetUnitNameFromUri(Uri: string): string;
 function IsProgram(SourceCode: string): Boolean;
 
 implementation
 
 uses
-  SysUtils, dwsXXHash, dwsErrors, dwsTokenizer, dwsPascalTokenizer,
-  dwsScriptSource;
+  SysUtils, Windows, ComObj, WinInet, ShLwApi, dwsXXHash, dwsErrors,
+  dwsTokenizer, dwsPascalTokenizer, dwsScriptSource;
+
+function FileNameToURI(const FileName: string): string;
+var
+  BufferLen: DWORD;
+begin
+  BufferLen := INTERNET_MAX_URL_LENGTH;
+  SetLength(Result, BufferLen);
+  OleCheck(UrlCreateFromPath(PChar(FileName), PChar(Result), @BufferLen, 0));
+  SetLength(Result, BufferLen);
+end;
+
+function URIToFileName(const URI: string): string;
+var
+  BufferLen: DWORD;
+begin
+  BufferLen := INTERNET_MAX_PATH_LENGTH;
+  SetLength(Result, BufferLen);
+  OleCheck(PathCreateFromUrl(PChar(URI), PChar(Result), @BufferLen, 0));
+  SetLength(Result, BufferLen);
+end;
 
 function GetUnitNameFromUri(Uri: string): string;
 var

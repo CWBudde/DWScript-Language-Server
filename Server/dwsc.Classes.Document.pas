@@ -38,7 +38,8 @@ type
     property Diagnostics: TDiagnostics read FDiagnostics write FDiagnostics;
   end;
 
-  TTriggerKind = (tkUnknown = 0, tkInvoked = 1, tkTriggerCharacter = 2);
+  TTriggerKind = (tkUnknown = 0, tkInvoked = 1, tkTriggerCharacter = 2,
+    tkIncompleteCompletions = 3);
 
   TCompletionContext = class(TJsonClass)
   private
@@ -582,6 +583,68 @@ type
 
     property Range: TRange read FRange;
     property Target: string read FTarget write FTarget;
+  end;
+
+  TDocumentColorParams = class(TJsonClass)
+  private
+    FTextDocument: TTextDocumentIdentifier;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property TextDocument: TTextDocumentIdentifier read FTextDocument;
+  end;
+
+  TColorInformation = class(TJsonClass)
+  private
+    FRange: TRange;
+    FColor: TColor;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Color: TColor read FColor;
+    property Range: TRange read FRange;
+  end;
+
+  TColorPresentationParams = class(TJsonClass)
+  private
+    FTextDocument: TTextDocumentIdentifier;
+    FColor: TColor;
+    FRange: TRange;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property TextDocument: TTextDocumentIdentifier read FTextDocument;
+    property Color: TColor read FColor;
+    property Range: TRange read FRange;
+  end;
+
+  TColorPresentation = class(TJsonClass)
+  private
+    FLabel: string;
+    FTextEdit: TTextEdit;
+    FAdditionalTextEdits: TObjectList<TTextEdit>;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property TextEdit: TTextEdit read FTextEdit;
+    property AdditionalTextEdits: TObjectList<TTextEdit> read FAdditionalTextEdits;
+    property &Label: string read FLabel write FLabel;
   end;
 
   TRenameParams = class(TTextDocumentPositionParams)
@@ -1624,6 +1687,141 @@ end;
 procedure TDocumentLinkParams.WriteToJson(const Value: TdwsJSONObject);
 begin
   FTextDocument.WriteToJson(Value.AddObject('textDocument'));
+end;
+
+
+{ TDocumentColorParams }
+
+constructor TDocumentColorParams.Create;
+begin
+  FTextDocument := TTextDocumentIdentifier.Create;
+end;
+
+destructor TDocumentColorParams.Destroy;
+begin
+  FTextDocument.Free;
+  inherited;
+end;
+
+procedure TDocumentColorParams.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FTextDocument.ReadFromJson(Value['textDocument']);
+end;
+
+procedure TDocumentColorParams.WriteToJson(const Value: TdwsJSONObject);
+begin
+  FTextDocument.WriteToJson(Value.AddObject('textDocument'));
+end;
+
+
+{ TColorInformation }
+
+constructor TColorInformation.Create;
+begin
+  FColor := TColor.Create;
+  FRange := TRange.Create;
+end;
+
+destructor TColorInformation.Destroy;
+begin
+  FColor.Free;
+  FRange.Free;
+
+  inherited;
+end;
+
+procedure TColorInformation.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FColor.ReadFromJson(Value['color']);
+  FRange.ReadFromJson(Value['range']);
+end;
+
+procedure TColorInformation.WriteToJson(const Value: TdwsJSONObject);
+begin
+  FColor.WriteToJson(Value.AddObject('color'));
+  FRange.WriteToJson(Value.AddObject('range'));
+end;
+
+
+{ TColorPresentationParams }
+
+constructor TColorPresentationParams.Create;
+begin
+  FTextDocument := TTextDocumentIdentifier.Create;
+  FColor := TColor.Create;
+  FRange := TRange.Create;
+end;
+
+destructor TColorPresentationParams.Destroy;
+begin
+  FTextDocument.Free;
+  FColor.Free;
+  FRange.Free;
+
+  inherited;
+end;
+
+procedure TColorPresentationParams.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FTextDocument.ReadFromJson(Value['textDocument']);
+  FColor.ReadFromJson(Value['color']);
+  FRange.ReadFromJson(Value['range']);
+end;
+
+procedure TColorPresentationParams.WriteToJson(const Value: TdwsJSONObject);
+begin
+  FTextDocument.WriteToJson(Value.AddObject('textDocument'));
+  FColor.WriteToJson(Value.AddObject('color'));
+  FRange.WriteToJson(Value.AddObject('range'));
+end;
+
+
+{ TColorPresentation }
+
+constructor TColorPresentation.Create;
+begin
+  FTextEdit := TTextEdit.Create;
+  FAdditionalTextEdits := TObjectList<TTextEdit>.Create;
+end;
+
+destructor TColorPresentation.Destroy;
+begin
+  FAdditionalTextEdits.Free;
+  FTextEdit.Free;
+
+  inherited;
+end;
+
+procedure TColorPresentation.ReadFromJson(const Value: TdwsJSONValue);
+var
+  Index: Integer;
+  AdditionalTextEditsArray: TdwsJSONArray;
+  TextEdit: TTextEdit;
+begin
+  FLabel := Value['label'].AsString;
+  FTextEdit.ReadFromJson(Value['textEdit']);
+
+  AdditionalTextEditsArray := TdwsJSONArray(Value['additionalTextEdits']);
+  if AdditionalTextEditsArray is TdwsJSONArray then
+    for Index := 0 to AdditionalTextEditsArray.ElementCount - 1 do
+    begin
+      TextEdit := TTextEdit.Create;
+      TextEdit.ReadFromJson(AdditionalTextEditsArray.Elements[Index]);
+      FAdditionalTextEdits.Add(TextEdit);
+    end;
+end;
+
+procedure TColorPresentation.WriteToJson(const Value: TdwsJSONObject);
+var
+  AdditionalTextEditsArray, CommitCharactersArray: TdwsJSONArray;
+  Index: Integer;
+begin
+  Value.AddValue('label', FLabel);
+  FTextEdit.WriteToJson(Value.AddObject('textEdit'));
+
+  AdditionalTextEditsArray := TdwsJSONObject(Value).AddArray('contentChanges');
+  for Index := 0 to FAdditionalTextEdits.Count - 1 do
+    FAdditionalTextEdits[Index].WriteToJson(AdditionalTextEditsArray.AddObject);
 end;
 
 

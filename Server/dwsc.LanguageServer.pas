@@ -28,6 +28,9 @@ type
     FOnLog: TOnOutput;
 //    FWorkspace: TDWScriptWorkspace;
 
+    FRootPath: string;
+    FRootUri: string;
+
     FDelphiWebScript: TDelphiWebScript;
     FJSCodeGen: TdwsJSCodeGen;
     FJSCodeGenLib: TdwsJSLibModule;
@@ -83,10 +86,12 @@ type
     procedure HandleExit;
     procedure HandleInitialized;
     procedure HandleCodeLensResolve(Params: TdwsJSONObject);
+    procedure HandleColorPresentation(Params: TdwsJSONObject);
     procedure HandleCompletionItemResolve(Params: TdwsJSONObject);
     procedure HandleDocumentLinkResolve(Params: TdwsJSONObject);
     procedure HandleTextDocumentCodeAction(Params: TdwsJSONObject);
     procedure HandleTextDocumentCodeLens(Params: TdwsJSONObject);
+    procedure HandleTextDocumentColor(Params: TdwsJSONObject);
     procedure HandleTextDocumentCompletion(Params: TdwsJSONObject);
     procedure HandleTextDocumentDefinition(Params: TdwsJSONObject);
     procedure HandleTextDocumentDidChange(Params: TdwsJSONObject);
@@ -648,6 +653,12 @@ begin
   try
     InitializeParams.ReadFromJson(Params);
 
+    FRootPath := InitializeParams.RootPath;
+    FRootUri := InitializeParams.RootUri;
+
+//    if FRootPath then
+
+
     FClientCapabilities.CopyFrom(InitializeParams.ClientCapabilities);
   finally
     InitializeParams.Free;
@@ -759,6 +770,86 @@ begin
   // not yet implemented
 
   SendResponse;
+end;
+
+procedure TDWScriptLanguageServer.HandleColorPresentation(
+  Params: TdwsJSONObject);
+var
+  ColorPresentationParams: TColorPresentationParams;
+  TextEdits: TTextEdits;
+  Index: Integer;
+  Source: string;
+  Result: TdwsJSONArray;
+begin
+  ColorPresentationParams := TColorPresentationParams.Create;
+  try
+    ColorPresentationParams.ReadFromJson(Params);
+
+    Source := FTextDocumentItemList.Items[ColorPresentationParams.TextDocument.Uri].Text;
+
+    TextEdits := TTextEdits.Create;
+    try
+      (* TODO
+
+      ColorPresentationParams.Color
+
+      *)
+
+      if TextEdits.Count > 0 then
+      begin
+        Result := TdwsJSONArray.Create;
+
+        for Index := 0 to TextEdits.Count - 1 do
+          TextEdits[Index].WriteToJson(Result.AddObject);
+
+        SendResponse(Result);
+      end
+      else
+        SendResponse;
+    finally
+      TextEdits.Free;
+    end;
+  finally
+    ColorPresentationParams.Free;
+  end;
+end;
+
+procedure TDWScriptLanguageServer.HandleTextDocumentColor(
+  Params: TdwsJSONObject);
+var
+  DocumentColorParams: TDocumentColorParams;
+  TextEdits: TTextEdits;
+  Index: Integer;
+  Source: string;
+  Result: TdwsJSONArray;
+begin
+  DocumentColorParams := TDocumentColorParams.Create;
+  try
+    DocumentColorParams.ReadFromJson(Params);
+
+    Source := FTextDocumentItemList.Items[DocumentColorParams.TextDocument.Uri].Text;
+
+    TextEdits := TTextEdits.Create;
+    try
+      (* TODO *)
+
+      if TextEdits.Count > 0 then
+      begin
+        Result := TdwsJSONArray.Create;
+
+        for Index := 0 to TextEdits.Count - 1 do
+          TextEdits[Index].WriteToJson(Result.AddObject);
+
+        SendResponse(Result);
+      end
+      else
+        SendResponse;
+    finally
+      TextEdits.Free;
+    end;
+  finally
+    DocumentColorParams.Free;
+  end;
 end;
 
 procedure TDWScriptLanguageServer.HandleTextDocumentCompletion(Params: TdwsJSONObject);
@@ -2068,6 +2159,12 @@ begin
     else
     if Method = 'textDocument/codeLens' then
       HandleTextDocumentCodeLens(Params)
+    else
+    if Method = 'textDocument/colorPresentation' then
+      HandleColorPresentation(Params)
+    else
+    if Method = 'textDocument/documentColor' then
+      HandleTextDocumentColor(Params)
     else
     if Method = 'textDocument/documentLink' then
       HandleTextDocumentLink(Params)
