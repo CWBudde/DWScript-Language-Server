@@ -135,7 +135,7 @@ type
 implementation
 
 uses
-  StrUtils, dwsStrings, dwsPascalTokenizer, dwsTokenizer,
+  StrUtils, Math, dwsStrings, dwsPascalTokenizer, dwsTokenizer,
   dwsXXHash, dwsSuggestions, dwsContextMap;
 
 { TDWScriptLanguageServer }

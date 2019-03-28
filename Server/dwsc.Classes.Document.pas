@@ -497,9 +497,13 @@ type
     property Options: TFormattingOptions read FOptions;
   end;
 
+  TCodeActionKind = string; // 'quickfix', 'refactor', 'refactor.extract', ...
+  TArrayOfCodeActionKind = array of TCodeActionKind;
+
   TCodeActionContext = class(TJsonClass)
   private
     FDiagnostics: TDiagnostics;
+    FOnly: TArrayOfCodeActionKind;
   public
     constructor Create;
     destructor Destroy; override;
@@ -508,6 +512,7 @@ type
     procedure WriteToJson(const Value: TdwsJSONObject); override;
 
     property Diagnostics: TDiagnostics read FDiagnostics;
+    property Only: TArrayOfCodeActionKind read FOnly;
   end;
 
   TCodeActionParams = class(TJsonClass)

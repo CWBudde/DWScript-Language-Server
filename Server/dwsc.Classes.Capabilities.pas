@@ -44,14 +44,24 @@ type
     property DidSave: Boolean read FDidSave write FDidSave;
   end;
 
+  TArrayOfMarkupKind = array of TMarkupContent.TMarkupKind;
+
   TCompletionCapabilities = class(TDynamicRegistration)
   private
     FSnippetSupport: Boolean;
+    FCommitCharactersSupport: Boolean;
+    FDocumentationFormat: TArrayOfMarkupKind;
+    FDeprecatedSupport: Boolean;
+    FPreselectSupport: Boolean;
   public
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
 
     property SnippetSupport: Boolean read FSnippetSupport write FSnippetSupport;
+    property CommitCharactersSupport: Boolean read FCommitCharactersSupport;
+    property DocumentationFormat: TArrayOfMarkupKind read FDocumentationFormat;
+    property DeprecatedSupport: Boolean read FDeprecatedSupport write FDeprecatedSupport;
+    property PreselectSupport: Boolean read FPreselectSupport write FPreselectSupport;
   end;
 
   TPublishDiagnosticsCapabilities = class(TJsonClass)
@@ -243,6 +253,18 @@ type
     procedure WriteToJson(const Value: TdwsJSONObject); override;
   end;
 
+  TRenameOptions = class(TJsonClass)
+  private
+    FPrepareProvider: Boolean;
+  public
+    constructor Create;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property PrepareProvider: Boolean read FPrepareProvider write FPrepareProvider;
+  end;
+
   TDocumentLinkOptions = class(TJsonClass)
   private
     FResolveProvider: Boolean;
@@ -253,6 +275,12 @@ type
     procedure WriteToJson(const Value: TdwsJSONObject); override;
 
     property ResolveProvider: Boolean read FResolveProvider write FResolveProvider;
+  end;
+
+  TColorProviderOptions = class(TJsonClass)
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
   end;
 
   TExecuteCommandOptions = class(TJsonClass)
@@ -284,8 +312,11 @@ type
     FDocumentFormattingProvider: Boolean;
     FDocumentRangeFormattingProvider: Boolean;
     FDocumentOnTypeFormattingProvider: TDocumentOnTypeFormattingOptions;
-    FRenameProvider: Boolean;
+    FRenameProviderAsBoolean: Boolean;
+    FRenameProvider: TRenameOptions;
     FDocumentLinkProvider: TDocumentLinkOptions;
+    FColorProvider: TColorProviderOptions;
+    FColorProviderAsBoolean: Boolean;
     FExecuteCommandProvider: TExecuteCommandOptions;
 //    FExperimental: TdwsJsonObject;
   public
@@ -309,8 +340,11 @@ type
     property DocumentFormattingProvider: Boolean read FDocumentFormattingProvider write FDocumentFormattingProvider;
     property DocumentRangeFormattingProvider: Boolean read FDocumentRangeFormattingProvider write FDocumentRangeFormattingProvider;
     property DocumentOnTypeFormattingProvider: TDocumentOnTypeFormattingOptions read FDocumentOnTypeFormattingProvider;
-    property RenameProvider: Boolean read FRenameProvider write FRenameProvider;
+    property RenameProvider: TRenameOptions read FRenameProvider;
+    property RenameProviderAsBoolean: Boolean read FRenameProviderAsBoolean write FRenameProviderAsBoolean;
     property DocumentLinkProvider: TDocumentLinkOptions read FDocumentLinkProvider;
+    property ColorProvider: TColorProviderOptions read FColorProvider;
+    property ColorProviderAsBoolean: Boolean read FColorProviderAsBoolean write FColorProviderAsBoolean;
     property ExecuteCommandProvider: TExecuteCommandOptions read FExecuteCommandProvider;
   end;
 
@@ -754,6 +788,24 @@ begin
 end;
 
 
+{ TRenameOptions }
+
+constructor TRenameOptions.Create;
+begin
+  FPrepareProvider := True;
+end;
+
+procedure TRenameOptions.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FPrepareProvider := Value['prepareProvider'].AsBoolean;
+end;
+
+procedure TRenameOptions.WriteToJson(const Value: TdwsJSONObject);
+begin
+  Value.AddValue('prepareProvider', FPrepareProvider);
+end;
+
+
 { TDocumentLinkOptions }
 
 constructor TDocumentLinkOptions.Create;
@@ -769,6 +821,19 @@ end;
 procedure TDocumentLinkOptions.WriteToJson(const Value: TdwsJSONObject);
 begin
   Value.AddValue('resolveProvider', FResolveProvider);
+end;
+
+
+{ TColorProviderOptions }
+
+procedure TColorProviderOptions.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  // still empty (version 3.14.0)
+end;
+
+procedure TColorProviderOptions.WriteToJson(const Value: TdwsJSONObject);
+begin
+  // still empty (version 3.14.0)
 end;
 
 
@@ -823,6 +888,7 @@ begin
   FDocumentOnTypeFormattingProvider := TDocumentOnTypeFormattingOptions.Create;
   FDocumentLinkProvider := TDocumentLinkOptions.Create;
   FDocumentLinkProvider.ResolveProvider := False;
+  FRenameProvider := TRenameOptions.Create;
   FExecuteCommandProvider := TExecuteCommandOptions.Create;
 
   HoverProvider := True;
@@ -834,7 +900,7 @@ begin
   CodeActionProvider := False;
   DocumentFormattingProvider := False;
   DocumentRangeFormattingProvider := False;
-  RenameProvider := True;
+  RenameProviderAsBoolean := True;
 end;
 
 
@@ -846,6 +912,7 @@ begin
   FCodeLensProvider.Free;
   FDocumentOnTypeFormattingProvider.Free;
   FDocumentLinkProvider.Free;
+  FRenameProvider.Free;
   FExecuteCommandProvider.Free;
 
   inherited;
@@ -868,7 +935,10 @@ begin
   FDocumentFormattingProvider := Value['documentFormattingProvider'].AsBoolean;
   FDocumentRangeFormattingProvider := Value['documentRangeFormattingProvider'].AsBoolean;
   FDocumentOnTypeFormattingProvider.ReadFromJson(Value['documentOnTypeFormattingProvider']);
-  FRenameProvider := Value['renameProvider'].AsBoolean;
+  if Value['renameProvider'] is TdwsJSONObject then
+    FRenameProvider.ReadFromJson(Value['renameProvider'])
+  else
+    FRenameProviderAsBoolean := Value['renameProvider'].AsBoolean;
   FDocumentLinkProvider.ReadFromJson(Value['documentLinkProvider']);
   FExecuteCommandProvider.ReadFromJson(Value['executeCommandProvider']);
 end;
@@ -890,7 +960,7 @@ begin
   Value.AddValue('documentFormattingProvider', FDocumentFormattingProvider);
   Value.AddValue('documentRangeFormattingProvider', FDocumentRangeFormattingProvider);
   FDocumentOnTypeFormattingProvider.WriteToJson(Value.AddObject('documentOnTypeFormattingProvider'));
-  Value.AddValue('renameProvider', FRenameProvider);
+  Value.AddValue('renameProvider', FRenameProviderAsBoolean);
   FDocumentLinkProvider.WriteToJson(Value.AddObject('documentLinkProvider'));
   FExecuteCommandProvider.WriteToJson(Value.AddObject('executeCommandProvider'));
 end;
