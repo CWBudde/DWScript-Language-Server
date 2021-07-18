@@ -18,6 +18,8 @@ type
     FServerCapabilities: TServerCapabilities;
     FDiagnosticMessages: TDiagnostics;
     FPendingRequests: TRequests;
+    procedure HandleCancelResponse;
+    procedure HandleProgressResponse;
     procedure HandleServerOutput(JsonRpc: TdwsJSONObject);
     procedure HandleInitialize(Params: TdwsJSONObject);
     procedure HandlePublishDiagnostics(Params: TdwsJSONObject);
@@ -182,9 +184,10 @@ begin
     HandleShutdown
   else
   if Pos('$/cancelRequest', Method) = 1 then
-  begin
-    // yet todo
-  end
+    HandleCancelResponse
+  else
+  if Pos('$/progress', Method) = 1 then
+    HandleProgressResponse
   else
   if Pos('workspace', Method) = 1 then
   begin
@@ -215,6 +218,16 @@ procedure TLanguageServerHost.HandleShutdown;
 begin
   FInitialized := False;
   SendNotification('exit');
+end;
+
+procedure TLanguageServerHost.HandleCancelResponse;
+begin
+  // nothing here so far
+end;
+
+procedure TLanguageServerHost.HandleProgressResponse;
+begin
+  // nothing here so far
 end;
 
 procedure TLanguageServerHost.HandleHoverResponse(Result: TdwsJSONObject);

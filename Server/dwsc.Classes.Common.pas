@@ -16,6 +16,12 @@ type
     dsHint = 4
   );
 
+  TDiagnosticTag = (
+    dtUnknown = 0,
+    dtUnnecessary = 1,
+    dtDeprecated = 2
+  );
+
   TMessageType = (
     msError = 1,
     msWarning = 2,
@@ -35,12 +41,19 @@ type
 	  ecMethodNotFound = -32601,
 	  ecInvalidParams = -32602,
 	  ecInternalError = -32603,
-	  ecserverErrorStart = -32099,
-	  ecserverErrorEnd = -32000,
+	  ecServerErrorStart = -32099,
 	  ecServerNotInitialized = -32002,
 	  ecUnknownErrorCode = -32001,
-	  ecRequestCancelled = -32800
+	  ecServerErrorEnd = -32000,
+    ecContentModified = -32801,
+	  ecRequestCancelled = -32800,
+    ecReservedErrorRangeStart = -32899
   );
+
+  TDocumentUri = type string;
+
+  TMarkupKind = (mkPlainText, mkMarkDown);
+  TMarkupKinds = set of TMarkupKind;
 
   TMessage = class(TJsonClass)
   private
@@ -88,6 +101,16 @@ type
     property Params: TdwsJSONObject read FParams;
   end;
 
+  TProgressParams = class(TJsonClass)
+  private
+    FToken: Integer;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property ProcessToken: Integer read FToken;
+  end;
+
   TRequests = TObjectList<TRequest>;
 
   TDynamicRegistration = class(TJsonClass)
@@ -102,17 +125,17 @@ type
 
   TPosition = class(TJsonClass)
   private
-    FLine: Integer;
-    FCharacter: Integer;
+    FLine: Cardinal;
+    FCharacter: Cardinal;
   public
     constructor Create; overload;
-    constructor Create(Line, Character: Integer); overload;
+    constructor Create(Line, Character: Cardinal); overload;
 
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
 
-    property Line: Integer read FLine write FLine;
-    property Character: Integer read FCharacter write FCharacter;
+    property Line: Cardinal read FLine write FLine;
+    property Character: Cardinal read FCharacter write FCharacter;
   end;
 
   TRange = class(TJsonClass)
@@ -132,7 +155,7 @@ type
 
   TLocation = class(TJsonClass)
   private
-    FUri: string;
+    FUri: TDocumentUri;
     FRange: TRange;
   public
     constructor Create;
@@ -141,8 +164,27 @@ type
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
 
-    property Uri: string read FUri write FUri;
+    property Uri: TDocumentUri read FUri write FUri;
     property Range: TRange read FRange write FRange;
+  end;
+
+  TLocationLink = class(TJsonClass)
+  private
+    FOriginSelectionRange: TRange;
+    FTargetUri: TDocumentUri;
+    FTargetRange: TRange;
+    FTargetSelectionRange: TRange;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property OriginSelectionRange: TRange read FOriginSelectionRange write FOriginSelectionRange;
+    property TargetUri: TDocumentUri read FTargetUri write FTargetUri;
+    property TargetRange: TRange read FTargetRange write FTargetRange;
+    property TargetSelectionRange: TRange read FTargetSelectionRange write FTargetSelectionRange;
   end;
 
   TColor = class(TJsonClass)
@@ -159,6 +201,16 @@ type
     property Green: Integer read FGreen write FGreen;
     property Blue: Integer read FBlue write FBlue;
     property Alpha: Integer read FAlpha write FAlpha;
+  end;
+
+  TCodeDescription = class(TJsonClass)
+  private
+    FHref: string;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Href: string read FHref write FHref;
   end;
 
   TDiagnosticRelatedInformation = class(TJsonClass)
@@ -187,9 +239,12 @@ type
     FCodeString: string;
     FCodeValue: Integer;
     FCodeType: TCodeType;
+    FCodeDescription: TCodeDescription;
     FSource: string;
     FMessage: string;
+    FTags: array of TDiagnosticTag;
     FRelatedInformation: TDiagnosticRelatedInformationList;
+    FData: TdwsJSONValue;
     procedure SetCodeString(const Value: string);
     procedure SetCodeValue(const Value: Integer);
   public
@@ -207,6 +262,7 @@ type
     property Source: string read FSource write FSource;
     property Message: string read FMessage write FMessage;
     property RelatedInformation: TDiagnosticRelatedInformationList read FRelatedInformation write FRelatedInformation;
+    property Data: TdwsJSONValue read FData write FData;
   end;
 
   TDiagnostics = TObjectList<TDiagnostic>;
@@ -245,6 +301,32 @@ type
 
   TTextEdits = TObjectList<TTextEdit>;
 
+  TChangeAnnotation = class(TJsonClass)
+  private
+    FLabel: String;
+    FNeedsConfirmation: Boolean;
+    FDescription: String;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Description: string read FDescription write FDescription;
+    property NeedsConfirmation: Boolean read FNeedsConfirmation write FNeedsConfirmation;
+    property &Label: string read FLabel write FLabel;
+  end;
+
+  TChangeAnnotationIdentifier = type string;
+
+  TAnnotatedTextEdit = class(TTextEdit)
+  private
+    FAnnotationId: TChangeAnnotationIdentifier;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property AnnotationId: TChangeAnnotationIdentifier read FAnnotationId write FAnnotationId;
+  end;
+
   TTextDocumentIdentifier = class(TJsonClass)
   private
     FUri: string;
@@ -257,7 +339,7 @@ type
 
   TTextDocumentItem = class(TJsonClass)
   private
-    FUri: string;
+    FUri: TDocumentUri;
     FVersion: Integer;
     FLanguageId: string;
     FText: string;
@@ -265,7 +347,7 @@ type
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
 
-    property Uri: string read FUri write FUri;
+    property Uri: TDocumentUri read FUri write FUri;
     property LanguageId: string read FLanguageId write FLanguageId;
     property Version: Integer read FVersion write FVersion;
     property Text: string read FText write FText;
@@ -367,9 +449,32 @@ type
     property Pattern: string read FPattern write FPattern;
   end;
 
+  TDocumentSelector = TObjectList<TDocumentFilter>;
+
+  TStaticRegistrationOptions = class(TJsonClass)
+  private
+    FId: string;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Id: string read FId write FId;
+  end;
+
+  TTextDocumentRegistrationOptions = class(TJsonClass)
+  private
+    FDocumentSelector: TDocumentSelector;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property DocumentSelector: TDocumentSelector read FDocumentSelector write FDocumentSelector;
+  end;
+
   TMarkupContent = class(TJsonClass)
-  type
-    TMarkupKind  = (mkPlainText, mkMarkDown, mkUnknown);
   private
     FKind: TMarkupKind;
     FValue: string;
@@ -379,6 +484,24 @@ type
 
     property Kind: TMarkupKind read FKind write FKind;
     property Value: string read FValue write FValue;
+  end;
+
+  TWorkDoneProgress = class(TJsonClass)
+  private
+    FKind: string;
+    FTitle: string;
+    FCancellable: Boolean;
+    FMessage: String;
+    FPercentage: Cardinal;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Kind: string read FKind write FKind;
+    property Title: string read FTitle write FTitle;
+    property Cancellable: Boolean read FCancellable write FCancellable;
+    property Message: String read FMessage write FMessage;
+    property Percentage: Cardinal read FPercentage write FPercentage;
   end;
 
   TFileEvent = class(TJsonClass)
@@ -395,10 +518,38 @@ type
     property &Type: TFileChangeType read FType write FType;
   end;
 
+function ArrayToMarkupKinds(Value: TdwsJSONArray): TMarkupKinds;
+function MarkupKindsToArray(Value: TMarkupKinds): TdwsJSONArray;
+
 implementation
 
 uses
   dwsWebUtils, dwsXXHash;
+
+function ArrayToMarkupKinds(Value: TdwsJSONArray): TMarkupKinds;
+var
+  Index: Integer;
+begin
+  Result := [];
+  for Index := 0 to Value.ElementCount - 1 do
+  begin
+    if Value.Elements[Index].AsString = 'plaintext' then
+      Include(Result, mkPlainText);
+    if Value.Elements[Index].AsString = 'markdown' then
+      Include(Result, mkMarkDown);
+  end;
+end;
+
+function MarkupKindsToArray(Value: TMarkupKinds): TdwsJSONArray;
+begin
+  Result := TdwsJSONArray.Create;
+
+  if TMarkupKind.mkPlainText in Value then
+    Result.Add('plaintext');
+  if TMarkupKind.mkMarkDown in Value then
+    Result.Add('markdown');
+end;
+
 
 { TMessage }
 
@@ -512,6 +663,22 @@ begin
 end;
 
 
+{ TProgressParams }
+
+procedure TProgressParams.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  if not Assigned(Value) then
+    Exit;
+
+  FToken := Value['token'].AsInteger;
+end;
+
+procedure TProgressParams.WriteToJson(const Value: TdwsJSONObject);
+begin
+  Value.AddValue('token', FToken);
+end;
+
+
 { TDynamicRegistration }
 
 procedure TDynamicRegistration.ReadFromJson(const Value: TdwsJSONValue);
@@ -535,7 +702,7 @@ begin
   // do nothing by default
 end;
 
-constructor TPosition.Create(Line, Character: Integer);
+constructor TPosition.Create(Line, Character: Cardinal);
 begin
   Create;
   FLine := Line;
@@ -611,6 +778,42 @@ begin
 end;
 
 
+{ TLocationLink }
+
+constructor TLocationLink.Create;
+begin
+  FOriginSelectionRange := TRange.Create;
+  FTargetRange := TRange.Create;
+  FTargetSelectionRange := TRange.Create;
+end;
+
+destructor TLocationLink.Destroy;
+begin
+  FOriginSelectionRange.Free;
+  FTargetRange.Free;
+  FTargetSelectionRange.Free;
+
+  inherited;
+end;
+
+procedure TLocationLink.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  if Assigned(Value['originSelectionRange']) then
+    FOriginSelectionRange.ReadFromJson(Value['originSelectionRange']);
+  FTargetUri := WebUtils.DecodeURLEncoded(RawByteString(Value['targetUri'].AsString), 1);
+  FTargetRange.ReadFromJson(Value['targetRange']);
+  FTargetSelectionRange.ReadFromJson(Value['targetSelectionRange']);
+end;
+
+procedure TLocationLink.WriteToJson(const Value: TdwsJSONObject);
+begin
+  FOriginSelectionRange.WriteToJson(Value.AddObject('originSelectionRange'));
+  Value.AddValue('targetUri', WebUtils.EncodeURLEncoded(FTargetUri));
+  FTargetRange.WriteToJson(Value.AddObject('targetRange'));
+  FTargetSelectionRange.WriteToJson(Value.AddObject('targetSelectionRange'));
+end;
+
+
 { TColor }
 
 procedure TColor.ReadFromJson(const Value: TdwsJSONValue);
@@ -627,6 +830,19 @@ begin
   Value.AddValue('green', FGreen);
   Value.AddValue('blue', FBlue);
   Value.AddValue('alpha', FAlpha);
+end;
+
+
+{ TCodeDescription }
+
+procedure TCodeDescription.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FHref := WebUtils.DecodeURLEncoded(RawByteString(Value['href'].AsString), 1);
+end;
+
+procedure TCodeDescription.WriteToJson(const Value: TdwsJSONObject);
+begin
+  Value.AddValue('href', WebUtils.EncodeURLEncoded(FHref));
 end;
 
 
@@ -706,6 +922,8 @@ begin
   else
     CodeType := ctNone;
 
+  FCodeDescription.ReadFromJson(Value['codeDescription']);
+
   // read related information
   RelatedInfoArray := TdwsJSONArray(Value['relatedInformation']);
   for Index := 0 to RelatedInfoArray.ElementCount - 1 do
@@ -714,9 +932,17 @@ begin
     RelatedInfo.ReadFromJson(RelatedInfoArray.Elements[Index]);
     FRelatedInformation.Add(RelatedInfo);
   end;
+
+  // read data
+  if Assigned(Value['data']) then
+    FData := Value['data'];
 end;
 
 procedure TDiagnostic.WriteToJson(const Value: TdwsJSONObject);
+var
+  RelatedInfoArray: TdwsJSONArray;
+  RelatedInfo: TdwsJSONObject;
+  Index: Integer;
 begin
   FRange.WriteToJson(Value.AddObject('range'));
   if FSeverity <> dsUnknown then
@@ -731,6 +957,19 @@ begin
     ctNumber:
       Value.AddValue('code', FCodeValue);
   end;
+
+  FCodeDescription.WriteToJson(Value.AddObject('codeDescription'));
+
+  // write related information
+  RelatedInfoArray := TdwsJSONObject(Value).AddArray('relatedInformation');
+  for Index := 0 to FRelatedInformation.Count - 1 do
+  begin
+    RelatedInfo := RelatedInfoArray.AddObject;
+    FRelatedInformation[Index].WriteToJson(RelatedInfo);
+  end;
+
+  if Assigned(FData) then
+    Value.Add('data', FData);
 end;
 
 procedure TDiagnostic.SetCodeString(const Value: string);
@@ -817,6 +1056,42 @@ procedure TTextEdit.WriteToJson(const Value: TdwsJSONObject);
 begin
   FRange.WriteToJson(Value.AddObject('range'));
   Value.AddValue('newText', FNewText);
+end;
+
+
+{ TChangeAnnotation }
+
+procedure TChangeAnnotation.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FLabel := Value['label'].AsString;
+  if Assigned(Value['needsConfirmation']) then
+    FNeedsConfirmation := Value['needsConfirmation'].AsBoolean;
+  if Assigned(Value['description']) then
+    FDescription := Value['description'].AsString;
+end;
+
+procedure TChangeAnnotation.WriteToJson(const Value: TdwsJSONObject);
+begin
+  Value.AddValue('label', FLabel);
+  Value.AddValue('needsConfirmation', FNeedsConfirmation);
+  Value.AddValue('description', FDescription);
+end;
+
+
+{ TAnnotatedTextEdit }
+
+procedure TAnnotatedTextEdit.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  inherited;
+
+  FAnnotationId := Value['annotationId'].AsString;
+end;
+
+procedure TAnnotatedTextEdit.WriteToJson(const Value: TdwsJSONObject);
+begin
+  inherited;
+
+  Value.AddValue('annotationId', FAnnotationId);
 end;
 
 
@@ -1118,9 +1393,76 @@ end;
 
 procedure TDocumentFilter.WriteToJson(const Value: TdwsJSONObject);
 begin
-  Value.AddValue('language', FLanguage);
-  Value.AddValue('scheme', FScheme);
-  Value.AddValue('pattern', FPattern);
+  if FLanguage <> '' then
+    Value.AddValue('language', FLanguage);
+  if FScheme <> '' then
+    Value.AddValue('scheme', FScheme);
+  if FPattern <> '' then
+    Value.AddValue('pattern', FPattern);
+end;
+
+
+{ TStaticRegistrationOptions }
+
+procedure TStaticRegistrationOptions.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FId := Value['id'].AsString;
+end;
+
+procedure TStaticRegistrationOptions.WriteToJson(const Value: TdwsJSONObject);
+begin
+  if FId <> '' then
+    Value.AddValue('id', FId);
+end;
+
+
+{ TTextDocumentRegistrationOptions }
+
+constructor TTextDocumentRegistrationOptions.Create;
+begin
+  FDocumentSelector := TDocumentSelector.Create;
+end;
+
+destructor TTextDocumentRegistrationOptions.Destroy;
+begin
+  FDocumentSelector.Free;
+
+  inherited;
+end;
+
+procedure TTextDocumentRegistrationOptions.ReadFromJson(
+  const Value: TdwsJSONValue);
+var
+  DocumentSelectorArray: TdwsJSONArray;
+  DocumentFilter: TDocumentFilter;
+  Index: Integer;
+begin
+  inherited;
+
+  // read related information
+  DocumentSelectorArray := TdwsJSONArray(Value['documentSelector']);
+  for Index := 0 to DocumentSelectorArray.ElementCount - 1 do
+  begin
+    DocumentFilter := TDocumentFilter.Create;
+    DocumentFilter.ReadFromJson(DocumentSelectorArray.Elements[Index]);
+    FDocumentSelector.Add(DocumentFilter);
+  end;
+end;
+
+procedure TTextDocumentRegistrationOptions.WriteToJson(
+  const Value: TdwsJSONObject);
+var
+  DocumentSelectorArray: TdwsJSONArray;
+  DocumentFilter: TdwsJSONObject;
+  Index: Integer;
+begin
+  // write related information
+  DocumentSelectorArray := TdwsJSONObject(Value).AddArray('documentSelector');
+  for Index := 0 to FDocumentSelector.Count - 1 do
+  begin
+    DocumentFilter := DocumentSelectorArray.AddObject;
+    FDocumentSelector[Index].WriteToJson(DocumentFilter);
+  end;
 end;
 
 
@@ -1148,6 +1490,27 @@ begin
     mkMarkDown:
       Value.AddValue('kind', 'markdown');
   end;
+end;
+
+
+{ TWorkDoneProgress }
+
+procedure TWorkDoneProgress.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FKind := Value['kind'].AsString;
+  FTitle := Value['title'].AsString;
+  FCancellable := Value['cancellable'].AsBoolean;
+  FMessage := Value['message'].AsString;
+  FPercentage := Value['percentage'].AsInteger;
+end;
+
+procedure TWorkDoneProgress.WriteToJson(const Value: TdwsJSONObject);
+begin
+  Value.AddValue('kind', FKind);
+  Value.AddValue('title', FTitle);
+  Value.AddValue('cancellable', FCancellable);
+  Value.AddValue('message', FMessage);
+  Value.AddValue('percentage', FPercentage);
 end;
 
 

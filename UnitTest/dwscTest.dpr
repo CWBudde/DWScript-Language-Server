@@ -5,7 +5,7 @@ program dwscTest;
 {$ENDIF}
 
 uses
-  FastMM4,
+  FastMM5,
   DUnitTestRunner,
   TestLanguageServer in 'TestLanguageServer.pas',
   dwsc.Client in '..\Clients\Internal\dwsc.Client.pas',

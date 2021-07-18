@@ -7,14 +7,101 @@ uses
   dwsc.Classes.Settings;
 
 type
-  TWorkspaceCapabilities = class(TJsonClass)
+  TChangeAnnotationSupportClientCapabilities = class(TJsonClass)
+  private
+    FGroupsOnLabel: Boolean;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property GroupsOnLabel: Boolean read FGroupsOnLabel write FGroupsOnLabel;
+  end;
+
+  TResourceOperationKind = (
+    rokCreate,
+    rokRename,
+    rokDelete
+  );
+  TResourceOperationKinds = set of TResourceOperationKind;
+
+  TFailureHandlingKind = (
+    fhkAbort,
+    fhkTransactional,
+    fhkUndo,
+    fhkTextOnlyTransactional
+  );
+
+  TWorkspaceEditClientCapabilities = class(TJsonClass)
+  private
+    FDocumentChanges: Boolean;
+    FResourceOperations: TResourceOperationKinds;
+    FFailureHandling: TFailureHandlingKind;
+    FNormalizesLineEndings: Boolean;
+    FChangeAnnotationSupport: TChangeAnnotationSupportClientCapabilities;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property DocumentChanges: Boolean read FDocumentChanges write FDocumentChanges;
+    property ResourceOperations: TResourceOperationKinds read FResourceOperations write FResourceOperations;
+    property FailureHandling: TFailureHandlingKind read FFailureHandling write FFailureHandling;
+    property NormalizesLineEndings: Boolean read FNormalizesLineEndings write FNormalizesLineEndings;
+    property ChangeAnnotationSupport: TChangeAnnotationSupportClientCapabilities read FChangeAnnotationSupport write FChangeAnnotationSupport;
+  end;
+
+  TSemanticTokensWorkspaceClientCapabilities = class(TJsonClass)
+  private
+    FRefreshSupport: Boolean; 
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property RefreshSupport: Boolean read FRefreshSupport write FRefreshSupport;
+  end;
+
+  TCodeLensWorkspaceClientCapabilities = class(TJsonClass)
+  private
+    FRefreshSupport: Boolean;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property RefreshSupport: Boolean read FRefreshSupport write FRefreshSupport;
+  end;
+
+  TFileOperationsWorkspaceClientCapabilities = class(TDynamicRegistration)
+  private
+    FDidCreate: Boolean;
+    FWillCreate: Boolean;
+    FDidRename: Boolean;
+    FWillRename: Boolean;
+    FDidDelete: Boolean;
+    FWillDelete: Boolean;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property DidCreate: Boolean read FDidCreate write FDidCreate;
+    property WillCreate: Boolean read FWillCreate write FWillCreate;
+    property DidRename: Boolean read FDidRename write FDidRename;
+    property WillRename: Boolean read FWillRename write FWillRename;
+    property DidDelete: Boolean read FDidDelete write FDidDelete;
+    property WillDelete: Boolean read FWillDelete write FWillDelete;
+  end;
+
+  TWorkspaceClientCapabilities = class(TJsonClass)
   private
     FApplyEdit: Boolean;
-    FWorkspaceEdit: Boolean;
+    FWorkspaceEdit: TWorkspaceEditClientCapabilities;
     FDidChangeConfiguration: TDynamicRegistration;
     FDidChangeWatchedFiles: TDynamicRegistration;
     FSymbol: TDynamicRegistration;
     FExecuteCommand: TDynamicRegistration;
+    FWorkspaceFolders: Boolean;
+    FConfiguration: Boolean;
+    FSemanticTokensWorkspaceClientCapabilities: TSemanticTokensWorkspaceClientCapabilities;
+    FCodeLens: TCodeLensWorkspaceClientCapabilities;
+    FFileOperations: TFileOperationsWorkspaceClientCapabilities;
   public
     constructor Create;
     destructor Destroy; override;
@@ -23,14 +110,16 @@ type
     procedure WriteToJson(const Value: TdwsJSONObject); override;
 
     property ApplyEdit: Boolean read FApplyEdit write FApplyEdit;
-    property WorkspaceEditDocumentChanges: Boolean read FWorkspaceEdit write FWorkspaceEdit;
+    property WorkspaceEdit: TWorkspaceEditClientCapabilities read FWorkspaceEdit write FWorkspaceEdit;
     property DidChangeConfiguration: TDynamicRegistration read FDidChangeConfiguration;
     property DidChangeWatchedFiles: TDynamicRegistration read FDidChangeWatchedFiles;
     property Symbol: TDynamicRegistration read FSymbol;
     property ExecuteCommand: TDynamicRegistration read FExecuteCommand;
+    property Configuration: Boolean read FConfiguration write FConfiguration;
+    property SemanticTokens: TSemanticTokensWorkspaceClientCapabilities read FSemanticTokensWorkspaceClientCapabilities write FSemanticTokensWorkspaceClientCapabilities;
   end;
 
-  TSynchronizationCapabilities = class(TDynamicRegistration)
+  TTextDocumentSyncClientCapabilities = class(TDynamicRegistration)
   private
     FWillSave: Boolean;
     FWillSaveWaitUntil: Boolean;
@@ -44,13 +133,11 @@ type
     property DidSave: Boolean read FDidSave write FDidSave;
   end;
 
-  TArrayOfMarkupKind = array of TMarkupContent.TMarkupKind;
-
-  TCompletionCapabilities = class(TDynamicRegistration)
+  TCompletionClientCapabilities = class(TDynamicRegistration)
   private
     FSnippetSupport: Boolean;
     FCommitCharactersSupport: Boolean;
-    FDocumentationFormat: TArrayOfMarkupKind;
+    FDocumentationFormat: TMarkupKinds;
     FDeprecatedSupport: Boolean;
     FPreselectSupport: Boolean;
   public
@@ -59,12 +146,12 @@ type
 
     property SnippetSupport: Boolean read FSnippetSupport write FSnippetSupport;
     property CommitCharactersSupport: Boolean read FCommitCharactersSupport;
-    property DocumentationFormat: TArrayOfMarkupKind read FDocumentationFormat;
+    property DocumentationFormat: TMarkupKinds read FDocumentationFormat;
     property DeprecatedSupport: Boolean read FDeprecatedSupport write FDeprecatedSupport;
     property PreselectSupport: Boolean read FPreselectSupport write FPreselectSupport;
   end;
 
-  TPublishDiagnosticsCapabilities = class(TJsonClass)
+  TPublishDiagnosticsClientCapabilities = class(TJsonClass)
   private
     FRelatedInformation: Boolean;
   public
@@ -74,7 +161,7 @@ type
     property RelatedInformation: Boolean read FRelatedInformation write FRelatedInformation;
   end;
 
-  TFoldingRangeCapabilities = class(TDynamicRegistration)
+  TFoldingRangeClientCapabilities = class(TDynamicRegistration)
   private
     FRangeLimit: Integer;
     FLimitFoldingOnly: Boolean;
@@ -86,28 +173,90 @@ type
     property LimitFoldingOnly: Boolean read FLimitFoldingOnly write FLimitFoldingOnly;
   end;
 
-  TTextDocumentCapabilities = class(TJsonClass)
+  THoverClientCapabilities = class(TDynamicRegistration)
   private
-    FSignatureHelp: TDynamicRegistration;
-    FFormatting: TDynamicRegistration;
-    FCompletion: TCompletionCapabilities;
-    FHover: TDynamicRegistration;
-    FRename: TDynamicRegistration;
-    FDocumentSymbol: TDynamicRegistration;
-    FDocumentHighlight: TDynamicRegistration;
-    FDefinition: TDynamicRegistration;
-    FTypeDefinition: TDynamicRegistration;
-    FImplementation: TDynamicRegistration;
-    FReferences: TDynamicRegistration;
-    FDocumentLink: TDynamicRegistration;
-    FColorProvider: TDynamicRegistration;
-    FCodeLens: TDynamicRegistration;
-    FSynchronization: TSynchronizationCapabilities;
-    FOnTypeFormatting: TDynamicRegistration;
-    FCodeAction: TDynamicRegistration;
-    FRangeFormatting: TDynamicRegistration;
-    FPublishDiagnostics: TPublishDiagnosticsCapabilities;
-    FFoldingCapbilities: TFoldingRangeCapabilities;
+    FContentFormat: TMarkupKinds;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property ContentFormat: TMarkupKinds read FContentFormat write FContentFormat;
+  end;
+
+  TSignatureInformationClientCapabilities = class(TJsonClass)
+  private
+    FDocumentationFormat: TMarkupKinds;
+//    FParameterInformation: TODO
+    FActiveParameterSupport: Boolean;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property DocumentationFormat: TMarkupKinds read FDocumentationFormat write FDocumentationFormat;
+    property ActiveParameterSupport: Boolean read FActiveParameterSupport write FActiveParameterSupport;
+  end;
+
+  TSignatureHelpClientCapabilities = class(TDynamicRegistration)
+  private
+    FSignatureInformation: TSignatureInformationClientCapabilities;
+    FContextSupport: Boolean;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property SignatureInformation: TSignatureInformationClientCapabilities read FSignatureInformation write FSignatureInformation;
+    property ContextSupport: Boolean read FContextSupport write FContextSupport;
+  end;
+
+  TDeclarationClientCapabilities = class(TDynamicRegistration);
+  TDefinitionClientCapabilities = class(TDynamicRegistration);
+  TTypeDefinitionClientCapabilities = class(TDynamicRegistration);
+  TImplementationClientCapabilities = class(TDynamicRegistration);
+  TReferenceClientCapabilities = class(TDynamicRegistration);
+  TDocumentHighlightClientCapabilities = class(TDynamicRegistration);
+  TDocumentSymbolsClientCapabilities = class(TDynamicRegistration);
+  TCodeActionClientCapabilities = class(TDynamicRegistration);
+  TCodeLensClientCapabilities = class(TDynamicRegistration);
+  TDocumentLinkClientCapabilities = class(TDynamicRegistration);
+  TColorProviderClientCapabilities = class(TDynamicRegistration);
+  TDocumentFormattingClientCapabilities = class(TDynamicRegistration);
+  TDocumentRangeFormattingClientCapabilities = class(TDynamicRegistration);
+  TDocumentOnTypeFormattingClientCapabilities = class(TDynamicRegistration);
+  TRenameClientCapabilities = class(TDynamicRegistration);
+  TSelectionRangeClientCapabilities = class(TDynamicRegistration);
+  TLinkedEditingRangeClientCapabilities = class(TDynamicRegistration);
+  TCallHierarchyClientCapabilities = class(TDynamicRegistration);
+  TSemanticTokensClientCapabilities = class(TDynamicRegistration);
+  TMonikerClientCapabilities = class(TDynamicRegistration);
+
+  TTextDocumentClientCapabilities = class(TJsonClass)
+  private
+    FSynchronization: TTextDocumentSyncClientCapabilities;
+    FCompletion: TCompletionClientCapabilities;
+    FHover: THoverClientCapabilities;
+    FSignatureHelp: TSignatureHelpClientCapabilities;
+    FDeclaration: TDeclarationClientCapabilities;
+    FDefinition: TDefinitionClientCapabilities;
+    FTypeDefinition: TTypeDefinitionClientCapabilities;
+    FImplementation: TImplementationClientCapabilities;
+    FReferences: TReferenceClientCapabilities;
+    FDocumentHighlight: TDocumentHighlightClientCapabilities;
+    FDocumentSymbol: TDocumentSymbolsClientCapabilities;
+    FCodeAction: TCodeActionClientCapabilities;
+    FCodeLens: TCodeLensClientCapabilities;
+    FDocumentLink: TDocumentLinkClientCapabilities;
+    FColorProvider: TColorProviderClientCapabilities;
+    FFormatting: TDocumentFormattingClientCapabilities;
+    FRangeFormatting: TDocumentRangeFormattingClientCapabilities;
+    FOnTypeFormatting: TDocumentOnTypeFormattingClientCapabilities;
+    FRename: TRenameClientCapabilities;
+    FPublishDiagnostics: TPublishDiagnosticsClientCapabilities;
+    FFoldingRange: TFoldingRangeClientCapabilities;
+    FSelectionRange: TSelectionRangeClientCapabilities;
+    FLinkedEditingRange: TLinkedEditingRangeClientCapabilities;
+    FCallHierarchy: TCallHierarchyClientCapabilities;
+    FSemanticTokens: TSemanticTokensClientCapabilities;
+    FMoniker: TMonikerClientCapabilities;
   public
     constructor Create;
     destructor Destroy; override;
@@ -115,33 +264,140 @@ type
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
 
-    property Synchronization: TSynchronizationCapabilities read FSynchronization;
-    property Completion: TCompletionCapabilities read FCompletion;
-    property Hover: TDynamicRegistration read FHover write FHover;
-    property SignatureHelp: TDynamicRegistration read FSignatureHelp;
-    property References: TDynamicRegistration read FReferences;
-    property DocumentHighlight: TDynamicRegistration read FDocumentHighlight;
-    property DocumentSymbol: TDynamicRegistration read FDocumentSymbol;
-    property Formatting: TDynamicRegistration read FFormatting;
-    property RangeFormatting: TDynamicRegistration read FRangeFormatting;
-    property OnTypeFormatting: TDynamicRegistration read FOnTypeFormatting;
-    property Definition: TDynamicRegistration read FDefinition;
-    property TypeDefinition: TDynamicRegistration read FTypeDefinition;
-    property &Implementation: TDynamicRegistration read FImplementation;
-    property CodeAction: TDynamicRegistration read FCodeAction;
-    property CodeLens: TDynamicRegistration read FCodeLens;
-    property DocumentLink: TDynamicRegistration read FDocumentLink;
-    property ColorProvider: TDynamicRegistration read FColorProvider;
-    property Rename: TDynamicRegistration read FRename;
-    property PublishDiagnostics: TPublishDiagnosticsCapabilities read FPublishDiagnostics;
+    property Synchronization: TTextDocumentSyncClientCapabilities read FSynchronization;
+    property Completion: TCompletionClientCapabilities read FCompletion;
+    property Hover: THoverClientCapabilities read FHover write FHover;
+    property SignatureHelp: TSignatureHelpClientCapabilities read FSignatureHelp;
+    property Declaration: TDeclarationClientCapabilities read FDeclaration write FDeclaration;
+    property Definition: TDefinitionClientCapabilities read FDefinition;
+    property TypeDefinition: TTypeDefinitionClientCapabilities read FTypeDefinition;
+    property &Implementation: TImplementationClientCapabilities read FImplementation;
+    property References: TReferenceClientCapabilities read FReferences;
+    property DocumentHighlight: TDocumentHighlightClientCapabilities read FDocumentHighlight;
+    property DocumentSymbol: TDocumentSymbolsClientCapabilities read FDocumentSymbol;
+    property CodeAction: TCodeActionClientCapabilities read FCodeAction;
+    property CodeLens: TCodeLensClientCapabilities read FCodeLens;
+    property DocumentLink: TDocumentLinkClientCapabilities read FDocumentLink;
+    property ColorProvider: TColorProviderClientCapabilities read FColorProvider;
+    property Formatting: TDocumentFormattingClientCapabilities read FFormatting;
+    property RangeFormatting: TDocumentRangeFormattingClientCapabilities read FRangeFormatting;
+    property OnTypeFormatting: TDocumentOnTypeFormattingClientCapabilities read FOnTypeFormatting;
+    property Rename: TRenameClientCapabilities read FRename;
+    property PublishDiagnostics: TPublishDiagnosticsClientCapabilities read FPublishDiagnostics;
+    property FoldingRange: TFoldingRangeClientCapabilities read FFoldingRange;
+  end;
+
+  TMessageActionItemClientCapabilities = class(TJsonClass)
+  private
+    FAdditionalPropertiesSupport: Boolean;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property AdditionalPropertiesSupport: Boolean read FAdditionalPropertiesSupport write FAdditionalPropertiesSupport;
+  end;
+
+  TShowMessageRequestClientCapabilities = class(TJsonClass)
+  private
+    FMessageActionItem: TMessageActionItemClientCapabilities; 
+  public
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property MessageActionItem: TMessageActionItemClientCapabilities read FMessageActionItem write FMessageActionItem;
+  end;
+
+  TShowDocumentClientCapabilities = class(TJsonClass)
+  private
+    FSupport: Boolean;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Support: Boolean read FSupport write FSupport;
+  end;
+
+  TWindowClientCapabilities = class(TJsonClass)
+  private
+    FWorkDoneProgress: Boolean;
+    FShowMessage: TShowMessageRequestClientCapabilities;
+    FShowDocument: TShowDocumentClientCapabilities;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property WorkDoneProgress: Boolean read FWorkDoneProgress write FWorkDoneProgress;
+    property ShowMessage: TShowMessageRequestClientCapabilities read FShowMessage write FShowMessage;
+    property ShowDocument: TShowDocumentClientCapabilities read FShowDocument write FShowDocument;
+  end;
+
+  TStaleRequestsSupportClientCapabilities = class(TJsonClass)
+  private
+    FCancel: Boolean;
+    FRetryOnContentModified: TStringList;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Cancel: Boolean read FCancel write FCancel;
+    property RetryOnContentModified: TStringList read FRetryOnContentModified write FRetryOnContentModified;
+  end;
+
+  TRegularExpressionsClientCapabilities = class(TJsonClass)
+  private
+    FEngine: String;
+    FVersion: String;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Engine: String read FEngine write FEngine;
+    property Version: String read FVersion write FVersion;
+  end;
+
+  TMarkdownClientCapabilities = class(TJsonClass)
+  private
+    FParser: string;
+    FVersion: string;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Parser: string read FParser write FParser;
+    property Version: string read FVersion write FVersion;
+  end;
+
+  TGeneralClientCapabilities = class(TJsonClass)
+  private
+    FStaleRequestSupport: TStaleRequestsSupportClientCapabilities;
+    FRegularExpressions: TRegularExpressionsClientCapabilities;
+    FMarkdown: TMarkdownClientCapabilities;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property StaleRequestSupport: TStaleRequestsSupportClientCapabilities read FStaleRequestSupport write FStaleRequestSupport;
+    property RegularExpressions: TRegularExpressionsClientCapabilities read FRegularExpressions write FRegularExpressions;
+    property Markdown: TMarkdownClientCapabilities read FMarkdown write FMarkdown;
   end;
 
   TClientCapabilities = class(TJsonClass)
   private
-    FWorkspaceCapabilities: TWorkspaceCapabilities;
-    FTextDocumentCapabilities: TTextDocumentCapabilities;
-    FFilesProvider: Boolean;
-    FContentProvider: Boolean;
+    FWorkspace: TWorkspaceClientCapabilities;
+    FTextDocument: TTextDocumentClientCapabilities;
+    FWindow: TWindowClientCapabilities;
+    FGeneral: TGeneralClientCapabilities;
   public
     constructor Create;
     destructor Destroy; override;
@@ -149,20 +405,48 @@ type
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
 
-    property WorkspaceCapabilities: TWorkspaceCapabilities read FWorkspaceCapabilities;
-    property TextDocumentCapabilities: TTextDocumentCapabilities read FTextDocumentCapabilities;
-    property FilesProvider: Boolean read FFilesProvider;
-    property ContentProvider: Boolean read FContentProvider;
+    property Workspace: TWorkspaceClientCapabilities read FWorkspace;
+    property TextDocument: TTextDocumentClientCapabilities read FTextDocument;
+    property Window: TWindowClientCapabilities read FWindow;
+    property General: TGeneralClientCapabilities read FGeneral;
   end;
+
+  TClientInfo = class(TJsonClass)
+  private
+    FName: String;
+    FVersion: String;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Name: String read FName;
+    property Version: String read FVersion;
+  end;
+
+  TWorkspaceFolder = class(TJsonClass)
+  private
+    FUri: TDocumentUri;
+    FName: String;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Uri: TDocumentUri read FUri;
+    property Name: String read FName;
+  end;
+  TWorkspaceFolders = TObjectList<TWorkspaceFolder>;
 
   TInitializeParams = class(TJsonClass)
   private
     FProcessID: Integer;
+    FClientInfo: TClientInfo;
+    FLocale: string;
     FRootPath: string;
-    FRootUri: string;
+    FRootUri: TDocumentUri;
     FInitializationOptions: TSettings;
     FCapabilities: TClientCapabilities;
     FTrace: string;
+    FWorkspaceFolters: TWorkspaceFolders;
   public
     constructor Create;
     destructor Destroy; override;
@@ -171,8 +455,9 @@ type
     procedure WriteToJson(const Value: TdwsJSONObject); override;
 
     property ProcessId: Integer read FProcessId write FProcessId;
+    property Locale: string read FLocale write FLocale;
     property RootPath: string read FRootPath write FRootPath;
-    property RootUri: string read FRootUri write FRootUri;
+    property RootUri: TDocumentUri read FRootUri write FRootUri;
     property ClientCapabilities: TClientCapabilities read FCapabilities;
     property Trace: string read FTrace write FTrace;
   end;
@@ -351,20 +636,114 @@ type
 implementation
 
 uses
-  SysUtils;
+  SysUtils, dwsWebUtils;
 
-{ TWorkspaceCapabilities }
+{ TChangeAnnotationSupportClientCapabilities }
 
-constructor TWorkspaceCapabilities.Create;
+procedure TChangeAnnotationSupportClientCapabilities.ReadFromJson(
+  const Value: TdwsJSONValue);
 begin
+  FGroupsOnLabel := Value['groupsOnLabel'].AsBoolean;
+end;
+
+procedure TChangeAnnotationSupportClientCapabilities.WriteToJson(
+  const Value: TdwsJSONObject);
+begin
+  Value.AddValue('groupsOnLabel', FGroupsOnLabel);
+end;
+
+
+{ TWorkspaceEditClientCapabilities }
+
+procedure TWorkspaceEditClientCapabilities.ReadFromJson(
+  const Value: TdwsJSONValue);
+begin
+  FDocumentChanges := Value['documentChanges'].AsBoolean;
+  // TODO: FResourceOperations : TResourceOperationKinds;
+  // TODO: FFailureHandling: TFailureHandlingKind;
+  FNormalizesLineEndings := Value['normalizesLineEndings'].AsBoolean;
+  if Assigned(Value['changeAnnotationSupport']) then
+    FChangeAnnotationSupport.ReadFromJson(Value['changeAnnotationSupport']);
+end;
+
+procedure TWorkspaceEditClientCapabilities.WriteToJson(
+  const Value: TdwsJSONObject);
+begin
+  Value.AddValue('documentChanges', FDocumentChanges);
+  Value.AddValue('normalizesLineEndings', FNormalizesLineEndings);
+  if Assigned(FChangeAnnotationSupport) then
+    FChangeAnnotationSupport.WriteToJson(Value.AddObject('changeAnnotationSupport'));
+end;
+
+
+{ TSemanticTokensWorkspaceClientCapabilities }
+
+procedure TSemanticTokensWorkspaceClientCapabilities.ReadFromJson(
+  const Value: TdwsJSONValue);
+begin
+  FRefreshSupport := Value['refreshSupport'].AsBoolean;
+end;
+
+procedure TSemanticTokensWorkspaceClientCapabilities.WriteToJson(
+  const Value: TdwsJSONObject);
+begin
+  Value.AddValue('refreshSupport', FRefreshSupport);
+end;
+
+
+{ TCodeLensWorkspaceClientCapabilities }
+
+procedure TCodeLensWorkspaceClientCapabilities.ReadFromJson(
+  const Value: TdwsJSONValue);
+begin
+  FRefreshSupport := Value['refreshSupport'].AsBoolean;
+end;
+
+procedure TCodeLensWorkspaceClientCapabilities.WriteToJson(
+  const Value: TdwsJSONObject);
+begin
+  Value.AddValue('refreshSupport', FRefreshSupport);
+end;
+
+
+{ TFileOperationsWorkspaceClientCapabilities }
+
+procedure TFileOperationsWorkspaceClientCapabilities.ReadFromJson(
+  const Value: TdwsJSONValue);
+begin
+  FDidCreate := Value['didCreate'].AsBoolean;
+  FWillCreate := Value['willCreate'].AsBoolean;
+  FDidRename := Value['didRename'].AsBoolean;
+  FWillRename := Value['willRename'].AsBoolean;
+  FDidDelete := Value['didDelete'].AsBoolean;
+  FWillDelete := Value['willDelete'].AsBoolean;
+end;
+
+procedure TFileOperationsWorkspaceClientCapabilities.WriteToJson(
+  const Value: TdwsJSONObject);
+begin
+  Value.AddValue('didCreate', FDidCreate);
+  Value.AddValue('willCreate', FWillCreate);
+  Value.AddValue('didRename', FDidRename);
+  Value.AddValue('willRename', FWillRename);
+  Value.AddValue('didDelete', FDidDelete);
+  Value.AddValue('willDelete', FWillDelete);
+end;
+
+{ TWorkspaceClientCapabilities }
+
+constructor TWorkspaceClientCapabilities.Create;
+begin
+  FWorkspaceEdit := TWorkspaceEditClientCapabilities.Create;
   FDidChangeConfiguration := TDynamicRegistration.Create;
   FDidChangeWatchedFiles := TDynamicRegistration.Create;
   FSymbol := TDynamicRegistration.Create;
   FExecuteCommand := TDynamicRegistration.Create;
 end;
 
-destructor TWorkspaceCapabilities.Destroy;
+destructor TWorkspaceClientCapabilities.Destroy;
 begin
+  FWorkspaceEdit.Free;
   FDidChangeConfiguration.Free;
   FDidChangeWatchedFiles.Free;
   FSymbol.Free;
@@ -373,11 +752,11 @@ begin
   inherited;
 end;
 
-procedure TWorkspaceCapabilities.ReadFromJson(const Value: TdwsJSONValue);
+procedure TWorkspaceClientCapabilities.ReadFromJson(const Value: TdwsJSONValue);
 begin
   FApplyEdit := Value['applyEdit'].AsBoolean;
   if Assigned(Value['workspaceEdit']) then
-    FWorkspaceEdit := Value['workspaceEdit']['documentChanges'].AsBoolean;
+    FWorkspaceEdit.ReadFromJson(Value['workspaceEdit']);
   if Assigned(Value['didChangeConfiguration']) then
     FDidChangeConfiguration.ReadFromJson(Value['didChangeConfiguration']);
   if Assigned(Value['didChangeWatchedFiles']) then
@@ -386,23 +765,26 @@ begin
     FSymbol.ReadFromJson(Value['symbol']);
   if Assigned(Value['executeCommand']) then
     FExecuteCommand.ReadFromJson(Value['executeCommand']);
+  if Assigned(Value['workspaceFolders']) then
+    FWorkspaceFolders := Value['workspaceFolders'].AsBoolean;
 end;
 
-procedure TWorkspaceCapabilities.WriteToJson(const Value: TdwsJSONObject);
+procedure TWorkspaceClientCapabilities.WriteToJson(const Value: TdwsJSONObject);
 begin
   Value.AddValue('applyEdit', FApplyEdit);
-  if FWorkspaceEdit then
-    Value.AddObject('workspaceEdit').AddValue('documentChanges', FWorkspaceEdit);
+  if Assigned(FWorkspaceEdit) then
+    FWorkspaceEdit.WriteToJson(Value.AddObject('workspaceEdit'));
   FDidChangeConfiguration.WriteToJson(Value.AddObject('didChangeConfiguration'));
   FDidChangeWatchedFiles.WriteToJson(Value.AddObject('didChangeWatchedFiles'));
   FSymbol.WriteToJson(Value.AddObject('symbol'));
   FExecuteCommand.WriteToJson(Value.AddObject('executeCommand'));
+  Value.AddValue('workspaceFolders', FWorkspaceFolders);
 end;
 
 
-{ TSynchronizationCapabilities }
+{ TTextDocumentSyncClientCapabilities }
 
-procedure TSynchronizationCapabilities.ReadFromJson(const Value: TdwsJSONValue);
+procedure TTextDocumentSyncClientCapabilities.ReadFromJson(const Value: TdwsJSONValue);
 begin
   inherited;
 
@@ -411,7 +793,7 @@ begin
   FDidSave := Value['didSave'].AsBoolean;
 end;
 
-procedure TSynchronizationCapabilities.WriteToJson(const Value: TdwsJSONObject);
+procedure TTextDocumentSyncClientCapabilities.WriteToJson(const Value: TdwsJSONObject);
 begin
   inherited;
 
@@ -421,9 +803,9 @@ begin
 end;
 
 
-{ TCompletionCapabilities }
+{ TCompletionClientCapabilities }
 
-procedure TCompletionCapabilities.ReadFromJson(const Value: TdwsJSONValue);
+procedure TCompletionClientCapabilities.ReadFromJson(const Value: TdwsJSONValue);
 begin
   inherited;
 
@@ -431,7 +813,7 @@ begin
     FSnippetSupport := Value['completionItem']['snippetSupport'].AsBoolean;
 end;
 
-procedure TCompletionCapabilities.WriteToJson(const Value: TdwsJSONObject);
+procedure TCompletionClientCapabilities.WriteToJson(const Value: TdwsJSONObject);
 begin
   inherited;
 
@@ -440,16 +822,16 @@ begin
 end;
 
 
-{ TPublishDiagnosticsCapabilities }
+{ TPublishDiagnosticsClientCapabilities }
 
-procedure TPublishDiagnosticsCapabilities.ReadFromJson(
+procedure TPublishDiagnosticsClientCapabilities.ReadFromJson(
   const Value: TdwsJSONValue);
 begin
   if Assigned(Value['relatedInformation']) then
     FRelatedInformation := Value['relatedInformation'].AsBoolean;
 end;
 
-procedure TPublishDiagnosticsCapabilities.WriteToJson(
+procedure TPublishDiagnosticsClientCapabilities.WriteToJson(
   const Value: TdwsJSONObject);
 begin
   if FRelatedInformation then
@@ -457,9 +839,9 @@ begin
 end;
 
 
-{ TFoldingRangeCapabilities }
+{ TFoldingRangeClientCapabilities }
 
-procedure TFoldingRangeCapabilities.ReadFromJson(const Value: TdwsJSONValue);
+procedure TFoldingRangeClientCapabilities.ReadFromJson(const Value: TdwsJSONValue);
 begin
   inherited;
 
@@ -469,7 +851,7 @@ begin
     FLimitFoldingOnly := Value['lineFoldingOnly'].AsBoolean;
 end;
 
-procedure TFoldingRangeCapabilities.WriteToJson(const Value: TdwsJSONObject);
+procedure TFoldingRangeClientCapabilities.WriteToJson(const Value: TdwsJSONObject);
 begin
   inherited;
 
@@ -480,33 +862,80 @@ begin
 end;
 
 
-{ TTextDocumentCapabilities }
+{ THoverClientCapabilities }
 
-constructor TTextDocumentCapabilities.Create;
+procedure THoverClientCapabilities.ReadFromJson(const Value: TdwsJSONValue);
 begin
-  FSignatureHelp := TDynamicRegistration.Create;
-  FFormatting := TDynamicRegistration.Create;
-  FCompletion := TCompletionCapabilities.Create;
-  FHover := TDynamicRegistration.Create;
-  FRename := TDynamicRegistration.Create;
-  FDocumentSymbol := TDynamicRegistration.Create;
-  FDocumentHighlight := TDynamicRegistration.Create;
-  FDefinition := TDynamicRegistration.Create;
-  FImplementation := TDynamicRegistration.Create;
-  FTypeDefinition := TDynamicRegistration.Create;
-  FReferences := TDynamicRegistration.Create;
-  FDocumentLink := TDynamicRegistration.Create;
-  FColorProvider := TDynamicRegistration.Create;
-  FCodeLens := TDynamicRegistration.Create;
-  FSynchronization := TSynchronizationCapabilities.Create;
-  FOnTypeFormatting := TDynamicRegistration.Create;
-  FCodeAction := TDynamicRegistration.Create;
-  FRangeFormatting := TDynamicRegistration.Create;
-  FPublishDiagnostics := TPublishDiagnosticsCapabilities.Create;
-  FFoldingCapbilities := TFoldingRangeCapabilities.Create;
+  if Value['contentFormat'] is TdwsJSONArray then
+    FContentFormat := ArrayToMarkupKinds(TdwsJSONArray(Value['contentFormat']));
 end;
 
-destructor TTextDocumentCapabilities.Destroy;
+procedure THoverClientCapabilities.WriteToJson(const Value: TdwsJSONObject);
+begin
+  Value.Add('contentFormat', MarkupKindsToArray(FContentFormat));
+end;
+
+
+{ TSignatureInformationClientCapabilities }
+
+procedure TSignatureInformationClientCapabilities.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  if Value['documentationFormat'] is TdwsJSONArray then
+    FDocumentationFormat := ArrayToMarkupKinds(TdwsJSONArray(Value['documentationFormat']));
+  FActiveParameterSupport := Value['activeParameterSupport'].AsBoolean;
+end;
+
+procedure TSignatureInformationClientCapabilities.WriteToJson(const Value: TdwsJSONObject);
+begin
+  Value.Add('documentationFormat', MarkupKindsToArray(FDocumentationFormat));
+  Value.AddValue('activeParameterSupport', FActiveParameterSupport);
+end;
+
+
+{ TSignatureHelpClientCapabilities }
+
+procedure TSignatureHelpClientCapabilities.ReadFromJson(
+  const Value: TdwsJSONValue);
+begin
+  FSignatureInformation.ReadFromJson(Value['signatureInformation']);
+  FContextSupport := Value['contextSupport'].AsBoolean;
+end;
+
+procedure TSignatureHelpClientCapabilities.WriteToJson(
+  const Value: TdwsJSONObject);
+begin
+  FSignatureInformation.WriteToJson(Value.AddObject('signatureInformation'));
+  Value.AddValue('contextSupport', FContextSupport);
+end;
+
+
+{ TTextDocumentClientCapabilities }
+
+constructor TTextDocumentClientCapabilities.Create;
+begin
+  FSignatureHelp := TSignatureHelpClientCapabilities.Create;
+  FFormatting := TDocumentFormattingClientCapabilities.Create;
+  FCompletion := TCompletionClientCapabilities.Create;
+  FHover := THoverClientCapabilities.Create;
+  FRename := TRenameClientCapabilities.Create;
+  FDocumentSymbol := TDocumentSymbolsClientCapabilities.Create;
+  FDocumentHighlight := TDocumentHighlightClientCapabilities.Create;
+  FDefinition := TDefinitionClientCapabilities.Create;
+  FImplementation := TImplementationClientCapabilities.Create;
+  FTypeDefinition := TTypeDefinitionClientCapabilities.Create;
+  FReferences := TReferenceClientCapabilities.Create;
+  FDocumentLink := TDocumentLinkClientCapabilities.Create;
+  FColorProvider := TColorProviderClientCapabilities.Create;
+  FCodeLens := TCodeLensClientCapabilities.Create;
+  FSynchronization := TTextDocumentSyncClientCapabilities.Create;
+  FOnTypeFormatting := TDocumentOnTypeFormattingClientCapabilities.Create;
+  FCodeAction := TCodeActionClientCapabilities.Create;
+  FRangeFormatting := TDocumentRangeFormattingClientCapabilities.Create;
+  FPublishDiagnostics := TPublishDiagnosticsClientCapabilities.Create;
+  FFoldingRange := TFoldingRangeClientCapabilities.Create;
+end;
+
+destructor TTextDocumentClientCapabilities.Destroy;
 begin
   FSignatureHelp.Free;
   FFormatting.Free;
@@ -527,12 +956,12 @@ begin
   FCodeAction.Free;
   FRangeFormatting.Free;
   FPublishDiagnostics.Free;
-  FFoldingCapbilities.Free;
+  FFoldingRange.Free;
 
   inherited;
 end;
 
-procedure TTextDocumentCapabilities.ReadFromJson(const Value: TdwsJSONValue);
+procedure TTextDocumentClientCapabilities.ReadFromJson(const Value: TdwsJSONValue);
 begin
   FSynchronization.ReadFromJson(Value['synchronization']);
   FSignatureHelp.ReadFromJson(Value['signatureHelp']);
@@ -553,10 +982,10 @@ begin
   FCodeAction.ReadFromJson(Value['codeAction']);
   FRangeFormatting.ReadFromJson(Value['rangeFormatting']);
   FPublishDiagnostics.ReadFromJson(Value['publishDiagnostics']);
-  FFoldingCapbilities.ReadFromJson(Value['foldingCapbilities']);
+  FFoldingRange.ReadFromJson(Value['foldingCapbilities']);
 end;
 
-procedure TTextDocumentCapabilities.WriteToJson(const Value: TdwsJSONObject);
+procedure TTextDocumentClientCapabilities.WriteToJson(const Value: TdwsJSONObject);
 begin
   FSynchronization.WriteToJson(Value.AddObject('synchronization'));
   FSignatureHelp.WriteToJson(Value.AddObject('signatureHelp'));
@@ -577,7 +1006,184 @@ begin
   FCodeAction.WriteToJson(Value.AddObject('codeAction'));
   FRangeFormatting.WriteToJson(Value.AddObject('rangeFormatting'));
   FPublishDiagnostics.WriteToJson(Value.AddObject('publishDiagnostics'));
-  FFoldingCapbilities.WriteToJson(Value.AddObject('foldingCapbilities'));
+  FFoldingRange.WriteToJson(Value.AddObject('foldingCapbilities'));
+end;
+
+
+{ TMessageActionItemClientCapabilities }
+
+procedure TMessageActionItemClientCapabilities.ReadFromJson(
+  const Value: TdwsJSONValue);
+begin
+  FAdditionalPropertiesSupport := Value['additionalPropertiesSupport'].AsBoolean;
+end;
+
+procedure TMessageActionItemClientCapabilities.WriteToJson(
+  const Value: TdwsJSONObject);
+begin
+  Value.AddValue('additionalPropertiesSupport', FAdditionalPropertiesSupport);
+end;
+
+
+{ TShowMessageRequestClientCapabilities }
+
+destructor TShowMessageRequestClientCapabilities.Destroy;
+begin
+  FMessageActionItem.Free;
+
+  inherited;
+end;
+
+procedure TShowMessageRequestClientCapabilities.ReadFromJson(
+  const Value: TdwsJSONValue);
+begin
+  if Assigned(Value['messageActionItem']) then
+  begin
+    FMessageActionItem := TMessageActionItemClientCapabilities.Create;
+    FMessageActionItem.ReadFromJson(Value['messageActionItem']);
+  end;
+end;
+
+procedure TShowMessageRequestClientCapabilities.WriteToJson(
+  const Value: TdwsJSONObject);
+begin
+  FMessageActionItem.WriteToJson(Value.AddObject('messageActionItem'));
+end;
+
+
+{ TShowDocumentClientCapabilities }
+
+procedure TShowDocumentClientCapabilities.ReadFromJson(
+  const Value: TdwsJSONValue);
+begin
+  FSupport := Value['support'].AsBoolean;
+end;
+
+procedure TShowDocumentClientCapabilities.WriteToJson(
+  const Value: TdwsJSONObject);
+begin
+  Value.AddValue('support', FSupport)
+end;
+
+
+{ TWindowClientCapabilities }
+
+constructor TWindowClientCapabilities.Create;
+begin
+  FShowMessage := TShowMessageRequestClientCapabilities.Create;
+  FShowDocument := TShowDocumentClientCapabilities.Create;
+end;
+
+destructor TWindowClientCapabilities.Destroy;
+begin
+  FShowMessage.Free;
+  FShowDocument.Free;
+
+  inherited;
+end;
+
+procedure TWindowClientCapabilities.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FWorkDoneProgress := Value['workDoneProgress'].AsBoolean;
+end;
+
+procedure TWindowClientCapabilities.WriteToJson(const Value: TdwsJSONObject);
+begin
+  Value.AddValue('workDoneProgress', FWorkDoneProgress);
+
+end;
+
+
+{ TStaleRequestsSupportClientCapabilities }
+
+constructor TStaleRequestsSupportClientCapabilities.Create;
+begin
+  FRetryOnContentModified := TStringList.Create;
+end;
+
+destructor TStaleRequestsSupportClientCapabilities.Destroy;
+begin
+  FRetryOnContentModified.Free;
+
+  inherited;
+end;
+
+procedure TStaleRequestsSupportClientCapabilities.ReadFromJson(
+  const Value: TdwsJSONValue);
+begin
+  FCancel := Value['cancel'].AsBoolean;
+end;
+
+procedure TStaleRequestsSupportClientCapabilities.WriteToJson(
+  const Value: TdwsJSONObject);
+begin
+  Value.AddValue('cancel', FCancel);
+end;
+
+
+{ TRegularExpressionsClientCapabilities }
+
+procedure TRegularExpressionsClientCapabilities.ReadFromJson(
+  const Value: TdwsJSONValue);
+begin
+  FEngine := Value['engine'].AsString;
+  FVersion := Value['version'].AsString;
+end;
+
+procedure TRegularExpressionsClientCapabilities.WriteToJson(
+  const Value: TdwsJSONObject);
+begin
+  Value.AddValue('engine', FEngine);
+  if FVersion <> '' then
+    Value.AddValue('version', FVersion);
+end;
+
+
+{ TMarkdownClientCapabilities }
+
+procedure TMarkdownClientCapabilities.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FParser := Value['parser'].AsString;
+  FVersion := Value['version'].AsString;
+end;
+
+procedure TMarkdownClientCapabilities.WriteToJson(const Value: TdwsJSONObject);
+begin
+  Value.AddValue('parser', FParser);
+  Value.AddValue('version', FVersion);
+end;
+
+
+{ TGeneralClientCapabilities }
+
+constructor TGeneralClientCapabilities.Create;
+begin
+  FStaleRequestSupport := TStaleRequestsSupportClientCapabilities.Create;
+  FRegularExpressions := TRegularExpressionsClientCapabilities.Create;
+  FMarkdown := TMarkdownClientCapabilities.Create;
+end;
+
+destructor TGeneralClientCapabilities.Destroy;
+begin
+  FStaleRequestSupport.Free;
+  FRegularExpressions.Free;
+  FMarkdown.Free;
+
+  inherited;
+end;
+
+procedure TGeneralClientCapabilities.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FStaleRequestSupport.ReadFromJson(Value['staleRequestSupport']);
+  FRegularExpressions.ReadFromJson(Value['regularExpressions']);
+  FMarkdown.ReadFromJson(Value['markdown']);
+end;
+
+procedure TGeneralClientCapabilities.WriteToJson(const Value: TdwsJSONObject);
+begin
+  FStaleRequestSupport.WriteToJson(Value.AddObject('staleRequestSupport'));
+  FRegularExpressions.WriteToJson(Value.AddObject('regularExpressions'));
+  FMarkdown.WriteToJson(Value.AddObject('markdown'));
 end;
 
 
@@ -587,14 +1193,18 @@ constructor TClientCapabilities.Create;
 begin
   inherited;
 
-  FWorkspaceCapabilities := TWorkspaceCapabilities.Create;
-  FTextDocumentCapabilities := TTextDocumentCapabilities.Create;
+  FWorkspace := TWorkspaceClientCapabilities.Create;
+  FTextDocument := TTextDocumentClientCapabilities.Create;
+  FWindow := TWindowClientCapabilities.Create;
+  FGeneral := TGeneralClientCapabilities.Create;
 end;
 
 destructor TClientCapabilities.Destroy;
 begin
-  FWorkspaceCapabilities.Free;
-  FTextDocumentCapabilities.Free;
+  FWorkspace.Free;
+  FTextDocument.Free;
+  FWindow.Free;
+  FGeneral.Free;
 
   inherited;
 end;
@@ -602,22 +1212,125 @@ end;
 procedure TClientCapabilities.ReadFromJson(const Value: TdwsJSONValue);
 begin
   if Value['workspace'] is TdwsJSONObject then
-    FWorkspaceCapabilities.ReadFromJson(TdwsJSONObject(Value.Items['workspace']));
+    FWorkspace.ReadFromJson(TdwsJSONObject(Value.Items['workspace']));
   if Value['textDocument'] is TdwsJSONObject then
-    FTextDocumentCapabilities.ReadFromJson(TdwsJSONObject(Value.Items['textDocument']));
-
-  if Assigned(Value['xfilesProvider']) then
-    FFilesProvider := Value['xfilesProvider'].AsBoolean;
-  if Assigned(Value['xcontentProvider']) then
-    FContentProvider := Value['xcontentProvider'].AsBoolean;
+    FTextDocument.ReadFromJson(TdwsJSONObject(Value.Items['textDocument']));
+  if Value['window'] is TdwsJSONObject then
+    FWindow.ReadFromJson(TdwsJSONObject(Value.Items['window']));
+  if Value['general'] is TdwsJSONObject then
+    FGeneral.ReadFromJson(TdwsJSONObject(Value.Items['general']));
 end;
 
 procedure TClientCapabilities.WriteToJson(const Value: TdwsJSONObject);
 begin
-  FWorkspaceCapabilities.WriteToJson(Value.AddObject('workspace'));
-  FTextDocumentCapabilities.WriteToJson(Value.AddObject('textDocument'));
-  Value.AddValue('xfilesProvider', FFilesProvider);
-  Value.AddValue('xcontentProvider', FContentProvider);
+  FWorkspace.WriteToJson(Value.AddObject('workspace'));
+  FTextDocument.WriteToJson(Value.AddObject('textDocument'));
+  FWindow.WriteToJson(Value.AddObject('window'));
+  FGeneral.WriteToJson(Value.AddObject('general'));
+end;
+
+
+{ TClientInfo }
+
+procedure TClientInfo.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FName := Value['name'].AsString;
+  FVersion := Value['version'].AsString;
+end;
+
+procedure TClientInfo.WriteToJson(const Value: TdwsJSONObject);
+begin
+  Value.AddValue('name', FName);
+  if FVersion <> '' then
+    Value.AddValue('version', FVersion);
+end;
+
+
+{ TWorkspaceFolder }
+
+procedure TWorkspaceFolder.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FUri := WebUtils.DecodeURLEncoded(RawByteString(Value['uri'].AsString), 1);
+  FName := Value['name'].AsString;
+end;
+
+procedure TWorkspaceFolder.WriteToJson(const Value: TdwsJSONObject);
+begin
+  Value.AddValue('uri', WebUtils.EncodeURLEncoded(FUri));
+  Value.AddValue('name', FName);
+end;
+
+
+{ TInitializeParams }
+
+constructor TInitializeParams.Create;
+begin
+  FCapabilities := TClientCapabilities.Create;
+  FInitializationOptions := TSettings.Create;
+end;
+
+destructor TInitializeParams.Destroy;
+begin
+  FInitializationOptions.Free;
+  FCapabilities.Free;
+
+  inherited;
+end;
+
+procedure TInitializeParams.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FProcessID := Value['processId'].AsInteger;
+  if Value['clientInfo'].IsDefined then
+  begin
+    FClientInfo := TClientInfo.Create;
+    FClientInfo.ReadFromJson(Value['clientInfo']);
+  end;
+
+  if Value['locale'].IsDefined then
+    FLocale := Value['locale'].AsString;
+
+  FRootPath := Value['rootPath'].AsString;
+  FRootUri := Value['rootUri'].AsString;
+
+  FInitializationOptions.ReadFromJson(Value['initializationOptions']);
+  FCapabilities.ReadFromJson(Value['capabilities']);
+
+  FTrace := Value['trace'].AsString;
+
+  if Value['workspaceFolders'].IsDefined then
+  begin
+    FWorkspaceFolters := TWorkspaceFolders.Create;
+    // TODO read workspace folders
+  end;
+
+  inherited;
+end;
+
+procedure TInitializeParams.WriteToJson(const Value: TdwsJSONObject);
+begin
+  Value.AddValue('processId', FProcessId);
+
+  if Assigned(FClientInfo) then
+    FClientInfo.WriteToJson(Value.AddObject('clientInfo'));
+
+  if FLocale <> '' then
+    Value.AddValue('locale', FLocale);
+
+  Value.AddValue('rootPath', FRootPath);
+  Value.AddValue('rootUri', FRootUri);
+
+  FInitializationOptions.WriteToJson(Value.AddObject('initializationOptions'));
+  FCapabilities.WriteToJson(Value.AddObject('capabilities'));
+
+  Value.AddValue('trace', FTrace);
+
+  if Assigned(FWorkspaceFolters) then
+  begin
+    FWorkspaceFolters := TWorkspaceFolders.Create;
+    // TODO write workspace folders
+  end;
+
+  inherited;
 end;
 
 
@@ -966,49 +1679,4 @@ begin
 end;
 
 
-{ TInitializeParams }
-
-constructor TInitializeParams.Create;
-begin
-  FCapabilities := TClientCapabilities.Create;
-  FInitializationOptions := TSettings.Create;
-end;
-
-destructor TInitializeParams.Destroy;
-begin
-  FInitializationOptions.Free;
-  FCapabilities.Free;
-
-  inherited;
-end;
-
-procedure TInitializeParams.ReadFromJson(const Value: TdwsJSONValue);
-begin
-  FProcessID := Value['processId'].AsInteger;
-  FRootPath := Value['rootPath'].AsString;
-  FRootUri := Value['rootUri'].AsString;
-
-  FInitializationOptions.ReadFromJson(Value['initializationOptions']);
-  FCapabilities.ReadFromJson(Value['capabilities']);
-
-  FTrace := Value['trace'].AsString;
-
-  inherited;
-end;
-
-procedure TInitializeParams.WriteToJson(const Value: TdwsJSONObject);
-begin
-  Value.AddValue('processId', FProcessId);
-  Value.AddValue('rootPath', FRootPath);
-  Value.AddValue('rootUri', FRootUri);
-
-  FInitializationOptions.WriteToJson(Value.AddObject('initializationOptions'));
-  FCapabilities.WriteToJson(Value.AddObject('capabilities'));
-
-  Value.AddValue('trace', FTrace);
-
-  inherited;
-end;
-
 end.
-

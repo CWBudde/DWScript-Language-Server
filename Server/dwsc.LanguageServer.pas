@@ -79,7 +79,8 @@ type
 
     function HandleJsonRpc(JsonRpc: TdwsJSONObject): Boolean;
 
-    procedure CancelRequest(Params: TdwsJSONObject);
+    procedure HandleCancelRequest(Params: TdwsJSONObject);
+    procedure HandleProgress(Params: TdwsJSONObject);
 
     procedure HandleInitialize(Params: TdwsJSONObject);
     procedure HandleShutDown;
@@ -136,7 +137,7 @@ implementation
 
 uses
   StrUtils, Math, dwsStrings, dwsPascalTokenizer, dwsTokenizer,
-  dwsXXHash, dwsSuggestions, dwsContextMap;
+  dwsXXHash, dwsSuggestions, dwsTokenTypes, dwsContextMap;
 
 { TDWScriptLanguageServer }
 
@@ -287,12 +288,24 @@ begin
     LogMessage('Compilation failed', msInfo);
 end;
 
-procedure TDWScriptLanguageServer.CancelRequest(Params: TdwsJSONObject);
-var
-  ID: Integer;
+procedure TDWScriptLanguageServer.HandleCancelRequest(Params: TdwsJSONObject);
 begin
-  ID := Params['id'].AsInteger;
+  SendErrorResponse(ecMethodNotFound, 'Cancelling a request is not yet implemented');
+  // not yet implemented
+end;
 
+procedure TDWScriptLanguageServer.HandleProgress(Params: TdwsJSONObject);
+var
+  Progress: TProgressParams;
+begin
+  Progress := TProgressParams.Create;
+  try
+    Progress.ReadFromJson(Params);
+  finally
+    Progress.Free;
+  end;
+
+  SendErrorResponse(ecMethodNotFound, 'The progress notification is not yet implemented');
   // not yet implemented
 end;
 
@@ -2091,7 +2104,10 @@ begin
   end
   else
   if Pos('$/cancelRequest', Method) = 1 then
-    CancelRequest(Params)
+    HandleCancelRequest(Params)
+  else
+  if Pos('$/progress', Method) = 1 then
+    HandleProgress(Params)
   else
   if Pos('workspace', Method) = 1 then
   begin
