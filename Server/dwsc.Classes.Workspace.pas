@@ -3,10 +3,26 @@ unit dwsc.Classes.Workspace;
 interface
 
 uses
-  Classes, dwsJSON, dwsUtils, dwsc.Classes.Common, dwsc.Classes.Settings,
+  Classes, dwsJSON, dwsUtils, dwsc.Classes.Common, dwsc.Classes.Basic,
+  dwsc.Classes.Settings,
   dwsc.Classes.JSON;
 
 type
+
+
+  TWorkspaceFolder = class(TJsonClass)
+  private
+    FUri: TDocumentUri;
+    FName: String;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
+
+    property Uri: TDocumentUri read FUri;
+    property Name: String read FName;
+  end;
+  TWorkspaceFolders = TObjectList<TWorkspaceFolder>;
+
   TDidChangeConfigurationParams = class(TJsonClass)
   private
     FSettings: TSettings;
@@ -84,6 +100,24 @@ type
   end;
 
 implementation
+
+uses
+  dwsWebUtils;
+
+{ TWorkspaceFolder }
+
+procedure TWorkspaceFolder.ReadFromJson(const Value: TdwsJSONValue);
+begin
+  FUri := WebUtils.DecodeURLEncoded(RawByteString(Value['uri'].AsString), 1);
+  FName := Value['name'].AsString;
+end;
+
+procedure TWorkspaceFolder.WriteToJson(const Value: TdwsJSONObject);
+begin
+  Value.AddValue('uri', WebUtils.EncodeURLEncoded(FUri));
+  Value.AddValue('name', FName);
+end;
+
 
 { TDidChangeConfigurationParams }
 

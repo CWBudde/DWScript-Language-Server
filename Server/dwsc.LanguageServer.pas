@@ -13,7 +13,8 @@ uses
   dwsJson, dwsXPlatform, dwsUtils, dwsSymbolDictionary, dwsScriptSource,
   dwsSymbols, dwsc.Classes.JSON, dwsc.Classes.Common, dwsc.Classes.Document,
   dwsc.Classes.Capabilities, dwsc.Classes.Workspace, dwsc.Classes.Settings,
-  dwsc.Utils;
+  dwsc.Classes.BaseProtocol, dwsc.Classes.Basic, dwsc.Classes.Diagnostics,
+  dwsc.Classes.LanguageFeatures, dwsc.Classes.TextSynchronization, dwsc.Utils;
 
 type
   TOnOutput = procedure(const Output: string) of object;
@@ -81,6 +82,8 @@ type
 
     procedure HandleCancelRequest(Params: TdwsJSONObject);
     procedure HandleProgress(Params: TdwsJSONObject);
+    procedure HandleLogTrace(Params: TdwsJSONObject);
+    procedure HandleSetTrace(Params: TdwsJSONObject);
 
     procedure HandleInitialize(Params: TdwsJSONObject);
     procedure HandleShutDown;
@@ -306,6 +309,18 @@ begin
   end;
 
   SendErrorResponse(ecMethodNotFound, 'The progress notification is not yet implemented');
+  // not yet implemented
+end;
+
+procedure TDWScriptLanguageServer.HandleLogTrace(Params: TdwsJSONObject);
+begin
+  SendErrorResponse(ecMethodNotFound, 'The log trace notification is not yet implemented');
+  // not yet implemented
+end;
+
+procedure TDWScriptLanguageServer.HandleSetTrace(Params: TdwsJSONObject);
+begin
+  SendErrorResponse(ecMethodNotFound, 'The set trace notification is not yet implemented');
   // not yet implemented
 end;
 
@@ -2108,6 +2123,12 @@ begin
   else
   if Pos('$/progress', Method) = 1 then
     HandleProgress(Params)
+  else
+  if Pos('$/logTrace', Method) = 1 then
+    HandleLogTrace(Params)
+  else
+  if Pos('$/setTrace', Method) = 1 then
+    HandleSetTrace(Params)
   else
   if Pos('workspace', Method) = 1 then
   begin

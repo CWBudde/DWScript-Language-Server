@@ -3,7 +3,7 @@ unit dwsc.Utils;
 interface
 
 uses
-  dwsUtils, dwsTokenTypes, dwsc.Classes.Common;
+  dwsUtils, dwsTokenTypes, dwsc.Classes.Basic;
 
 type
   TdwsTextDocumentItem = class
