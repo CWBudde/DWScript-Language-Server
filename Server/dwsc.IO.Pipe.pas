@@ -8,26 +8,30 @@ interface
 
 
 uses
-  Windows, Classes, dwsXPlatform, dwsUtils, dwsc.LanguageServer;
+  Windows, Classes, dwsXPlatform, dwsUtils, dwsc.LanguageServer, dwsc.Logging,
+  dwsc.IO.Common;
 
 type
-  TDWScriptLanguageServerLoop = class
+  TDWScriptLanguageServerLoop = class(TLanguageServerTransport)
   private
     FInputStream: THandleStream;
     FOutputStream: THandleStream;
     FErrorStream: THandleStream;
-    FLanguageServer: TDWScriptLanguageServer;
     {$IFDEF DEBUGLOG}
     FLog: TStringList;
     procedure Log(const Text: string); inline;
     procedure OnLogHandler(const Text: string);
     {$ENDIF}
-    procedure OnOutputHandler(const Text: string);
+  protected
+    function ReadAvailable: Boolean; override;
+    function ReadData(var Buffer: UTF8String; MaxSize: Integer): Integer; override;
+    procedure WriteData(const Data: UTF8String); override;
+    procedure FlushOutput; override;
   public
-    constructor Create;
+    constructor Create; override;
     destructor Destroy; override;
 
-    procedure Run;
+    procedure Run; override;
   end;
 
 implementation
@@ -42,6 +46,8 @@ const
 
 constructor TDWScriptLanguageServerLoop.Create;
 begin
+  inherited Create;
+
   // redirect standard I/O to streams
   FInputStream := THandleStream.Create(GetStdHandle(STD_INPUT_HANDLE));
   FOutputStream := THandleStream.Create(GetStdHandle(STD_OUTPUT_HANDLE));
@@ -52,10 +58,6 @@ begin
   if FileExists(CLogFileLocation) then
     FLog.LoadFromFile(CLogFileLocation);
 {$ENDIF}
-
-  // setup language server
-  FLanguageServer := TDWScriptLanguageServer.Create;
-  FLanguageServer.OnOutput := OnOutputHandler;
 end;
 
 destructor TDWScriptLanguageServerLoop.Destroy;
@@ -85,96 +87,51 @@ begin
 end;
 {$ENDIF}
 
-const
-  CStrContentLength = 'Content-Length: ';
-  CStrSplitter = #13#10#13#10;
+function TDWScriptLanguageServerLoop.ReadAvailable: Boolean;
+begin
+  Result := FInputStream.Size > FInputStream.Position;
+end;
 
-procedure TDWScriptLanguageServerLoop.OnOutputHandler(const Text: string);
+function TDWScriptLanguageServerLoop.ReadData(var Buffer: UTF8String;
+  MaxSize: Integer): Integer;
 var
-  OutputText: UTF8String;
+  AvailableBytes: Int64;
+begin
+  AvailableBytes := FInputStream.Size - FInputStream.Position;
+  if AvailableBytes > MaxSize then
+    AvailableBytes := MaxSize;
+
+  if AvailableBytes > 0 then
+  begin
+    SetLength(Buffer, AvailableBytes);
+    Result := FInputStream.Read(Buffer[1], AvailableBytes);
+    SetLength(Buffer, Result);
+  end
+  else
+    Result := 0;
+end;
+
+procedure TDWScriptLanguageServerLoop.WriteData(const Data: UTF8String);
 begin
 {$IFDEF DEBUGLOG}
-  Log('Output: ' + Text);
+  Log('Output: ' + string(Data));
 {$ENDIF}
-  // add header and convert to utf-8 string
-  OutputText := Utf8String(CStrContentLength + IntToStr(Length(Text)) + CStrSplitter + Text);
 
-  // write to output stream
-  FOutputStream.Write(OutputText[1], Length(OutputText));
+  FOutputStream.Write(Data[1], Length(Data));
+end;
+
+procedure TDWScriptLanguageServerLoop.FlushOutput;
+var
+  StdOutHandle: THandle;
+begin
+  StdOutHandle := FOutputStream.Handle;
+  FlushFileBuffers(StdOutHandle);
 end;
 
 procedure TDWScriptLanguageServerLoop.Run;
-var
-  Text: string;
-  NewText: UTF8String;
-  CharPos: Integer;
-  ContentLengthText: string;
-  ContentLength: Integer;
-  Body: string;
 begin
-{$IFDEF DEBUGLOG}
-  try
-{$ENDIF}
-    Text := '';
-    repeat
-      // loop until the input stream contains something
-      repeat
-        sleep(100);
-      until (FInputStream.Size > FInputStream.Position);
-
-      // copy text from input stream
-      SetLength(NewText, FInputStream.Size - FInputStream.Position);
-      FInputStream.Read(NewText[1], FInputStream.Size - FInputStream.Position);
-
-      // append new text to existing text
-      Text := Text + string(NewText);
-
-      {$IFDEF DEBUGLOG}
-      Log('<-- Original'); Log(Text); Log('Original-->');
-      {$ENDIF}
-
-      // unravel single messages from a bulk of messages
-      while StrBeginsWith(Text, CStrContentLength) and (AnsiPos(CStrSplitter, Text) > 0) and (Text[Length(Text)] = '}') do
-      begin
-        // find content header
-        CharPos := Pos(CStrContentLength, Text) + 15;
-
-        // read content lengt as string
-        ContentLengthText := '';
-        while not CharInSet(Text[CharPos], [#13, #10]) do
-        begin
-          case Text[CharPos] of
-            '0'..'9':
-              ContentLengthText := ContentLengthText + Text[CharPos];
-          end;
-          Inc(CharPos);
-        end;
-
-        // decode content length to integer
-        ContentLength := StrToInt(ContentLengthText);
-
-        // locate header splitter
-        CharPos := Pos(CStrSplitter, Text) + 4;
-
-        // copy message body
-        Body := Copy(Text, CharPos, ContentLength);
-
-        // delete header and message
-        Delete(Text, 1, CharPos + ContentLength - 1);
-        if FLanguageServer.Input(Body) then
-            Exit;
-      end;
-    until False;
-{$IFDEF DEBUGLOG}
-  except
-    on E: Exception do
-    begin
-      Log('Error!');
-      Log(E.Message);
-      raise;
-    end;
-  end;
-{$ENDIF}
+  GetGlobalLogger.LogInfo('Starting stdio transport');
+  ProcessMessages; // Use shared logic from base class
 end;
 
 end.

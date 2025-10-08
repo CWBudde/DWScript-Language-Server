@@ -15,13 +15,21 @@ uses
   dwsc.IO.Pipe in 'dwsc.IO.Pipe.pas',
   dwsc.LanguageServer in 'dwsc.LanguageServer.pas',
   dwsc.Utils in 'dwsc.Utils.pas',
-  dwsc.Classes.Settings in 'dwsc.Classes.Settings.pas';
+  dwsc.Classes.Settings in 'dwsc.Classes.Settings.pas',
+  dwsc.Logging in 'dwsc.Logging.pas',
+  dwsc.IO.Common in 'dwsc.IO.Common.pas',
+  dwsc.IO.Socket in 'dwsc.IO.Socket.pas';
 
 procedure WriteArgumentHelp;
 begin
   WriteLn('  -OutputName=<FileName>                   Output file name');
   WriteLn('');
   WriteLn('  -LibraryPath=<LibraryPath>               Library path');
+  WriteLn('');
+  WriteLn('  -LSPTrace=off|messages|verbose           LSP trace logging level');
+  WriteLn('  -LSPLogPath=<FilePath>                   Custom LSP log file path');
+  WriteLn('  -TCP=<Port>                              Use TCP socket on port (debugging mode)');
+  WriteLn('  -Socket=<Port>                           Alias for -TCP');
   WriteLn('');
   WriteLn('  -Assertions=<Boolean>                    Enable/disable assertions');
   WriteLn('  -HintsLevel=none|normal|strict|pedantic  Hints level');
@@ -92,10 +100,84 @@ end;
 
 procedure RunLanguageServerLoop;
 var
-  LanguageServer: TDWScriptLanguageServerLoop;
+  LanguageServerStdio: TDWScriptLanguageServerLoop;
+  LanguageServerTcp: TDWScriptLanguageServerTcpLoop;
+  Arguments: TCommandLineArguments;
+  TraceValue, LogPath, TcpPort: string;
+  TraceLevel: TTraceLevel;
+  Port: Integer;
 begin
-  LanguageServer := TDWScriptLanguageServerLoop.Create;
-  LanguageServer.Run;
+  Arguments := TCommandLineArguments.Create;
+  try
+    // Initialize logging based on command-line arguments or environment variable
+    TraceLevel := tlOff;
+
+    // Check environment variable first
+    TraceValue := GetEnvironmentVariable('DWSC_LSP_TRACE');
+    if TraceValue <> '' then
+      TraceLevel := TraceLevelFromString(TraceValue);
+
+    // Command-line argument overrides environment variable
+    if Arguments.GetOptionValue('lsptrace', TraceValue) then
+      TraceLevel := TraceLevelFromString(TraceValue);
+
+    // Get custom log path if specified
+    LogPath := '';
+    if Arguments.GetOptionValue('lsplogpath', LogPath) then
+      InitializeGlobalLogger(TraceLevel, LogPath)
+    else
+      InitializeGlobalLogger(TraceLevel);
+
+    if TraceLevel <> tlOff then
+      GetGlobalLogger.LogInfo('DWScript Language Server starting with trace level: ' +
+        TraceLevelToString(TraceLevel));
+
+    // Check for TCP mode
+    if Arguments.GetOptionValue('tcp', TcpPort) or
+       Arguments.GetOptionValue('socket', TcpPort) then
+    begin
+      // TCP mode
+      if not TryStrToInt(TcpPort, Port) then
+      begin
+        WriteLn('Error: Invalid port number: ' + TcpPort);
+        GetGlobalLogger.LogError('Invalid port number: ' + TcpPort);
+        Exit;
+      end;
+
+      if (Port < 1024) or (Port > 65535) then
+      begin
+        WriteLn('Error: Port must be between 1024 and 65535');
+        GetGlobalLogger.LogError(Format('Invalid port range: %d', [Port]));
+        Exit;
+      end;
+
+      GetGlobalLogger.LogInfo(Format('Starting in TCP mode on port %d', [Port]));
+      WriteLn(Format('Starting DWScript Language Server in TCP mode on localhost:%d', [Port]));
+
+      LanguageServerTcp := TDWScriptLanguageServerTcpLoop.Create(Port);
+      try
+        LanguageServerTcp.Run;
+      finally
+        LanguageServerTcp.Free;
+        FinalizeGlobalLogger;
+      end;
+    end
+    else
+    begin
+      // Stdio mode (default)
+      GetGlobalLogger.LogInfo('Starting in stdio mode');
+
+      LanguageServerStdio := TDWScriptLanguageServerLoop.Create;
+      try
+        LanguageServerStdio.Run;
+      finally
+        LanguageServerStdio.Free;
+        FinalizeGlobalLogger;
+      end;
+    end;
+  finally
+    Arguments.Free;
+  end;
 end;
 
 var

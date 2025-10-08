@@ -28,48 +28,139 @@ This document outlines a phased approach to transform the DWScript Language Serv
 
 **Goal:** Ensure the LSP protocol layer is rock-solid before building features on top.
 
-### 0.1 Diagnostic & Observability Infrastructure
-- [ ] Add comprehensive LSP JSON-RPC trace logging
-  - [ ] Toggle via environment variable or CLI flag (e.g., `--lsp-trace=verbose`)
-  - [ ] Log to rotating file (sanitize PII from URIs/content)
-  - [ ] Include timestamps, request IDs, direction (→/←)
-  - [ ] Implement in `dwsc.IO.Pipe.pas` and `dwsc.LanguageServer.pas`
-- [ ] Add performance metrics logging
-  - [ ] Time each request handler
-  - [ ] Track compilation duration
-  - [ ] Log indexing progress
+### 0.1 Transport Layer Correctness
+- [x] Audit `dwsc.IO.Pipe.pas` for protocol compliance
+  - [x] Verify `Content-Length` header calculation (UTF-8 byte count, not char count)
+  - [x] Ensure `\r\n\r\n` separator is exactly correct
+  - [x] Confirm UTF-8 encoding/decoding throughout
+  - [x] Add explicit flush after each message write
+- [x] Test with malformed messages
+  - [x] Missing headers
+  - [x] Incorrect Content-Length
+  - [x] Invalid JSON
+  - [x] Ensure graceful error handling
 
-### 0.2 Transport Layer Correctness
-- [ ] Audit `dwsc.IO.Pipe.pas` for protocol compliance
-  - [ ] Verify `Content-Length` header calculation (UTF-8 byte count, not char count)
-  - [ ] Ensure `\r\n\r\n` separator is exactly correct
-  - [ ] Confirm UTF-8 encoding/decoding throughout
-  - [ ] Add explicit flush after each message write
-- [ ] Test with malformed messages
-  - [ ] Missing headers
-  - [ ] Incorrect Content-Length
-  - [ ] Invalid JSON
-  - [ ] Ensure graceful error handling
+### 0.1.5 Alternative TCP Transport (Optional Development Tool)
 
-### 0.3 LSP Lifecycle & Handshake
-- [ ] Implement `initialize` correctly
-  - [ ] Parse and store `ClientCapabilities` in `dwsc.Classes.Capabilities.pas`
-  - [ ] Return **accurate** `ServerCapabilities` (only advertise what's truly implemented)
-  - [ ] Set server state to "initialized"
-- [ ] Implement `initialized` notification handler
-  - [ ] Trigger workspace indexing
-  - [ ] Log readiness
-- [ ] Implement `shutdown` request
-  - [ ] Stop all background work
-  - [ ] Clean up resources
-  - [ ] Set server state to "shutdown"
-- [ ] Implement `exit` notification
-  - [ ] Exit with code 0 if shutdown was called, 1 otherwise
-- [ ] Implement `$/cancelRequest` notification
-  - [ ] Track in-flight requests by ID
-  - [ ] Support cancellation tokens for long-running operations
+**Goal:** Add optional TCP socket transport alongside stdio for development/debugging tools.
 
-### 0.4 Concurrency & Request Management
+**Why:**
+- Enables use of `lsp-devtools record` and other proxy-based debugging tools
+- Allows testing with clients that prefer TCP (some web-based IDEs)
+- Facilitates network-based debugging scenarios
+- **Does NOT replace stdio** - stdio remains the default and recommended transport
+
+**Implementation:**
+- [x] Add command-line flag: `--tcp=PORT` or `--socket=PORT`
+  - [x] If flag present, use TCP socket on specified port
+  - [x] If flag absent, use stdio (default behavior)
+  - [x] Log which transport mode is active
+  - [x] Port validation (1024-65535)
+- [x] Create `TDWScriptLanguageServerTcpLoop` class
+  - [x] Use **native Delphi `Winapi.WinSock2`** (zero external dependencies)
+  - [x] Inherit from `TLanguageServerTransport` base class
+  - [x] Replace stdin/stdout with TCP socket
+  - [x] Same message framing (Content-Length headers)
+  - [x] Same UTF-8 handling
+- [x] Refactor common transport logic
+  - [x] Create `dwsc.IO.Common.pas` with `TLanguageServerTransport` base class
+  - [x] Extract message parsing to shared `ProcessMessages` method
+  - [x] Extract message writing to shared `SendMessage` method
+  - [x] Both loops use same `TDWScriptLanguageServer` core
+- [x] Update main program entry point (`dwsc.dpr`)
+  - [x] Check for `--tcp` flag
+  - [x] Create appropriate loop type (stdio or TCP)
+  - [x] Log transport mode on startup
+  - [x] Added help text for new flags
+- [ ] Test with lsp-devtools
+  - [ ] `dwsc.exe -type=ls --tcp=8765`
+  - [ ] `lsp-devtools record --to-file session.json tcp://localhost:8765`
+  - [ ] Verify message capture works
+- [ ] Update documentation
+  - [ ] Document TCP mode in README
+  - [ ] Note: "For development/debugging only, stdio is recommended for production"
+  - [ ] Provide examples with lsp-devtools
+
+**Implementation Complete! ✅**
+
+**Files Created:**
+1. `Server/dwsc.IO.Common.pas` - Base transport class with shared message processing
+2. `Server/dwsc.IO.Socket.pas` - TCP socket transport using native WinSock2
+
+**Files Modified:**
+3. `Server/dwsc.IO.Pipe.pas` - Refactored to use base class
+4. `Server/dwsc.dpr` - Added TCP mode detection and help text
+
+**Note on DWScript SimpleServer:**
+- ❌ `DWScript\Libraries\SimpleServer\` components require **Synopse mORMot framework** (external dependency not in repo)
+- ❌ HTTP.sys is designed for web servers, overkill for LSP debugging
+- ✅ Using **native Delphi sockets** (`Winapi.WinSock2`) is simpler with zero dependencies
+
+**Architecture:**
+```
+Main Entry Point (dwsc.dpr)
+    |
+    +-- Check command line: --tcp=PORT ?
+    |
+    +-- YES: TDWScriptLanguageServerTcpLoop
+    |         - Listen on TCP port
+    |         - Accept connection
+    |         - Same message protocol
+    |         - Share TDWScriptLanguageServer core
+    |
+    +-- NO:  TDWScriptLanguageServerLoop (existing)
+              - Use stdin/stdout
+              - Default behavior
+```
+
+**Files to Create/Modify:**
+1. `Server/dwsc.IO.Socket.pas` - New TCP transport implementation
+2. `Server/dwsc.IO.Common.pas` - Shared transport utilities
+3. `Server/dwsc.dpr` - Add TCP mode detection
+4. `Server/dwsc.CommandLine.Arguments.pas` - Add `--tcp` flag
+5. `TCPMODE.md` - Documentation for TCP debugging mode
+
+**Benefits:**
+- ✅ Unlock lsp-devtools recording/inspection
+- ✅ Test server independently of VS Code
+- ✅ Network-based testing scenarios
+- ✅ Proxy-based debugging
+- ✅ Easier integration testing with curl/telnet
+
+**Caveats:**
+- ⚠️ TCP mode is for **development only**
+- ⚠️ Not recommended for production use (security, complexity)
+- ⚠️ VS Code extension continues to use stdio
+- ⚠️ Requires different client configuration
+
+**Priority:** Optional - Can be implemented anytime during Phase 0 or deferred
+
+---
+
+### 0.2 LSP Lifecycle & Handshake
+- [x] Implement `initialize` correctly
+  - [x] Parse and store `ClientCapabilities` in `dwsc.Classes.Capabilities.pas`
+  - [x] Return **accurate** `ServerCapabilities` (only advertise what's truly implemented)
+  - [x] Set server state to "initialized"
+  - [x] Store processId and other client info
+  - [x] Add serverInfo to response (name and version)
+- [x] Implement `initialized` notification handler
+  - [x] Set server state to ssInitialized
+  - [x] Log readiness
+  - [ ] Trigger workspace indexing (deferred to Phase 1)
+- [x] Implement `shutdown` request
+  - [x] Clear all diagnostics
+  - [x] Set server state to "shutdown"
+  - [ ] Stop all background work (deferred to Phase 1 when indexing exists)
+- [x] Implement `exit` notification
+  - [x] Exit with code 0 if shutdown was called, 1 otherwise
+  - [x] Finalize logging before exit
+- [x] Implement `$/cancelRequest` notification
+  - [x] Log cancellation requests
+  - [ ] Track in-flight requests by ID (deferred to Phase 0.3)
+  - [ ] Support cancellation tokens for long-running operations (deferred to Phase 0.3)
+
+### 0.3 Concurrency & Request Management
 - [ ] Ensure request ID pairing is correct
   - [ ] Response IDs must match request IDs exactly
   - [ ] Handle out-of-order responses
@@ -80,7 +171,7 @@ This document outlines a phased approach to transform the DWScript Language Serv
   - [ ] Serialize document modifications per-file
   - [ ] Allow parallel reads
 
-### 0.5 Diagnostics Publishing
+### 0.4 Diagnostics Publishing
 - [ ] Verify diagnostics are published only after stable parse/compile
 - [ ] Ensure diagnostic URIs are stable (no normalization flapping)
 - [ ] Clear diagnostics on `textDocument/didClose`

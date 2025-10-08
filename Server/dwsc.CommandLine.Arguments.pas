@@ -142,7 +142,10 @@ begin
   Name := LowerCase(Name);
   for Index := Low(FOptions) to High(FOptions) do
     if Name = FOptions[Index].Name then
+    begin
+      Value := FOptions[Index].Value;
       Exit(True);
+    end;
 end;
 
 function TCommandLineArguments.HasOption(Name: string): Boolean;

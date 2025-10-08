@@ -15,17 +15,25 @@ uses
   dwsc.Classes.Capabilities, dwsc.Classes.Workspace, dwsc.Classes.Settings,
   dwsc.Classes.BaseProtocol, dwsc.Classes.Basic, dwsc.Classes.Diagnostics,
   dwsc.Classes.LanguageFeatures, dwsc.Classes.TextSynchronization,
-  dwsc.Classes.Window, dwsc.Utils;
+  dwsc.Classes.Window, dwsc.Utils, dwsc.Logging;
 
 type
   TOnOutput = procedure(const Output: string) of object;
+
+  TServerState = (
+    ssUninitialized,  // Before initialize request
+    ssInitialized,    // After initialized notification
+    ssShutdown        // After shutdown request
+  );
 
   TDWScriptLanguageServer = class
   private
     FClientCapabilities: TClientCapabilities;
     FServerCapabilities: TServerCapabilities;
     FCurrentId: Integer;
-    FInitialized: Boolean;
+    FServerState: TServerState;
+    FProcessId: Integer;
+    FShutdownReceived: Boolean;
     FOnOutput: TOnOutput;
     FOnLog: TOnOutput;
 
@@ -75,6 +83,7 @@ type
     function LocateSymbol(const Prog: IdwsProgram; const Uri: string; Position: TPosition): TSymbol;
 
     procedure PublishDiagnostics(CompiledProgram: IdwsProgram);
+    procedure ClearAllDiagnostics;
 
     procedure OnIncludeEventHandler(const ScriptName: string;
       var ScriptSource: string);
@@ -142,13 +151,22 @@ type
 implementation
 
 uses
-  StrUtils, Math, dwsStrings, dwsPascalTokenizer, dwsTokenizer,
+  StrUtils, Math, DateUtils, dwsStrings, dwsPascalTokenizer, dwsTokenizer,
   dwsXXHash, dwsSuggestions, dwsTokenTypes, dwsContextMap;
+
+const
+  SERVER_NAME = 'DWScript Language Server';
+  SERVER_VERSION = '0.1.0-alpha';
 
 { TDWScriptLanguageServer }
 
 constructor TDWScriptLanguageServer.Create;
 begin
+  // Initialize state
+  FServerState := ssUninitialized;
+  FProcessId := -1;
+  FShutdownReceived := False;
+
   // create DWS compiler
   FDelphiWebScript := TDelphiWebScript.Create(nil);
   FDelphiWebScript.Config.CompilerOptions := [coAssertions, coAllowClosures,
@@ -295,9 +313,20 @@ begin
 end;
 
 procedure TDWScriptLanguageServer.HandleCancelRequest(Params: TdwsJSONObject);
+var
+  CancelParams: TCancelParams;
 begin
-  SendErrorResponse(ecMethodNotFound, 'Cancelling a request is not yet implemented');
-  // not yet implemented
+  CancelParams := TCancelParams.Create;
+  try
+    CancelParams.ReadFromJson(Params);
+    GetGlobalLogger.LogInfo(Format('Cancel request for ID %d (not yet supported)',
+      [CancelParams.ID]));
+  finally
+    CancelParams.Free;
+  end;
+
+  // Note: $/cancelRequest is a notification, no response needed
+  // TODO Phase 0.3: Implement actual request cancellation with tracking
 end;
 
 procedure TDWScriptLanguageServer.HandleProgress(Params: TdwsJSONObject);
@@ -396,12 +425,42 @@ begin
   end;
 end;
 
+procedure TDWScriptLanguageServer.ClearAllDiagnostics;
+var
+  PublishDiagnosticsParams: TPublishDiagnosticsParams;
+  Params: TdwsJSONObject;
+  FileIndex: Integer;
+begin
+  // Send empty diagnostics for all open documents
+  PublishDiagnosticsParams := TPublishDiagnosticsParams.Create;
+  try
+    for FileIndex := 0 to FTextDocumentItemList.Count - 1 do
+    begin
+      PublishDiagnosticsParams.Uri := FTextDocumentItemList[FileIndex].Uri;
+      PublishDiagnosticsParams.Diagnostics.Clear;
+
+      Params := TdwsJSONObject.Create;
+      PublishDiagnosticsParams.WriteToJson(Params);
+      SendNotification('textDocument/publishDiagnostics', Params);
+    end;
+  finally
+    PublishDiagnosticsParams.Free;
+  end;
+end;
+
 function TDWScriptLanguageServer.Compile(Uri: string): IdwsProgram;
 var
   SourceCode: string;
+  StartTime: TDateTime;
+  DurationMs: Int64;
+  ErrorCount, WarningCount, I: Integer;
+  Msg: TScriptMessage;
 begin
+  StartTime := Now;
   Result := nil;
   SourceCode := '';
+  ErrorCount := 0;
+  WarningCount := 0;
 
   // get source code for uri
   SourceCode := GetSourceCodeForUri(Uri);
@@ -411,9 +470,30 @@ begin
 
   // eventually compile source code
   if SourceCode <> '' then
+  begin
     Result := FDelphiWebScript.Compile(SourceCode);
 
+    // Count errors and warnings manually
+    if Assigned(Result) then
+    begin
+      for I := 0 to Result.Msgs.Count - 1 do
+        if Result.Msgs.Msgs[I] is TScriptMessage then
+        begin
+          Msg := TScriptMessage(Result.Msgs.Msgs[I]);
+          if Msg is TErrorMessage then
+            Inc(ErrorCount)
+          else if Msg is TWarningMessage then
+            Inc(WarningCount);
+        end;
+    end;
+  end;
+
   PublishDiagnostics(Result);
+
+  // Log compilation metrics
+  DurationMs := MilliSecondsBetween(Now, StartTime);
+  GetGlobalLogger.LogCompilation(Uri, DurationMs,
+    IfThen(ErrorCount = 0, 1, 0), ErrorCount, WarningCount);
 end;
 
 function TDWScriptLanguageServer.CompileWorkspace: IdwsProgram;
@@ -680,17 +760,29 @@ procedure TDWScriptLanguageServer.HandleInitialize(Params: TdwsJSONObject);
 var
   InitializeParams: TInitializeParams;
 begin
+  // Validate server state - initialize should only be called once
+  if FServerState <> ssUninitialized then
+  begin
+    GetGlobalLogger.LogError('Initialize called when server state is not Uninitialized');
+    SendErrorResponse(ecInvalidRequest, 'Server already initialized');
+    Exit;
+  end;
+
   InitializeParams := TInitializeParams.Create;
   try
     InitializeParams.ReadFromJson(Params);
 
+    // Store client information
+    FProcessId := InitializeParams.ProcessId;
     FRootPath := InitializeParams.RootPath;
     FRootUri := InitializeParams.RootUri;
 
-//    if FRootPath then
-
-
+    // Store client capabilities for feature negotiation
     FClientCapabilities.CopyFrom(InitializeParams.ClientCapabilities);
+
+    // Log initialization details
+    GetGlobalLogger.LogInfo(Format('Initialize request from process %d, root: %s',
+      [FProcessId, FRootUri]));
   finally
     InitializeParams.Free;
   end;
@@ -700,13 +792,36 @@ end;
 
 procedure TDWScriptLanguageServer.HandleInitialized;
 begin
-  FInitialized := True;
-//  ShowMessage('The DWScript language server is in an early alpha state');
+  FServerState := ssInitialized;
+
+  GetGlobalLogger.LogInfo('Server initialized and ready to accept requests');
+
+  // TODO Phase 1: Trigger workspace indexing here
+  // IndexWorkspace(FRootUri);
 end;
 
 procedure TDWScriptLanguageServer.HandleShutDown;
 begin
-  // just answer the response to inform so far
+  // Check if already shutdown
+  if FServerState = ssShutdown then
+  begin
+    GetGlobalLogger.LogWarning('Shutdown called multiple times');
+    SendResponse;
+    Exit;
+  end;
+
+  GetGlobalLogger.LogInfo('Shutdown request received - cleaning up');
+
+  // Update state
+  FServerState := ssShutdown;
+  FShutdownReceived := True;
+
+  // TODO Phase 1: Stop background indexing when implemented
+  // StopBackgroundIndexing();
+
+  // Clear all diagnostics from client
+  ClearAllDiagnostics;
+
   SendResponse;
 end;
 
@@ -895,6 +1010,8 @@ var
   CompletionItem: TCompletionItem;
   Result: TdwsJSONObject;
 begin
+  ScriptSourceItem := nil; // Initialize to nil to avoid warning
+
   TextDocumentPositionParams := TTextDocumentPositionParams.Create;
   try
     TextDocumentPositionParams.ReadFromJson(Params);
@@ -909,9 +1026,10 @@ begin
         TextDocumentPositionParams.TextDocument.Uri);
 
       // locate script position
-      ScriptPos := TScriptPos.Create(ScriptSourceItem.SourceFile,
-        TextDocumentPositionParams.Position.Line + 1,
-        TextDocumentPositionParams.Position.Character + 1);
+      if Assigned(ScriptSourceItem) then
+        ScriptPos := TScriptPos.Create(ScriptSourceItem.SourceFile,
+          TextDocumentPositionParams.Position.Line + 1,
+          TextDocumentPositionParams.Position.Character + 1);
     end;
   finally
     TextDocumentPositionParams.Free;
@@ -1958,8 +2076,23 @@ begin
 end;
 
 procedure TDWScriptLanguageServer.HandleExit;
+var
+  ExitCode: Integer;
 begin
-  // yet to do
+  // Determine exit code per LSP specification
+  if FShutdownReceived then
+    ExitCode := 0  // Normal shutdown sequence
+  else
+    ExitCode := 1; // Abnormal - exit without shutdown
+
+  GetGlobalLogger.LogInfo(Format('Exit notification received, exiting with code %d',
+    [ExitCode]));
+
+  // Finalize logging before process termination
+  FinalizeGlobalLogger;
+
+  // Exit the process with appropriate code
+  Halt(ExitCode);
 end;
 
 procedure TDWScriptLanguageServer.HandleWorkspaceApplyEdit(Params: TdwsJSONObject);
@@ -2079,7 +2212,10 @@ function TDWScriptLanguageServer.HandleJsonRpc(JsonRpc: TdwsJSONObject): Boolean
 var
   Method: string;
   Params: TdwsJsonObject;
+  StartTime: TDateTime;
+  DurationMs: Int64;
 begin
+  StartTime := Now;
   Result := False;
   if Assigned(JsonRpc['id']) then
     FCurrentId := JsonRpc['id'].AsInteger;
@@ -2087,38 +2223,64 @@ begin
   if not Assigned(JsonRpc['method']) then
   begin
     OutputDebugString('Incomplete JSON RPC - "method" is missing');
+    GetGlobalLogger.LogError('Incomplete JSON RPC - "method" is missing');
     Exit;
   end;
   Method := JsonRpc['method'].AsString;
 
+  // Log incoming message with request ID
+  GetGlobalLogger.LogMessage(Method, '', ldIncoming, FCurrentId);
+
   Params := TdwsJsonObject(JsonRpc['params']);
 
+  // Handle initialize - only allowed in uninitialized state
   if Method = 'initialize' then
   begin
     HandleInitialize(Params);
     Exit;
   end
   else
+  // Handle initialized notification - only allowed after initialize
   if Method = 'initialized' then
   begin
-    HandleInitialized;
+    if FServerState <> ssUninitialized then
+    begin
+      GetGlobalLogger.LogError('initialized notification called at wrong time');
+      SendErrorResponse(ecInvalidRequest, 'initialized called at wrong time');
+    end
+    else
+      HandleInitialized;
     Exit;
   end;
 
-  // only continue if the server is initialized
-  if not FInitialized then
-  begin
-    SendErrorResponse(ecServerNotInitialized, 'Server not initialized');
-    Exit;
-  end;
-
+  // Handle shutdown - only allowed in initialized state
   if Method = 'shutdown' then
-    HandleShutDown
+  begin
+    if FServerState = ssUninitialized then
+    begin
+      SendErrorResponse(ecServerNotInitialized, 'Cannot shutdown before initialize');
+    end
+    else
+      HandleShutDown;
+    Exit;
+  end
   else
+  // Handle exit - allowed in any state
   if Method = 'exit' then
   begin
     HandleExit;
     Result := True;
+    Exit;
+  end;
+
+  // All other requests require initialized state
+  if FServerState <> ssInitialized then
+  begin
+    if FServerState = ssUninitialized then
+      SendErrorResponse(ecServerNotInitialized, 'Server not initialized')
+    else // ssShutdown
+      SendErrorResponse(ecInvalidRequest, 'Server is shutting down');
+    Exit;
   end
   else
   if Pos('$/cancelRequest', Method) = 1 then
@@ -2246,6 +2408,11 @@ begin
   else
     Log('UnknownMessage: ' + JsonRpc.AsString);
 {$ENDIF}
+
+  // Log performance metrics for the request
+  DurationMs := MilliSecondsBetween(Now, StartTime);
+  if DurationMs > 100 then // Only log slow operations
+    GetGlobalLogger.LogMetric(Method, DurationMs);
 end;
 
 function TDWScriptLanguageServer.Input(Body: string): Boolean;
@@ -2271,9 +2438,17 @@ end;
 procedure TDWScriptLanguageServer.SendInitializeResponse;
 var
   InitializeResult: TdwsJSONObject;
+  ServerInfo: TdwsJSONObject;
 begin
   InitializeResult := TdwsJSONObject.Create;
+
+  // Add server capabilities
   FServerCapabilities.WriteToJson(InitializeResult.AddObject('capabilities'));
+
+  // Add server info (LSP 3.15+)
+  ServerInfo := InitializeResult.AddObject('serverInfo');
+  ServerInfo.AddValue('name', SERVER_NAME);
+  ServerInfo.AddValue('version', SERVER_VERSION);
 
   SendResponse(InitializeResult);
 end;

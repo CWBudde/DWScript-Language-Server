@@ -166,3 +166,6 @@ coverage/
 
 # Backup of old DWScript
 DWScript_backup/
+
+# Claude Code
+.claude/
