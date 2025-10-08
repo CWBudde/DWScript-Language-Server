@@ -1,0 +1,3 @@
+[submodule "DWScript"]
+	path = DWScript
+	url = https://bitbucket.org/egrange/dwscript/
