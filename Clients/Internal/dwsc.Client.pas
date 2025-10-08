@@ -5,7 +5,9 @@ interface
 uses
   Classes, SysUtils, dwsJson, dwsUtils, dwsc.Classes.Capabilities,
   dwsc.Classes.Workspace, dwsc.Classes.Document, dwsc.Classes.Common,
-  dwsc.Classes.Json, dwsc.LanguageServer;
+  dwsc.Classes.Json, dwsc.LanguageServer, dwsc.Classes.BaseProtocol,
+  dwsc.Classes.Basic, dwsc.Classes.Diagnostics,
+  dwsc.Classes.TextSynchronization, dwsc.Classes.LanguageFeatures;
 
 type
   TLanguageServerHost = class

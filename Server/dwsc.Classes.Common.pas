@@ -6,19 +6,6 @@ uses
   Classes, dwsJSON, dwsUtils, dwsc.Classes.JSON;
 
 type
-  TMessageType = (
-    msError = 1,
-    msWarning = 2,
-    msInfo = 3,
-    msLog = 4
-  );
-
-  TTextDocumentSyncKind = (
-    dsNone = 0,
-    dsFull = 1,
-    dsIncremental = 2
-  );
-
   TMarkupKind = (mkPlainText, mkMarkDown);
   TMarkupKinds = set of TMarkupKind;
 

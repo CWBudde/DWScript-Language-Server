@@ -6,7 +6,8 @@ uses
   Classes, dwsJson, dwsUtils, dwsc.Classes.JSON, dwsc.Classes.Common,
   dwsc.Classes.Basic, dwsc.Classes.LanguageFeatures,
   dwsc.Classes.Diagnostics, dwsc.Classes.Workspace,
-  dwsc.Classes.TextSynchronization, dwsc.Classes.Settings;
+  dwsc.Classes.TextSynchronization, dwsc.Classes.Window,
+  dwsc.Classes.Settings;
 
 type
   TSemanticTokensWorkspaceClientCapabilities = class(TJsonClass)
@@ -161,38 +162,6 @@ type
     property Rename: TRenameClientCapabilities read FRename;
     property PublishDiagnostics: TPublishDiagnosticsClientCapabilities read FPublishDiagnostics;
     property FoldingRange: TFoldingRangeClientCapabilities read FFoldingRange;
-  end;
-
-  TMessageActionItemClientCapabilities = class(TJsonClass)
-  private
-    FAdditionalPropertiesSupport: Boolean;
-  public
-    procedure ReadFromJson(const Value: TdwsJSONValue); override;
-    procedure WriteToJson(const Value: TdwsJSONObject); override;
-
-    property AdditionalPropertiesSupport: Boolean read FAdditionalPropertiesSupport write FAdditionalPropertiesSupport;
-  end;
-
-  TShowMessageRequestClientCapabilities = class(TJsonClass)
-  private
-    FMessageActionItem: TMessageActionItemClientCapabilities; 
-  public
-    destructor Destroy; override;
-
-    procedure ReadFromJson(const Value: TdwsJSONValue); override;
-    procedure WriteToJson(const Value: TdwsJSONObject); override;
-
-    property MessageActionItem: TMessageActionItemClientCapabilities read FMessageActionItem write FMessageActionItem;
-  end;
-
-  TShowDocumentClientCapabilities = class(TJsonClass)
-  private
-    FSupport: Boolean;
-  public
-    procedure ReadFromJson(const Value: TdwsJSONValue); override;
-    procedure WriteToJson(const Value: TdwsJSONObject); override;
-
-    property Support: Boolean read FSupport write FSupport;
   end;
 
   TWindowClientCapabilities = class(TJsonClass)
@@ -716,62 +685,6 @@ begin
   FCallHierarchy.WriteToJson(Value.AddObject('callHierarchy'));
   FSemanticTokens.WriteToJson(Value.AddObject('semanticTokens'));
   FMoniker.WriteToJson(Value.AddObject('moniker'));
-end;
-
-
-{ TMessageActionItemClientCapabilities }
-
-procedure TMessageActionItemClientCapabilities.ReadFromJson(
-  const Value: TdwsJSONValue);
-begin
-  FAdditionalPropertiesSupport := Value['additionalPropertiesSupport'].AsBoolean;
-end;
-
-procedure TMessageActionItemClientCapabilities.WriteToJson(
-  const Value: TdwsJSONObject);
-begin
-  Value.AddValue('additionalPropertiesSupport', FAdditionalPropertiesSupport);
-end;
-
-
-{ TShowMessageRequestClientCapabilities }
-
-destructor TShowMessageRequestClientCapabilities.Destroy;
-begin
-  FMessageActionItem.Free;
-
-  inherited;
-end;
-
-procedure TShowMessageRequestClientCapabilities.ReadFromJson(
-  const Value: TdwsJSONValue);
-begin
-  if Assigned(Value['messageActionItem']) then
-  begin
-    FMessageActionItem := TMessageActionItemClientCapabilities.Create;
-    FMessageActionItem.ReadFromJson(Value['messageActionItem']);
-  end;
-end;
-
-procedure TShowMessageRequestClientCapabilities.WriteToJson(
-  const Value: TdwsJSONObject);
-begin
-  FMessageActionItem.WriteToJson(Value.AddObject('messageActionItem'));
-end;
-
-
-{ TShowDocumentClientCapabilities }
-
-procedure TShowDocumentClientCapabilities.ReadFromJson(
-  const Value: TdwsJSONValue);
-begin
-  FSupport := Value['support'].AsBoolean;
-end;
-
-procedure TShowDocumentClientCapabilities.WriteToJson(
-  const Value: TdwsJSONObject);
-begin
-  Value.AddValue('support', FSupport)
 end;
 
 

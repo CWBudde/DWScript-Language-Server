@@ -14,7 +14,8 @@ uses
   dwsSymbols, dwsc.Classes.JSON, dwsc.Classes.Common, dwsc.Classes.Document,
   dwsc.Classes.Capabilities, dwsc.Classes.Workspace, dwsc.Classes.Settings,
   dwsc.Classes.BaseProtocol, dwsc.Classes.Basic, dwsc.Classes.Diagnostics,
-  dwsc.Classes.LanguageFeatures, dwsc.Classes.TextSynchronization, dwsc.Utils;
+  dwsc.Classes.LanguageFeatures, dwsc.Classes.TextSynchronization,
+  dwsc.Classes.Window, dwsc.Utils;
 
 type
   TOnOutput = procedure(const Output: string) of object;
@@ -27,6 +28,7 @@ type
     FInitialized: Boolean;
     FOnOutput: TOnOutput;
     FOnLog: TOnOutput;
+
 //    FWorkspace: TDWScriptWorkspace;
 
     FRootPath: string;
@@ -49,6 +51,7 @@ type
     function GetSourceCodeForUri(Uri: string): string;
     function CreateJsonRpc(Method: string = ''): TdwsJSONObject;
     procedure LogMessage(Text: string; MessageType: TMessageType = msLog);
+
     procedure RegisterCapability(Method, Id: string);
     procedure SendInitializeResponse;
     procedure SendNotification(Method: string; Params: TdwsJSONObject = nil); overload;

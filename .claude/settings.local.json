@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip3:*)",
+      "Bash(go:*)",
+      "Bash(python3 -m pip:*)",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(export PATH=\"$HOME/.local/bin:$PATH\")",
+      "Bash(lsp-devtools:*)",
+      "Bash(pytest:*)",
+      "Bash(git clone:*)",
+      "Read(//tmp/lsp-tester-build/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

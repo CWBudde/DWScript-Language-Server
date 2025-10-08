@@ -43,15 +43,15 @@ type
   TErrorCodes = (
     ecParseError = -32700,
     ecInvalidRequest = -32600,
-	  ecMethodNotFound = -32601,
-	  ecInvalidParams = -32602,
-	  ecInternalError = -32603,
-	  ecServerErrorStart = -32099,
-	  ecServerNotInitialized = -32002,
-	  ecUnknownErrorCode = -32001,
-	  ecServerErrorEnd = -32000,
+    ecMethodNotFound = -32601,
+    ecInvalidParams = -32602,
+    ecInternalError = -32603,
+    ecServerErrorStart = -32099,
+    ecServerNotInitialized = -32002,
+    ecUnknownErrorCode = -32001,
+    ecServerErrorEnd = -32000,
     ecContentModified = -32801,
-	  ecRequestCancelled = -32800,
+    ecRequestCancelled = -32800,
     ecReservedErrorRangeStart = -32899
   );
 

@@ -3,9 +3,11 @@ unit TestLanguageServer;
 interface
 
 uses
-  Windows, Classes, TestFramework, dwsJson, dwsc.Classes.Capabilities,
-  dwsc.Classes.Workspace, dwsc.Classes.Document, dwsc.Classes.Common,
-  dwsc.Classes.Json, dwsc.LanguageServer, dwsc.Client;
+  Windows, Classes, TestFramework, dwsJson, dwsc.Classes.Json,
+  dwsc.Classes.Common, dwsc.Classes.BaseProtocol, dwsc.Classes.Basic,
+  dwsc.Classes.Capabilities, dwsc.Classes.Workspace, dwsc.Classes.Document,
+  dwsc.Classes.LanguageFeatures, dwsc.Classes.TextSynchronization,
+  dwsc.Classes.Diagnostics, dwsc.LanguageServer, dwsc.Client;
 
 type
   TTestLanguageServerClasses = class(TTestCase)

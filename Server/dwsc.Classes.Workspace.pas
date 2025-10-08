@@ -8,7 +8,17 @@ uses
   dwsc.Classes.JSON;
 
 type
+  TWorkspaceFoldersServerCapabilities = class(TJsonClass)
+  private
+    FSupported: Boolean;
+    FChangeNotifications: String;
+  public
+    procedure ReadFromJson(const Value: TdwsJSONValue); override;
+    procedure WriteToJson(const Value: TdwsJSONObject); override;
 
+    property Supported: Boolean read FSupported write FSupported;
+    property ChangeNotifications: String read FChangeNotifications write FChangeNotifications;
+  end;
 
   TWorkspaceFolder = class(TJsonClass)
   private
@@ -18,8 +28,8 @@ type
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
 
-    property Uri: TDocumentUri read FUri;
-    property Name: String read FName;
+    property Uri: TDocumentUri read FUri write FUri;
+    property Name: String read FName write FName;
   end;
   TWorkspaceFolders = TObjectList<TWorkspaceFolder>;
 
@@ -103,6 +113,23 @@ implementation
 
 uses
   dwsWebUtils;
+
+{ TWorkspaceFoldersServerCapabilities }
+
+procedure TWorkspaceFoldersServerCapabilities.ReadFromJson(
+  const Value: TdwsJSONValue);
+begin
+  FSupported := Value['supported'].AsBoolean;
+  FChangeNotifications := Value['changeNotifications'].AsString;
+end;
+
+procedure TWorkspaceFoldersServerCapabilities.WriteToJson(
+  const Value: TdwsJSONObject);
+begin
+  Value.AddValue('supported', FSupported);
+  Value.AddValue('changeNotifications', FChangeNotifications);
+end;
+
 
 { TWorkspaceFolder }
 

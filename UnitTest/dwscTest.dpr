@@ -17,7 +17,13 @@ uses
   dwsc.Classes.Workspace in '..\Server\dwsc.Classes.Workspace.pas',
   dwsc.IO.Pipe in '..\Server\dwsc.IO.Pipe.pas',
   dwsc.LanguageServer in '..\Server\dwsc.LanguageServer.pas',
-  dwsc.Utils in '..\Server\dwsc.Utils.pas';
+  dwsc.Utils in '..\Server\dwsc.Utils.pas',
+  dwsc.Classes.Basic in '..\Server\dwsc.Classes.Basic.pas',
+  dwsc.Classes.LanguageFeatures in '..\Server\dwsc.Classes.LanguageFeatures.pas',
+  dwsc.Classes.Diagnostics in '..\Server\dwsc.Classes.Diagnostics.pas',
+  dwsc.Classes.BaseProtocol in '..\Server\dwsc.Classes.BaseProtocol.pas',
+  dwsc.Classes.Window in '..\Server\dwsc.Classes.Window.pas',
+  dwsc.Classes.TextSynchronization in '..\Server\dwsc.Classes.TextSynchronization.pas';
 
 begin
   DUnitTestRunner.RunRegisteredTests;

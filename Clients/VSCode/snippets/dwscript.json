@@ -1,0 +1,21 @@
+{
+  "begin .. end": {
+  "prefix": "begin",
+  "body": [
+    "begin",
+    "\t$1",
+    "end;"
+  ],
+  "description": "simple begin .. end snippet"
+  },
+  
+  "case .. end": {
+  "prefix": "case",
+  "body": [
+    "case $1 of",
+    "\t$2",
+    "end;"
+  ],
+  "description": "simple case .. end snippet"
+  }
+}
