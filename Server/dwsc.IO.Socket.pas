@@ -6,7 +6,7 @@ unit dwsc.IO.Socket;
   Provides optional TCP socket transport for development/debugging with tools
   like lsp-devtools. Uses native Windows WinSock2 API (no external dependencies).
 
-  Usage: dwsc.exe -type=ls --tcp=8765
+  Usage: dwsc.exe -type=ls -tcp=8765
 }
 
 {$WARN SYMBOL_PLATFORM OFF}
@@ -163,22 +163,28 @@ begin
     SetLength(Buffer, BytesRead);
     Move(TempBuffer[0], Buffer[1], BytesRead);
     Result := BytesRead;
+    GetGlobalLogger.LogDebug(Format('TCP recv: read %d bytes', [BytesRead]));
   end
   else if BytesRead = 0 then
   begin
-    // Connection closed gracefully
-    GetGlobalLogger.LogInfo('Client disconnected (connection closed)');
+    // Connection closed gracefully by client
+    GetGlobalLogger.LogInfo('TCP: Client disconnected (graceful close)');
     Result := 0;
   end
   else
   begin
-    // Error or would block
+    // recv() returned -1 (SOCKET_ERROR)
     Error := WSAGetLastError;
     if Error = WSAEWOULDBLOCK then
-      Result := 0 // No data available
+    begin
+      // No data available right now (non-blocking socket)
+      GetGlobalLogger.LogDebug('TCP recv: WSAEWOULDBLOCK (no data available)');
+      Result := -2; // Special value: would block (not an error, just try again)
+    end
     else
     begin
-      GetGlobalLogger.LogError(Format('Socket recv error: %d', [Error]));
+      // Actual socket error
+      GetGlobalLogger.LogError(Format('TCP recv: socket error %d', [Error]));
       Result := -1;
     end;
   end;

@@ -88,8 +88,25 @@ end;
 {$ENDIF}
 
 function TDWScriptLanguageServerLoop.ReadAvailable: Boolean;
+var
+  BytesAvail: DWORD;
+  Handle: THandle;
 begin
-  Result := FInputStream.Size > FInputStream.Position;
+  // Prefer PeekNamedPipe to check for available bytes on STDIN
+  Handle := FInputStream.Handle;
+  BytesAvail := 0;
+  if PeekNamedPipe(Handle, nil, 0, nil, @BytesAvail, nil) then
+  begin
+    Result := BytesAvail > 0;
+    if Result then
+      GetGlobalLogger.LogDebug(Format('STDIO: %d bytes available on input', [BytesAvail]));
+  end
+  else
+  begin
+    // Fallback: allow a blocking read when availability cannot be determined
+    // This is safer than relying on THandleStream.Size for pipes
+    Result := True;
+  end;
 end;
 
 function TDWScriptLanguageServerLoop.ReadData(var Buffer: UTF8String;

@@ -104,6 +104,10 @@
         <DCCReference Include="dwsc.LanguageServer.pas"/>
         <DCCReference Include="dwsc.Utils.pas"/>
         <DCCReference Include="dwsc.Classes.Settings.pas"/>
+        <DCCReference Include="dwsc.Logging.pas"/>
+        <DCCReference Include="dwsc.IO.Common.pas"/>
+        <DCCReference Include="dwsc.IO.Socket.pas"/>
+        <DCCReference Include="dwsc.RequestManager.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
@@ -131,7 +135,6 @@
             </Delphi.Personality>
             <Deployment Version="4">
                 <DeployFile LocalName="$(BDS)\Redist\iossimulator\libPCRE.dylib" Class="DependencyModule"/>
-                <DeployFile LocalName="$(BDS)\Redist\iossimulator\libPCRE.dylib" Class="DependencyModule"/>
                 <DeployFile LocalName="$(BDS)\Redist\iossimulator\libcgunwind.1.0.dylib" Class="DependencyModule"/>
                 <DeployFile LocalName="$(BDS)\Redist\iossimulator\libcgunwind.1.0.dylib" Class="DependencyModule">
                     <Platform Name="iOSSimulator">
@@ -144,7 +147,6 @@
                     </Platform>
                 </DeployFile>
                 <DeployFile LocalName="$(BDS)\Redist\osx32\libcgsqlite3.dylib" Class="DependencyModule"/>
-                <DeployFile LocalName="$(BDS)\Redist\osx32\libcgsqlite3.dylib" Class="DependencyModule"/>
                 <DeployFile LocalName="$(BDS)\Redist\osx32\libcgunwind.1.0.dylib" Class="DependencyModule"/>
                 <DeployFile LocalName="$(BDS)\Redist\osx32\libcgunwind.1.0.dylib" Class="DependencyModule">
                     <Platform Name="OSX32">
@@ -154,6 +156,12 @@
                 <DeployFile LocalName="..\..\..\..\Christian\.vscode\extensions\cwbudde.dws-vscode-0.0.6\bin\dwsc.exe" Configuration="Debug" Class="ProjectOutput"/>
                 <DeployFile LocalName="..\..\..\..\Christian\.vscode\extensions\cwbudde.dws-vscode-0.1.2\bin\dwsc.exe" Configuration="Debug" Class="ProjectOutput"/>
                 <DeployFile LocalName="..\..\..\..\Christian\.vscode\extensions\cwbudde.dws-vscode-0.1.3\bin\dwsc.exe" Configuration="Debug" Class="ProjectOutput"/>
+                <DeployFile LocalName="..\Binaries\dwsc.exe" Configuration="Debug" Class="ProjectOutput">
+                    <Platform Name="Win32">
+                        <RemoteName>dwsc.exe</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="..\Binaries\dwsls.exe" Configuration="Debug" Class="ProjectOutput"/>
                 <DeployFile LocalName="..\Binaries\dwsls.exe" Configuration="Release" Class="ProjectOutput"/>
                 <DeployFile LocalName="Win32\Debug\dwsls.exe" Configuration="Debug" Class="ProjectOutput"/>

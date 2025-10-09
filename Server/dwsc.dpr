@@ -18,7 +18,8 @@ uses
   dwsc.Classes.Settings in 'dwsc.Classes.Settings.pas',
   dwsc.Logging in 'dwsc.Logging.pas',
   dwsc.IO.Common in 'dwsc.IO.Common.pas',
-  dwsc.IO.Socket in 'dwsc.IO.Socket.pas';
+  dwsc.IO.Socket in 'dwsc.IO.Socket.pas',
+  dwsc.RequestManager in 'dwsc.RequestManager.pas';
 
 procedure WriteArgumentHelp;
 begin

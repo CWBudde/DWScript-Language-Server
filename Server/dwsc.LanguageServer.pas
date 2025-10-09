@@ -15,7 +15,7 @@ uses
   dwsc.Classes.Capabilities, dwsc.Classes.Workspace, dwsc.Classes.Settings,
   dwsc.Classes.BaseProtocol, dwsc.Classes.Basic, dwsc.Classes.Diagnostics,
   dwsc.Classes.LanguageFeatures, dwsc.Classes.TextSynchronization,
-  dwsc.Classes.Window, dwsc.Utils, dwsc.Logging;
+  dwsc.Classes.Window, dwsc.Utils, dwsc.Logging, dwsc.RequestManager;
 
 type
   TOnOutput = procedure(const Output: string) of object;
@@ -48,6 +48,7 @@ type
 
     FSettings: TSettings;
     FTextDocumentItemList: TdwsTextDocumentItemList;
+    FRequestManager: TRequestManager;
 
     {$IFDEF DEBUGLOG}
     procedure Log(const Text: string);
@@ -91,6 +92,8 @@ type
       var UnitSource: string) : IdwsUnit;
 
     function HandleJsonRpc(JsonRpc: TdwsJSONObject): Boolean;
+    procedure ProcessQueuedRequests;
+    function IsCurrentRequestCancelled: Boolean;
 
     procedure HandleCancelRequest(Params: TdwsJSONObject);
     procedure HandleProgress(Params: TdwsJSONObject);
@@ -194,6 +197,9 @@ begin
 
   // create document item list
   FTextDocumentItemList := TdwsTextDocumentItemList.Create;
+
+  // create request manager for concurrency control
+  FRequestManager := TRequestManager.Create;
 end;
 
 destructor TDWScriptLanguageServer.Destroy;
@@ -203,6 +209,9 @@ begin
 
   FTextDocumentItemList.Free;
   FTextDocumentItemList := nil;
+
+  FRequestManager.Free;
+  FRequestManager := nil;
 
   FServerCapabilities.Free;
   FClientCapabilities.Free;
@@ -315,18 +324,28 @@ end;
 procedure TDWScriptLanguageServer.HandleCancelRequest(Params: TdwsJSONObject);
 var
   CancelParams: TCancelParams;
+  ActiveRequest: TActiveRequest;
 begin
   CancelParams := TCancelParams.Create;
   try
     CancelParams.ReadFromJson(Params);
-    GetGlobalLogger.LogInfo(Format('Cancel request for ID %d (not yet supported)',
-      [CancelParams.ID]));
+
+    // Phase 0.3: Implement actual request cancellation with tracking
+    ActiveRequest := FRequestManager.GetActiveRequest(CancelParams.ID);
+    if Assigned(ActiveRequest) then
+    begin
+      FRequestManager.CancelRequest(CancelParams.ID);
+      GetGlobalLogger.LogInfo(Format('Cancelled request ID %d: %s',
+        [CancelParams.ID, ActiveRequest.Method]));
+    end
+    else
+      GetGlobalLogger.LogWarning(Format('Cancel request for unknown ID %d',
+        [CancelParams.ID]));
   finally
     CancelParams.Free;
   end;
 
   // Note: $/cancelRequest is a notification, no response needed
-  // TODO Phase 0.3: Implement actual request cancellation with tracking
 end;
 
 procedure TDWScriptLanguageServer.HandleProgress(Params: TdwsJSONObject);
@@ -465,6 +484,13 @@ begin
   // get source code for uri
   SourceCode := GetSourceCodeForUri(Uri);
 
+  // Phase 0.3: Check for cancellation before expensive operations
+  if IsCurrentRequestCancelled then
+  begin
+    GetGlobalLogger.LogInfo(Format('Compilation cancelled for URI: %s', [Uri]));
+    Exit;
+  end;
+
   if not IsProgram(SourceCode) then
     SourceCode := 'uses ' + GetUnitNameFromUri(Uri) + ';';
 
@@ -472,6 +498,13 @@ begin
   if SourceCode <> '' then
   begin
     Result := FDelphiWebScript.Compile(SourceCode);
+
+    // Phase 0.3: Check for cancellation after compilation
+    if IsCurrentRequestCancelled then
+    begin
+      GetGlobalLogger.LogInfo(Format('Compilation cancelled after compile for URI: %s', [Uri]));
+      Exit;
+    end;
 
     // Count errors and warnings manually
     if Assigned(Result) then
@@ -778,7 +811,9 @@ begin
     FRootUri := InitializeParams.RootUri;
 
     // Store client capabilities for feature negotiation
-    FClientCapabilities.CopyFrom(InitializeParams.ClientCapabilities);
+    // Note: Use ReadFromJson since TClientCapabilities doesn't have CopyFrom
+    if Assigned(Params['capabilities']) then
+      FClientCapabilities.ReadFromJson(Params['capabilities']);
 
     // Log initialization details
     GetGlobalLogger.LogInfo(Format('Initialize request from process %d, root: %s',
@@ -1205,13 +1240,32 @@ end;
 procedure TDWScriptLanguageServer.HandleTextDocumentDidClose(Params: TdwsJSONObject);
 var
   DidCloseTextDocumentParams: TDidCloseTextDocumentParams;
+  PublishDiagnosticsParams: TPublishDiagnosticsParams;
+  DiagnosticParams: TdwsJSONObject;
+  Uri: string;
 begin
   DidCloseTextDocumentParams := TDidCloseTextDocumentParams.Create;
   try
     DidCloseTextDocumentParams.ReadFromJson(Params);
+    Uri := DidCloseTextDocumentParams.TextDocument.Uri;
+
+    // Clear diagnostics for the closed document
+    PublishDiagnosticsParams := TPublishDiagnosticsParams.Create;
+    try
+      PublishDiagnosticsParams.Uri := Uri;
+      PublishDiagnosticsParams.Diagnostics.Clear;  // Empty diagnostics array
+
+      DiagnosticParams := TdwsJSONObject.Create;
+      PublishDiagnosticsParams.WriteToJson(DiagnosticParams);
+      SendNotification('textDocument/publishDiagnostics', DiagnosticParams);
+
+      GetGlobalLogger.LogDebug(Format('Cleared diagnostics for closed document: %s', [Uri]));
+    finally
+      PublishDiagnosticsParams.Free;
+    end;
 
     // remove text document from list
-    FTextDocumentItemList.RemoveUri(DidCloseTextDocumentParams.TextDocument.Uri);
+    FTextDocumentItemList.RemoveUri(Uri);
   finally
     DidCloseTextDocumentParams.Free;
   end;
@@ -2214,9 +2268,13 @@ var
   Params: TdwsJsonObject;
   StartTime: TDateTime;
   DurationMs: Int64;
+  ActiveRequest: TActiveRequest;
+  CanProcess: Boolean;
 begin
   StartTime := Now;
   Result := False;
+  ActiveRequest := nil;
+
   if Assigned(JsonRpc['id']) then
     FCurrentId := JsonRpc['id'].AsInteger;
 
@@ -2233,9 +2291,36 @@ begin
 
   Params := TdwsJsonObject(JsonRpc['params']);
 
+  // Phase 0.3: Start request tracking for requests with IDs
+  if Assigned(JsonRpc['id']) then
+  begin
+    ActiveRequest := FRequestManager.StartRequest(FCurrentId, Method, Params);
+
+    // Check if this request can be processed immediately or needs queueing
+    CanProcess := FRequestManager.CanProcessConcurrently(ActiveRequest) or
+                  not FRequestManager.ShouldQueue(ActiveRequest);
+
+    if not CanProcess then
+    begin
+      // Queue the request and exit - it will be processed later
+      FRequestManager.QueueRequest(ActiveRequest);
+      GetGlobalLogger.LogInfo(Format('Request %d queued: %s', [FCurrentId, Method]));
+      Exit;
+    end;
+
+    // Mark as processing
+    ActiveRequest.Status := rsProcessing;
+  end;
+
   // Handle initialize - only allowed in uninitialized state
   if Method = 'initialize' then
   begin
+    if not Assigned(Params) then
+    begin
+      GetGlobalLogger.LogError('initialize request missing params');
+      SendErrorResponse(ecInvalidParams, 'initialize requires params');
+      Exit;
+    end;
     HandleInitialize(Params);
     Exit;
   end
@@ -2413,6 +2498,65 @@ begin
   DurationMs := MilliSecondsBetween(Now, StartTime);
   if DurationMs > 100 then // Only log slow operations
     GetGlobalLogger.LogMetric(Method, DurationMs);
+
+  // Phase 0.3: Complete request tracking
+  if Assigned(ActiveRequest) then
+  begin
+    if ActiveRequest.Cancelled then
+      FRequestManager.CompleteRequest(FCurrentId, rsCancelled)
+    else
+      FRequestManager.CompleteRequest(FCurrentId, rsCompleted);
+
+    // Process any queued requests that can now be handled
+    ProcessQueuedRequests;
+  end;
+end;
+
+procedure TDWScriptLanguageServer.ProcessQueuedRequests;
+var
+  QueuedRequest: TActiveRequest;
+  JsonRpc: TdwsJSONObject;
+  Params: TdwsJSONObject;
+begin
+  // Process one queued request if available
+  QueuedRequest := FRequestManager.GetNextRequest;
+  if not Assigned(QueuedRequest) then
+    Exit;
+
+  // Set current ID for response handling
+  FCurrentId := QueuedRequest.RequestId;
+
+  // Create a mock JSON-RPC object for the queued request
+  JsonRpc := TdwsJSONObject.Create;
+  try
+    JsonRpc.AddValue('id', QueuedRequest.RequestId);
+    JsonRpc.AddValue('method', QueuedRequest.Method);
+
+    // For document operations, we need to reconstruct params with URI
+    if QueuedRequest.DocumentUri <> '' then
+    begin
+      Params := JsonRpc.AddObject('params');
+      Params.AddValue('uri', QueuedRequest.DocumentUri);
+    end;
+
+    GetGlobalLogger.LogInfo(Format('Processing queued request %d: %s',
+      [QueuedRequest.RequestId, QueuedRequest.Method]));
+
+    // Process the request using the existing handler
+    HandleJsonRpc(JsonRpc);
+  finally
+    JsonRpc.Free;
+  end;
+end;
+
+function TDWScriptLanguageServer.IsCurrentRequestCancelled: Boolean;
+var
+  ActiveRequest: TActiveRequest;
+begin
+  Result := False;
+  ActiveRequest := FRequestManager.GetActiveRequest(FCurrentId);
+  if Assigned(ActiveRequest) then
+    Result := ActiveRequest.Cancelled;
 end;
 
 function TDWScriptLanguageServer.Input(Body: string): Boolean;

@@ -150,6 +150,7 @@ Test/output/
 *.tmp
 *.temp
 *.cache
+__pycache__/
 
 # Environment files
 .env

@@ -28,7 +28,7 @@ type
     procedure ReadFromJson(const Value: TdwsJSONValue); override;
     procedure WriteToJson(const Value: TdwsJSONObject); override;
 
-    procedure AddDiagnostic(Line, Character: Integer; Severity: TDiagnosticSeverity; Message: string);
+    procedure AddDiagnostic(Line, Character: Integer; Severity: TDiagnosticSeverity; Message: string; Source: string = 'dwsc-compiler');
 
     property Uri: string read FUri write FUri;
     property Diagnostics: TDiagnostics read FDiagnostics write FDiagnostics;
@@ -95,7 +95,7 @@ begin
 end;
 
 procedure TPublishDiagnosticsParams.AddDiagnostic(Line, Character: Integer;
-  Severity: TDiagnosticSeverity; Message: string);
+  Severity: TDiagnosticSeverity; Message: string; Source: string = 'dwsc-compiler');
 var
   Diagnostic: TDiagnostic;
 begin
@@ -106,6 +106,7 @@ begin
   Diagnostic.Range.&End.Character := Character;
   Diagnostic.Severity := Severity;
   Diagnostic.Message := Message;
+  Diagnostic.Source := Source;  // Add source attribution
   Diagnostic.CodeAsString := 'dwsc';
   FDiagnostics.Add(Diagnostic);
 end;
