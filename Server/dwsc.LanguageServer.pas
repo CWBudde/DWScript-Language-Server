@@ -15,7 +15,8 @@ uses
   dwsc.Classes.Capabilities, dwsc.Classes.Workspace, dwsc.Classes.Settings,
   dwsc.Classes.BaseProtocol, dwsc.Classes.Basic, dwsc.Classes.Diagnostics,
   dwsc.Classes.LanguageFeatures, dwsc.Classes.TextSynchronization,
-  dwsc.Classes.Window, dwsc.Utils, dwsc.Logging, dwsc.RequestManager;
+  dwsc.Classes.Window, dwsc.Utils, dwsc.DocumentModel, dwsc.Logging, dwsc.RequestManager,
+  dwsc.Classes.WorkspaceIndex;
 
 type
   TOnOutput = procedure(const Output: string) of object;
@@ -48,7 +49,12 @@ type
 
     FSettings: TSettings;
     FTextDocumentItemList: TdwsTextDocumentItemList;
+    FDocumentModels: TDocumentModelList;
     FRequestManager: TRequestManager;
+
+    // Workspace indexing
+    FWorkspaceIndex: TWorkspaceIndex;
+    FWorkspaceIndexer: TWorkspaceIndexer;
 
     // Diagnostics debouncing
     FDiagnosticsLastChange: Cardinal;
@@ -138,6 +144,7 @@ type
     procedure HandleWorkspaceChangeWatchedFiles(Params: TdwsJSONObject);
     procedure HandleWorkspaceExecuteCommand(Params: TdwsJSONObject);
     procedure HandleWorkspaceSymbol(Params: TdwsJSONObject);
+    procedure HandleWorkspaceSymbolFallback(WorkspaceSymbolParams: TWorkspaceSymbolParams);
   public
     constructor Create;
     destructor Destroy; override;
@@ -202,8 +209,15 @@ begin
   // create document item list
   FTextDocumentItemList := TdwsTextDocumentItemList.Create;
 
+  // create document models list
+  FDocumentModels := TDocumentModelList.Create;
+
   // create request manager for concurrency control
   FRequestManager := TRequestManager.Create;
+
+  // create workspace index and indexer
+  FWorkspaceIndex := TWorkspaceIndex.Create;
+  FWorkspaceIndexer := TWorkspaceIndexer.Create(FWorkspaceIndex, Self);
 
   // initialize diagnostics debouncing
   FDiagnosticsLastChange := 0;
@@ -217,8 +231,17 @@ begin
   FTextDocumentItemList.Free;
   FTextDocumentItemList := nil;
 
+  FDocumentModels.Free;
+  FDocumentModels := nil;
+
   FRequestManager.Free;
   FRequestManager := nil;
+
+  FWorkspaceIndexer.Free;
+  FWorkspaceIndexer := nil;
+
+  FWorkspaceIndex.Free;
+  FWorkspaceIndex := nil;
 
   FServerCapabilities.Free;
   FClientCapabilities.Free;
@@ -493,6 +516,7 @@ var
   DurationMs: Int64;
   ErrorCount, WarningCount, I: Integer;
   Msg: TScriptMessage;
+  DocumentModel: TDocumentModel;
 begin
   StartTime := Now;
   Result := nil;
@@ -500,8 +524,30 @@ begin
   ErrorCount := 0;
   WarningCount := 0;
 
-  // get source code for uri
-  SourceCode := GetSourceCodeForUri(Uri);
+  // try to get document model first
+  DocumentModel := FDocumentModels[Uri];
+  if Assigned(DocumentModel) then
+  begin
+    // check if recompilation is needed
+    if not DocumentModel.NeedsRecompilation then
+    begin
+      Result := DocumentModel.CompiledProgram;
+      if Assigned(Result) then
+      begin
+        GetGlobalLogger.LogDebug(Format('Using cached compilation for URI: %s', [Uri]));
+        PublishDiagnostics(Result);
+        Exit;
+      end;
+    end;
+
+    // get source code from document model
+    SourceCode := DocumentModel.TextContent;
+  end
+  else
+  begin
+    // fallback to legacy method
+    SourceCode := GetSourceCodeForUri(Uri);
+  end;
 
   // Phase 0.3: Check for cancellation before expensive operations
   if IsCurrentRequestCancelled then
@@ -517,6 +563,10 @@ begin
   if SourceCode <> '' then
   begin
     Result := FDelphiWebScript.Compile(SourceCode);
+
+    // store compiled program in document model if available
+    if Assigned(DocumentModel) then
+      DocumentModel.SetCompiledProgram(Result);
 
     // Phase 0.3: Check for cancellation after compilation
     if IsCurrentRequestCancelled then
@@ -845,13 +895,37 @@ begin
 end;
 
 procedure TDWScriptLanguageServer.HandleInitialized;
+var
+  RootPath: string;
 begin
   FServerState := ssInitialized;
 
   GetGlobalLogger.LogInfo('Server initialized and ready to accept requests');
 
-  // TODO Phase 1: Trigger workspace indexing here
-  // IndexWorkspace(FRootUri);
+  // Start workspace indexing if we have a root URI
+  if FRootUri <> '' then
+  begin
+    try
+      RootPath := URIToFileName(FRootUri);
+      if DirectoryExists(RootPath) then
+      begin
+        GetGlobalLogger.LogInfo('Starting workspace indexing for: ' + FRootUri);
+
+        // Set up the workspace index
+        FWorkspaceIndex.SetRootUri(FRootUri);
+
+        // Start background indexing
+        FWorkspaceIndexer.StartWorkspaceIndexing(RootPath);
+      end
+      else
+        GetGlobalLogger.LogWarning('Root path does not exist: ' + RootPath);
+    except
+      on E: Exception do
+        GetGlobalLogger.LogError('Error starting workspace indexing: ' + E.Message);
+    end;
+  end
+  else
+    GetGlobalLogger.LogInfo('No root URI specified - workspace indexing disabled');
 end;
 
 procedure TDWScriptLanguageServer.HandleShutDown;
@@ -1229,29 +1303,41 @@ procedure TDWScriptLanguageServer.HandleTextDocumentDidChange(Params: TdwsJSONOb
 var
   DidChangeTextDocumentParams: TDidChangeTextDocumentParams;
   TextDocument: TdwsTextDocumentItem;
+  DocumentModel: TDocumentModel;
   Index: Integer;
   NewText: string;
+  Changes: array of TTextDocumentContentChangeEvent;
 begin
   DidChangeTextDocumentParams := TDidChangeTextDocumentParams.Create;
   try
     DidChangeTextDocumentParams.ReadFromJson(Params);
 
-    // locate text document
+    // locate text document (legacy)
     TextDocument := FTextDocumentItemList[DidChangeTextDocumentParams.TextDocument.Uri];
-
-    // exit if no text document has been found
     if not Assigned(TextDocument) then
       Exit;
 
-    // update version
+    // locate document model
+    DocumentModel := FDocumentModels[DidChangeTextDocumentParams.TextDocument.Uri];
+    if not Assigned(DocumentModel) then
+      Exit;
+
+    // update legacy text document version
     TextDocument.Version := DidChangeTextDocumentParams.TextDocument.Version;
 
-    // apply changes
+    // apply changes to legacy text document
     NewText := TextDocument.Text;
     for Index := 0 to DidChangeTextDocumentParams.ContentChanges.Count - 1 do
       NewText := ApplyTextEdit(NewText, DidChangeTextDocumentParams.ContentChanges[Index]);
-
     TextDocument.Text := NewText;
+
+    // prepare changes array for document model
+    SetLength(Changes, DidChangeTextDocumentParams.ContentChanges.Count);
+    for Index := 0 to DidChangeTextDocumentParams.ContentChanges.Count - 1 do
+      Changes[Index] := DidChangeTextDocumentParams.ContentChanges[Index];
+
+    // apply changes to document model
+    DocumentModel.ApplyTextChanges(Changes, DidChangeTextDocumentParams.TextDocument.Version);
 
     // debounce diagnostics
     FPendingDiagnosticsUri := TextDocument.Uri;
@@ -1290,6 +1376,9 @@ begin
 
     // remove text document from list
     FTextDocumentItemList.RemoveUri(Uri);
+
+    // remove document model from list
+    FDocumentModels.RemoveUri(Uri);
   finally
     DidCloseTextDocumentParams.Free;
   end;
@@ -1299,16 +1388,23 @@ procedure TDWScriptLanguageServer.HandleTextDocumentDidOpen(Params: TdwsJSONObje
 var
   DidOpenTextDocumentParams: TDidOpenTextDocumentParams;
   TextDocumentItem: TdwsTextDocumentItem;
+  DocumentModel: TDocumentModel;
 begin
   DidOpenTextDocumentParams := TDidOpenTextDocumentParams.Create;
   try
     DidOpenTextDocumentParams.ReadFromJson(Params);
 
-    // create text document item
+    // create text document item (legacy)
     TextDocumentItem := TdwsTextDocumentItem.Create(DidOpenTextDocumentParams.TextDocument);
-
-    // add to text document item list
     FTextDocumentItemList.Add(TextDocumentItem);
+
+    // create document model
+    DocumentModel := TDocumentModel.Create(
+      DidOpenTextDocumentParams.TextDocument.Uri,
+      DidOpenTextDocumentParams.TextDocument.Version,
+      DidOpenTextDocumentParams.TextDocument.Text
+    );
+    FDocumentModels.Add(DocumentModel);
 
     // trigger initial parse and diagnostics
     Compile(TextDocumentItem.Uri);
@@ -2216,11 +2312,75 @@ end;
 procedure TDWScriptLanguageServer.HandleWorkspaceChangeWatchedFiles(Params: TdwsJSONObject);
 var
   DidChangeWatchedFilesParams: TDidChangeWatchedFilesParams;
-  Result: TdwsJSONObject;
+  I: Integer;
+  FileEvent: TFileEvent;
+  Uri: string;
+  FileName: string;
+  SourceCode: string;
+  StringList: TStringList;
+  AProgram: IdwsProgram;
 begin
   DidChangeWatchedFilesParams := TDidChangeWatchedFilesParams.Create;
   try
     DidChangeWatchedFilesParams.ReadFromJson(Params);
+
+    // Process each file event
+    for I := 0 to DidChangeWatchedFilesParams.FileEvents.Count - 1 do
+    begin
+      FileEvent := DidChangeWatchedFilesParams.FileEvents[I];
+      Uri := FileEvent.Uri;
+
+      case FileEvent.&Type of
+        fcCreated, fcChanged:
+        begin
+          // File was created or modified - re-index it
+          try
+            FileName := URIToFileName(Uri);
+            if FileExists(FileName) then
+            begin
+              // Read file content
+              StringList := TStringList.Create;
+              try
+                StringList.LoadFromFile(FileName);
+                SourceCode := StringList.Text;
+
+                // Only index DWScript files
+                if (ExtractFileExt(FileName) = '.dws') or (ExtractFileExt(FileName) = '.pas') then
+                begin
+                  GetGlobalLogger.LogInfo('Re-indexing file: ' + Uri);
+
+                  // Mark file as dirty
+                  FWorkspaceIndex.MarkFileAsDirty(Uri);
+
+                  // Try to compile and index the file
+                  try
+                    AProgram := FDelphiWebScript.Compile(SourceCode);
+                    if Assigned(AProgram) then
+                      FWorkspaceIndex.IndexFile(Uri, AProgram);
+                  except
+                    on E: Exception do
+                      GetGlobalLogger.LogWarning('Error indexing file ' + Uri + ': ' + E.Message);
+                  end;
+                end;
+              finally
+                StringList.Free;
+              end;
+            end;
+          except
+            on E: Exception do
+              GetGlobalLogger.LogError('Error processing file change for ' + Uri + ': ' + E.Message);
+          end;
+        end;
+
+        fcDeleted:
+        begin
+          // File was deleted - remove from index
+          GetGlobalLogger.LogInfo('Removing file from index: ' + Uri);
+          FWorkspaceIndex.RemoveFile(Uri);
+        end;
+      end;
+    end;
+
   finally
     DidChangeWatchedFilesParams.Free;
   end;
@@ -2247,26 +2407,74 @@ procedure TDWScriptLanguageServer.HandleWorkspaceSymbol(Params: TdwsJSONObject);
 var
   WorkspaceSymbolParams: TWorkspaceSymbolParams;
   DocumentSymbolInformation: TDocumentSymbolInformation;
+  Result: TdwsJSONArray;
+  IndexedSymbols: TArray<TWorkspaceSymbolInfo>;
+  I: Integer;
+  SymbolInfo: TWorkspaceSymbolInfo;
+begin
+  WorkspaceSymbolParams := TWorkspaceSymbolParams.Create;
+  try
+    WorkspaceSymbolParams.ReadFromJson(Params);
+
+    // Use workspace index for fast symbol search if available
+    if Assigned(FWorkspaceIndex) and (FWorkspaceIndex.GetSymbolCount > 0) then
+    begin
+      IndexedSymbols := FWorkspaceIndex.FindSymbolsMatching(WorkspaceSymbolParams.Query, 100);
+
+      if Length(IndexedSymbols) > 0 then
+      begin
+        Result := TdwsJSONArray.Create;
+
+        for I := 0 to High(IndexedSymbols) do
+        begin
+          SymbolInfo := IndexedSymbols[I];
+          DocumentSymbolInformation := TDocumentSymbolInformation.Create;
+          try
+            DocumentSymbolInformation.Name := SymbolInfo.Name;
+            DocumentSymbolInformation.Kind := SymbolInfo.Kind;
+            DocumentSymbolInformation.Location.Uri := SymbolInfo.Uri;
+            DocumentSymbolInformation.Location.Range.Start.Line := SymbolInfo.Range.Start.Line;
+            DocumentSymbolInformation.Location.Range.Start.Character := SymbolInfo.Range.Start.Character;
+            DocumentSymbolInformation.Location.Range.&End.Line := SymbolInfo.Range.&End.Line;
+            DocumentSymbolInformation.Location.Range.&End.Character := SymbolInfo.Range.&End.Character;
+            DocumentSymbolInformation.WriteToJson(Result.AddObject);
+          finally
+            DocumentSymbolInformation.Free;
+          end;
+        end;
+
+        SendResponse(Result);
+      end
+      else
+        SendResponse; // No symbols found
+    end
+    else
+    begin
+      // Fallback to the old method if workspace index is not available
+      GetGlobalLogger.LogInfo('Workspace index not available, falling back to compilation-based symbol search');
+
+      // Use the original implementation with compilation
+      HandleWorkspaceSymbolFallback(WorkspaceSymbolParams);
+    end;
+
+  finally
+    WorkspaceSymbolParams.Free;
+  end;
+end;
+
+procedure TDWScriptLanguageServer.HandleWorkspaceSymbolFallback(WorkspaceSymbolParams: TWorkspaceSymbolParams);
+var
+  DocumentSymbolInformation: TDocumentSymbolInformation;
   Prog: IdwsProgram;
   SymbolPosList: TSymbolPositionList;
   SymbolPos: TSymbolPosition;
   Result: TdwsJSONArray;
 begin
-  Prog := nil;
+  Prog := CompileWorkspace;
   SymbolPosList := nil;
 
-  WorkspaceSymbolParams := TWorkspaceSymbolParams.Create;
-  try
-    WorkspaceSymbolParams.ReadFromJson(Params);
-
-    // compile the workspace
-    Prog := CompileWorkspace;
-
-    if Assigned(Prog) then
-      SymbolPosList := Prog.SymbolDictionary.FindSymbolPosList(WorkspaceSymbolParams.Query);
-  finally
-    WorkspaceSymbolParams.Free;
-  end;
+  if Assigned(Prog) then
+    SymbolPosList := Prog.SymbolDictionary.FindSymbolPosList(WorkspaceSymbolParams.Query);
 
   if Assigned(SymbolPosList) then
   begin

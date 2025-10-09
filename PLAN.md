@@ -109,31 +109,40 @@ Goal: Make document tracking incremental, reliable, and fast.
 
 ### 1.2 Per-Document Model
 
-- [ ] Create `TDocumentModel` class
-  - [ ] Store URI, version, text content
-  - [ ] Store parsed AST (link to `TdwsProgram` or equivalent)
-  - [ ] Store symbol table for the document
-  - [ ] Track dirty state (changed since last compile)
-- [ ] Implement incremental update logic
-  - [ ] Apply range edits to text
-  - [ ] Mark affected line ranges as dirty
-  - [ ] Re-parse dirty sections (or full document if complex)
+- [x] Create `TDocumentModel` class
+  - [x] Store URI, version, text content
+  - [x] Store parsed AST (link to `TdwsProgram` or equivalent)
+  - [x] Store symbol table for the document
+  - [x] Track dirty state (changed since last compile)
+- [x] Implement incremental update logic
+  - [x] Apply range edits to text
+  - [x] Mark affected line ranges as dirty
+  - [x] Re-parse dirty sections (or full document if complex)
 
-### 1.3 Workspace Indexing
-- [ ] Implement background indexer service
-  - [ ] Index all `.dws` and `.pas` files in workspace on startup
-  - [ ] Build global symbol table (types, functions, variables, units)
-  - [ ] Track dependencies via `uses` clauses
-  - [ ] Support incremental re-indexing on file changes
-- [ ] Implement `workspace/didChangeWatchedFiles`
-  - [ ] Watch `**/*.{dws,pas}` via client file watcher
-  - [ ] Re-index changed/created files
-  - [ ] Remove deleted files from index
-- [ ] Symbol table structure
-  - [ ] Map symbol names → locations (URI + range)
-  - [ ] Track symbol kinds (class, function, variable, etc.)
-  - [ ] Support cross-file references
-  - [ ] Index doc comments for hover tooltips
+### 1.3 Workspace Indexing ✅ **COMPLETE**
+
+**Status:** ✅ Full workspace indexing implementation completed
+
+**Completed:**
+- [x] Implement background indexer service
+  - [x] Index all `.dws` and `.pas` files in workspace on startup
+  - [x] Build global symbol table (types, functions, variables, units)
+  - [x] Track dependencies via `uses` clauses
+  - [x] Support incremental re-indexing on file changes
+- [x] Implement `workspace/didChangeWatchedFiles`
+  - [x] Watch `**/*.{dws,pas}` via client file watcher
+  - [x] Re-index changed/created files
+  - [x] Remove deleted files from index
+- [x] Symbol table structure
+  - [x] Map symbol names → locations (URI + range)
+  - [x] Track symbol kinds (class, function, variable, etc.)
+  - [x] Support cross-file references
+  - [ ] Index doc comments for hover tooltips (deferred to Phase 2)
+
+**Implementation Files:**
+- Created `Server/dwsc.Classes.WorkspaceIndex.pas` with full indexing infrastructure
+- Enhanced `Server/dwsc.LanguageServer.pas` with workspace index integration
+- Added `Tests/test_workspace_indexing.py` for validation
 
 ### 1.4 Project Model & Search Paths
 - [ ] Parse `dwsc.compilerSettings.libraryPaths` from configuration
@@ -856,5 +865,8 @@ Goal: Make document tracking incremental, reliable, and fast.
 ---
 
 **Last Updated:** 2025-10-09
-**Status:** Phase 1 in progress - TextDocumentSync completed (1.1), proceeding to Per-Document Model (1.2)
-**Testing Completed:** TCP/stdio transport binding (0.1) - discovered message handling issue
+**Status:** Phase 1 - Sections 1.1, 1.2, and 1.3 completed. Ready to proceed to Section 1.4 (Project Model & Search Paths)
+**Completed Sections:**
+  - ✅ 1.1 TextDocumentSync (Full incremental synchronization with debouncing)
+  - ✅ 1.2 Per-Document Model (Document tracking with TDocumentModel)
+  - ✅ 1.3 Workspace Indexing (Background indexing, file watching, symbol search)
