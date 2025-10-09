@@ -4,7 +4,7 @@
 	"description": "DWScript Language Server",
 	"author": "Christian-W. Budde",
 	"license": "GPL v3",
-	"version": "0.1.5",
+	"version": "0.2.0",
 	"publisher": "cwbudde",
 	"repository": {
 		"type": "git",
@@ -226,8 +226,10 @@
 	"bin": {
 		"dwsc": "./bin/dwsc.exe"
 	},
+	"devDependencies": {
+		"vscode": "^1.1.5"
+	},
 	"dependencies": {
-		"vscode": "^1.1.5",
 		"vscode-languageclient": "^3.4.2",
 		"vscode-languageserver": "^3.4.2"
 	},

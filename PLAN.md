@@ -144,15 +144,20 @@ Goal: Make document tracking incremental, reliable, and fast.
 - Enhanced `Server/dwsc.LanguageServer.pas` with workspace index integration
 - Added `Tests/test_workspace_indexing.py` for validation
 
-### 1.4 Project Model & Search Paths
-- [ ] Parse `dwsc.compilerSettings.libraryPaths` from configuration
-- [ ] Implement unit resolution
-  - [ ] Search for `.pas` files in library paths when resolving `uses`
-  - [ ] Cache resolved paths
-- [ ] Support `dwsc.compilerSettings.conditionalDefines`
-  - [ ] Track active defines per document
-  - [ ] Re-compile when defines change
-  - [ ] Show diagnostics for active branches only
+### 1.4 Project Model & Search Paths ✅ COMPLETE
+- [x] Parse `dwsc.compilerSettings.libraryPaths` from configuration
+- [x] Implement unit resolution
+  - [x] Search for `.pas` files in library paths when resolving `uses`
+  - [x] Cache resolved paths
+- [x] Support `dwsc.compilerSettings.conditionalDefines`
+  - [x] Track active defines and recompile on change
+  - [x] Show diagnostics for active branches only (via compiler conditionals)
+
+Implementation notes:
+- Added library path handling and unit path cache in `TDWScriptLanguageServer`.
+- Resolved units via `OnNeedUnit`: searches open docs first, then `.pas` in configured paths.
+- Library paths refresh on initialize and `workspace/didChangeConfiguration`.
+- Defines applied in `ConfigureCompiler`; on change, document models are invalidated and diagnostics are refreshed by recompiling open documents.
 
 ---
 

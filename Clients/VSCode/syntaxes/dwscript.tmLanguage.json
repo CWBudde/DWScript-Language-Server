@@ -24,6 +24,12 @@
 				},
 				{
 					"include": "#statement"
+				},
+				{
+					"include": "#generics"
+				},
+				{
+					"include": "#attributes"
 				}
 	],
 	"repository": {
@@ -66,33 +72,6 @@
 				},		
 				{
 					"include": "#finalization-section"
-				}]
-			}]
-		},
-
-		"unit": {
-			"patterns": [{
-				"name": "meta.unit.dwscript",
-				"begin": "\\b(?i:UNIT)*",
-				"beginCaptures": {
-					"0": {
-						"name": "keyword.filetype.dwscript"
-					}
-				},
-				"end": "(?<=end)\\.",
-				"endCaptures": {
-					"0": {
-						"name": "punctuation.terminator.unit.dwscript"
-					}
-				},
-				"patterns": [{
-					"include": "#directive"
-				},
-				{
-					"include": "#comments"
-				},		
-				{
-					"include": "#unit-continue"
 				}]
 			}]
 		},
@@ -467,7 +446,7 @@
 				},
 				{
 					"name": "keyword.dwscript",
-					"match": "\\b(?<!\\.)(?i:(ARRAY|ASM|CONST|DEPRECATED|ENSURE|ENUM|EXPORT|EXTERNAL|FLAGS|FORWARD|IMPLEMENTS|IMPLICIT|IMPLIES|INHERITED|INLINE|INVARIANTS|LAMBDA|LAZY|NAMESPACE|NEW|NIL|OF|OLD|ON|OPERATOR|RAISE|RECORD|REQUIRE|SET|STATIC|STRICT|TYPE|VAR))\\b(?![\\<\\\/(])"
+					"match": "\\b(?<!\\.)(?i:(ARRAY|ASM|CONST|DEPRECATED|ENSURE|ENUM|EXPORT|EXTERNAL|FLAGS|FORWARD|IMPLEMENTS|IMPLICIT|IMPLIES|INHERITED|INLINE|INVARIANTS|LAMBDA|LAZY|NAMESPACE|NEW|NIL|OF|OLD|ON|OPERATOR|RAISE|RECORD|REQUIRE|SET|STATIC|STRICT|TYPE|VAR|ATTRIBUTE))\\b(?![\\<\\\/(])"
 				},
 				{
 					"name": "keyword.dwscript",
@@ -544,6 +523,26 @@
 			"patterns": [{
 				"name": "storage.type.dwscript",
 				"match": "\\b(?i:(string|boolean|float|integer))\\b"
+			}]
+		},
+		"generics": {
+			"patterns": [{
+				"name": "meta.generic.dwscript",
+				"begin": "<",
+				"end": ">",
+				"patterns": [{
+					"include": "$self"
+				}]
+			}]
+		},
+		"attributes": {
+			"patterns": [{
+				"name": "meta.attribute.dwscript",
+				"begin": "\\[",
+				"end": "\\]",
+				"patterns": [{
+					"include": "$self"
+				}]
 			}]
 		}
 	}

@@ -60,6 +60,10 @@ type
     FDiagnosticsLastChange: Cardinal;
     FPendingDiagnosticsUri: string;
 
+    // Project model: library search paths and unit resolution cache
+    FLibrarySearchPaths: TStringList;
+    FUnitResolutionCache: TStringList; // name=value pairs: lower(UnitName)=full path
+
     {$IFDEF DEBUGLOG}
     procedure Log(const Text: string);
     {$ENDIF}
@@ -100,6 +104,13 @@ type
 
     procedure OnIncludeEventHandler(const ScriptName: string; var ScriptSource: string);
     function OnNeedUnitEventHandler(const UnitName: string; var UnitSource: string): IdwsUnit;
+
+    // Project model helpers
+    function GetWorkspaceRootPath: string;
+    procedure RefreshLibrarySearchPaths;
+    procedure ClearUnitResolutionCache;
+    function ResolveUnitFilePath(const UnitName: string): string;
+    procedure IndexerCollectAdditionalPaths(Paths: TStrings);
 
     function HandleJsonRpc(JsonRpc: TdwsJSONObject): Boolean;
     procedure ProcessQueuedRequests;
@@ -174,8 +185,8 @@ const
 
 { TDWScriptLanguageServer }
 
-constructor TDWScriptLanguageServer.Create;
-begin
+  constructor TDWScriptLanguageServer.Create;
+  begin
   // Initialize state
   FServerState := ssUninitialized;
   FProcessId := -1;
@@ -218,10 +229,18 @@ begin
   // create workspace index and indexer
   FWorkspaceIndex := TWorkspaceIndex.Create;
   FWorkspaceIndexer := TWorkspaceIndexer.Create(FWorkspaceIndex, Self);
+  FWorkspaceIndexer.OnGetAdditionalIndexPaths := IndexerCollectAdditionalPaths;
 
   // initialize diagnostics debouncing
   FDiagnosticsLastChange := 0;
-end;
+
+  // initialize project model structures
+  FLibrarySearchPaths := TStringList.Create;
+  FLibrarySearchPaths.CaseSensitive := False;
+  FUnitResolutionCache := TStringList.Create;
+  FUnitResolutionCache.CaseSensitive := False;
+  FUnitResolutionCache.NameValueSeparator := '=';
+  end;
 
 destructor TDWScriptLanguageServer.Destroy;
 begin
@@ -249,6 +268,10 @@ begin
   FJSCodeGenLib.Free;
   FJSCodeGen.Free;
   FDelphiWebScript.Free;
+
+  // free project model structures
+  FUnitResolutionCache.Free;
+  FLibrarySearchPaths.Free;
 
   inherited;
 end;
@@ -287,8 +310,125 @@ end;
 
 function TDWScriptLanguageServer.OnNeedUnitEventHandler(const UnitName: string;
   var UnitSource: string): IdwsUnit;
+var
+  FilePath: string;
+  SL: TStringList;
 begin
+  // 1) Try currently open documents first
   UnitSource := FTextDocumentItemList.SourceCode[UnitName];
+  if UnitSource <> '' then
+    Exit(nil);
+
+  // 2) Resolve from configured library search paths (.pas files)
+  try
+    FilePath := ResolveUnitFilePath(UnitName);
+    if (FilePath <> '') and FileExists(FilePath) then
+    begin
+      SL := TStringList.Create;
+      try
+        SL.LoadFromFile(FilePath);
+        UnitSource := SL.Text;
+      finally
+        SL.Free;
+      end;
+    end;
+  except
+    on E: Exception do
+      GetGlobalLogger.LogWarning('OnNeedUnit resolve error for ' + UnitName + ': ' + E.Message);
+  end;
+end;
+
+function TDWScriptLanguageServer.GetWorkspaceRootPath: string;
+begin
+  // Prefer RootPath if valid, otherwise derive from RootUri
+  if (FRootPath <> '') and DirectoryExists(FRootPath) then
+    Exit(FRootPath);
+  if FRootUri <> '' then
+    Exit(URIToFileName(FRootUri));
+  Result := '';
+end;
+
+procedure TDWScriptLanguageServer.RefreshLibrarySearchPaths;
+var
+  I: Integer;
+  PathItem: string;
+  Root: string;
+begin
+  FLibrarySearchPaths.Clear;
+  Root := GetWorkspaceRootPath;
+  if Assigned(FSettings) and Assigned(FSettings.CompilerSettings) then
+  begin
+    for I := 0 to FSettings.CompilerSettings.LibraryPaths.Count - 1 do
+    begin
+      PathItem := FSettings.CompilerSettings.LibraryPaths[I];
+      // Normalize relative paths against workspace root if available
+      if (Root <> '') and (ExtractFileDrive(PathItem) = '') and (not StartsText('\\', PathItem)) then
+        PathItem := IncludeTrailingPathDelimiter(Root) + PathItem;
+      PathItem := ExpandFileName(PathItem);
+      if DirectoryExists(PathItem) then
+        FLibrarySearchPaths.Add(ExcludeTrailingPathDelimiter(PathItem));
+    end;
+  end;
+end;
+
+procedure TDWScriptLanguageServer.ClearUnitResolutionCache;
+begin
+  FUnitResolutionCache.Clear;
+end;
+
+function TDWScriptLanguageServer.ResolveUnitFilePath(const UnitName: string): string;
+var
+  LowerName: string;
+  I: Integer;
+  Candidate: string;
+begin
+  Result := '';
+  LowerName := LowerCase(UnitName);
+
+  // Cached?
+  if FUnitResolutionCache.IndexOfName(LowerName) >= 0 then
+  begin
+    Result := FUnitResolutionCache.Values[LowerName];
+    if (Result <> '') and FileExists(Result) then
+      Exit
+    else
+      Result := '';
+  end;
+
+  // Search in configured library paths for .pas then .dws
+  for I := 0 to FLibrarySearchPaths.Count - 1 do
+  begin
+    Candidate := IncludeTrailingPathDelimiter(FLibrarySearchPaths[I]) + UnitName + '.pas';
+    if FileExists(Candidate) then
+    begin
+      Result := Candidate;
+      Break;
+    end
+    else
+    begin
+      Candidate := IncludeTrailingPathDelimiter(FLibrarySearchPaths[I]) + UnitName + '.dws';
+      if FileExists(Candidate) then
+      begin
+        Result := Candidate;
+        Break;
+      end;
+    end;
+  end;
+
+  // Cache result (may be empty to avoid repeated scans)
+  FUnitResolutionCache.Values[LowerName] := Result;
+end;
+
+procedure TDWScriptLanguageServer.IndexerCollectAdditionalPaths(Paths: TStrings);
+var
+  I: Integer;
+begin
+  if not Assigned(Paths) then Exit;
+  // Ensure library paths are up-to-date and add them for indexing
+  RefreshLibrarySearchPaths;
+  for I := 0 to FLibrarySearchPaths.Count - 1 do
+    if DirectoryExists(FLibrarySearchPaths[I]) then
+      Paths.Add(FLibrarySearchPaths[I]);
 end;
 
 procedure TDWScriptLanguageServer.CheckDiagnosticsDebounce;
@@ -913,6 +1053,9 @@ begin
 
         // Set up the workspace index
         FWorkspaceIndex.SetRootUri(FRootUri);
+
+        // Initialize library search paths based on current settings
+        RefreshLibrarySearchPaths;
 
         // Start background indexing
         FWorkspaceIndexer.StartWorkspaceIndexing(RootPath);
@@ -2300,10 +2443,69 @@ procedure TDWScriptLanguageServer.HandleWorkspaceChangeConfiguration(Params: Tdw
 var
   DidChangeConfigurationParams: TDidChangeConfigurationParams;
   Result: TdwsJSONObject;
+  OldDefines, NewDefines: string;
+  OldLibs, NewLibs: string;
+  I: Integer;
+  Item: TdwsTextDocumentItem;
+  Model: TDocumentModel;
 begin
   DidChangeConfigurationParams := TDidChangeConfigurationParams.Create;
   try
     DidChangeConfigurationParams.ReadFromJson(Params);
+
+  // Merge/process relevant compiler settings (1.4)
+  if Assigned(FSettings) and Assigned(DidChangeConfigurationParams) then
+  begin
+    // Snapshot previous state
+    OldDefines := FSettings.CompilerSettings.ConditionalDefines.Text;
+    OldLibs := FSettings.CompilerSettings.LibraryPaths.Text;
+
+    // Update FSettings from incoming settings (only compiler settings block is required for 1.4)
+    FSettings.CompilerSettings.Assertions := DidChangeConfigurationParams.Settings.CompilerSettings.Assertions;
+    FSettings.CompilerSettings.Optimizations := DidChangeConfigurationParams.Settings.CompilerSettings.Optimizations;
+    FSettings.CompilerSettings.HintsLevel := DidChangeConfigurationParams.Settings.CompilerSettings.HintsLevel;
+    FSettings.CompilerSettings.ConditionalDefines.Assign(DidChangeConfigurationParams.Settings.CompilerSettings.ConditionalDefines);
+    FSettings.CompilerSettings.LibraryPaths.Assign(DidChangeConfigurationParams.Settings.CompilerSettings.LibraryPaths);
+
+    // Apply compiler options (includes conditional defines)
+    ConfigureCompiler(FSettings);
+
+    // Refresh library search paths and clear unit cache if changed
+    NewLibs := FSettings.CompilerSettings.LibraryPaths.Text;
+    if OldLibs <> NewLibs then
+    begin
+      RefreshLibrarySearchPaths;
+      ClearUnitResolutionCache;
+      GetGlobalLogger.LogInfo('Library paths updated; unit resolution cache cleared');
+    end;
+
+    // If defines changed, mark open documents dirty and recompile to refresh diagnostics
+    NewDefines := FSettings.CompilerSettings.ConditionalDefines.Text;
+    if OldDefines <> NewDefines then
+    begin
+      GetGlobalLogger.LogInfo('Conditional defines changed; recompiling open documents');
+
+      // Mark all existing document models dirty
+      for I := 0 to FTextDocumentItemList.Count - 1 do
+      begin
+        Item := FTextDocumentItemList.Items[I];
+        if Assigned(Item) then
+        begin
+          Model := FDocumentModels[Item.Uri];
+          if Assigned(Model) then
+            Model.InvalidateAST;
+        end;
+      end;
+
+      // Recompile each open text document to publish updated diagnostics
+      for I := 0 to FTextDocumentItemList.Count - 1 do
+      begin
+        Item := FTextDocumentItemList.Items[I];
+        if Assigned(Item) then
+          Compile(Item.Uri);
+      end;
+    end;
+  end;
   finally
     DidChangeConfigurationParams.Free;
   end;

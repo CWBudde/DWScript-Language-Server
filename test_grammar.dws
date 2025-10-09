@@ -1,0 +1,86 @@
+// Test file for DWScript grammar
+program TestGrammar;
+
+uses
+  SysUtils, Math;
+
+type
+  TMyClass = class
+  private
+    FValue: Integer;
+  public
+    constructor Create(AValue: Integer);
+    property Value: Integer read FValue write FValue;
+    procedure DoSomething;
+    function Calculate(x, y: Float): Float;
+  end;
+
+  // Generic type
+  TList<T> = class
+  private
+    FItems: array of T;
+  public
+    procedure Add(const Item: T);
+    function Get(Index: Integer): T;
+  end;
+
+  // Attribute example
+  [TestAttribute('Sample')]
+  TAttributeClass = class
+  end;
+
+var
+  MyObject: TMyClass;
+  Numbers: TList<Integer>;
+  Message: String;
+
+// Constructor implementation
+constructor TMyClass.Create(AValue: Integer);
+begin
+  FValue := AValue;
+end;
+
+procedure TMyClass.DoSomething;
+var
+  I: Integer;
+  Lambda: procedure(x: Integer);
+begin
+  // Anonymous method example
+  Lambda := procedure(x: Integer)
+  begin
+    WriteLn('Value: ' + IntToStr(x));
+  end;
+
+  for I := 1 to 10 do
+  begin
+    if I mod 2 = 0 then
+      Lambda(I)
+    else
+      Continue;
+  end;
+end;
+
+function TMyClass.Calculate(x, y: Float): Float;
+begin
+  try
+    Result := Sqrt(x * x + y * y);
+  except
+    on E: Exception do
+    begin
+      WriteLn('Error: ' + E.Message);
+      Result := 0.0;
+    end;
+  end;
+end;
+
+// Main program
+begin
+  MyObject := TMyClass.Create(42);
+  try
+    MyObject.DoSomething;
+    Message := 'Result: ' + FloatToStr(MyObject.Calculate(3.0, 4.0));
+    WriteLn(Message);
+  finally
+    MyObject.Free;
+  end;
+end.

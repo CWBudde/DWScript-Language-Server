@@ -120,6 +120,8 @@ type
 
   // Progress callback for workspace indexing
   TIndexingProgressCallback = procedure(const Message: string; FilesProcessed, TotalFiles: Integer) of object;
+  // Callback to provide extra directories to index (e.g., library paths)
+  TGetAdditionalIndexPaths = procedure(Paths: TStrings) of object;
 
   // Background workspace indexer
   TWorkspaceIndexer = class
@@ -127,6 +129,7 @@ type
     FWorkspaceIndex: TWorkspaceIndex;
     FLanguageServer: Pointer; // TDWScriptLanguageServer - avoid circular reference
     FOnProgress: TIndexingProgressCallback;
+    FOnGetAdditionalIndexPaths: TGetAdditionalIndexPaths;
     FIsRunning: Boolean;
     FCancelled: Boolean;
     FFilesToIndex: TStringList;
@@ -147,6 +150,7 @@ type
 
     // Progress reporting
     property OnProgress: TIndexingProgressCallback read FOnProgress write FOnProgress;
+    property OnGetAdditionalIndexPaths: TGetAdditionalIndexPaths read FOnGetAdditionalIndexPaths write FOnGetAdditionalIndexPaths;
   end;
 
 implementation
@@ -627,6 +631,8 @@ begin
   FIsRunning := False;
   FCancelled := False;
   FFilesToIndex := TStringList.Create;
+  FFilesToIndex.Sorted := True;
+  FFilesToIndex.Duplicates := dupIgnore;
   FCurrentFileIndex := 0;
 end;
 
@@ -645,6 +651,7 @@ var
   AProgram: IdwsProgram;
   Dependencies: TStringList;
   StringList: TStringList;
+  ExtraPaths: TStringList;
 begin
   if FIsRunning then
     Exit;
@@ -659,6 +666,19 @@ begin
     // Find all DWScript files in workspace
     FFilesToIndex.Clear;
     FFilesToIndex.AddStrings(FindDWScriptFiles(RootPath));
+
+    // Include additional index paths (e.g., library search paths)
+    if Assigned(FOnGetAdditionalIndexPaths) then
+    begin
+      ExtraPaths := TStringList.Create;
+      try
+        FOnGetAdditionalIndexPaths(ExtraPaths);
+        for I := 0 to ExtraPaths.Count - 1 do
+          FFilesToIndex.AddStrings(FindDWScriptFiles(ExtraPaths[I]));
+      finally
+        ExtraPaths.Free;
+      end;
+    end;
 
     if Assigned(FOnProgress) then
       FOnProgress('Starting workspace indexing...', 0, FFilesToIndex.Count);
