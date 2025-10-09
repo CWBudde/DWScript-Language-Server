@@ -7,7 +7,7 @@ uses
   dwsc.Classes.Common, dwsc.Classes.BaseProtocol, dwsc.Classes.Basic,
   dwsc.Classes.Capabilities, dwsc.Classes.Workspace, dwsc.Classes.Document,
   dwsc.Classes.LanguageFeatures, dwsc.Classes.TextSynchronization,
-  dwsc.Classes.Diagnostics, dwsc.LanguageServer, dwsc.Client;
+  dwsc.Classes.Diagnostics, dwsc.LanguageServer, dwsc.Client, dwsc.Utils;
 
 type
   TTestLanguageServerClasses = class(TTestCase)
@@ -58,6 +58,22 @@ type
   published
     procedure TestGetUnitNameFromUri;
     procedure TestCheckProgram;
+    procedure TestApplyTextEdit_FullReplacement;
+    procedure TestApplyTextEdit_SingleLineEdit;
+    procedure TestApplyTextEdit_MultiLineEdit;
+    procedure TestApplyTextEdit_InsertAtStart;
+    procedure TestApplyTextEdit_DeleteAtEnd;
+    procedure TestApplyTextEdit_CRLFLineEndings;
+    procedure TestApplyTextEdit_LFLineEndings;
+    procedure TestApplyTextEdit_MixedLineEndings;
+    procedure TestApplyTextEdit_EmptyDocument;
+    procedure TestApplyTextEdit_BeyondDocumentEnd;
+    procedure TestLSPPositionToOffset_SingleLine;
+    procedure TestLSPPositionToOffset_MultiLine;
+    procedure TestLSPPositionToOffset_CRLF;
+    procedure TestOffsetToLSPPosition_SingleLine;
+    procedure TestOffsetToLSPPosition_MultiLine;
+    procedure TestOffsetToLSPPosition_CRLF;
   end;
 
   TTestLanguageServer = class(TTestCase)
@@ -1493,6 +1509,401 @@ const
 begin
   CheckTrue(IsProgram(CTestProgram));
   CheckFalse(IsProgram(CTestUnit));
+end;
+
+procedure TTestUtils.TestApplyTextEdit_FullReplacement;
+var
+  Change: TTextDocumentContentChangeEvent;
+  Result: string;
+begin
+  Change := TTextDocumentContentChangeEvent.Create;
+  try
+    Change.Text := 'new content';
+    // HasRange = false means full replacement
+    Result := ApplyTextEdit('old content', Change);
+    CheckEquals('new content', Result);
+  finally
+    Change.Free;
+  end;
+end;
+
+procedure TTestUtils.TestApplyTextEdit_SingleLineEdit;
+var
+  Change: TTextDocumentContentChangeEvent;
+  Result: string;
+  Source: string;
+begin
+  Source := 'Hello World';
+  Change := TTextDocumentContentChangeEvent.Create;
+  try
+    // Replace "World" with "Universe" (positions 6-11 with "Universe")
+    Change.Range := TRange.Create;
+    Change.Range.Start := TPosition.Create;
+    Change.Range.Start.Line := 0;
+    Change.Range.Start.Character := 6;
+    Change.Range.&End := TPosition.Create;
+    Change.Range.&End.Line := 0;
+    Change.Range.&End.Character := 11;
+    Change.Text := 'Universe';
+
+    Result := ApplyTextEdit(Source, Change);
+    CheckEquals('Hello Universe', Result);
+  finally
+    Change.Free;
+  end;
+end;
+
+procedure TTestUtils.TestApplyTextEdit_MultiLineEdit;
+var
+  Change: TTextDocumentContentChangeEvent;
+  Result: string;
+  Source: string;
+begin
+  Source := 'Line 1'#13#10'Line 2'#13#10'Line 3';
+  Change := TTextDocumentContentChangeEvent.Create;
+  try
+    // Replace "Line 2" with "Modified"
+    Change.Range := TRange.Create;
+    Change.Range.Start := TPosition.Create;
+    Change.Range.Start.Line := 1;
+    Change.Range.Start.Character := 0;
+    Change.Range.&End := TPosition.Create;
+    Change.Range.&End.Line := 1;
+    Change.Range.&End.Character := 6;
+    Change.Text := 'Modified';
+
+    Result := ApplyTextEdit(Source, Change);
+    CheckEquals('Line 1'#13#10'Modified'#13#10'Line 3', Result);
+  finally
+    Change.Free;
+  end;
+end;
+
+procedure TTestUtils.TestApplyTextEdit_InsertAtStart;
+var
+  Change: TTextDocumentContentChangeEvent;
+  Result: string;
+  Source: string;
+begin
+  Source := 'World';
+  Change := TTextDocumentContentChangeEvent.Create;
+  try
+    // Insert "Hello " at position 0,0
+    Change.Range := TRange.Create;
+    Change.Range.Start := TPosition.Create;
+    Change.Range.Start.Line := 0;
+    Change.Range.Start.Character := 0;
+    Change.Range.&End := TPosition.Create;
+    Change.Range.&End.Line := 0;
+    Change.Range.&End.Character := 0;
+    Change.Text := 'Hello ';
+
+    Result := ApplyTextEdit(Source, Change);
+    CheckEquals('Hello World', Result);
+  finally
+    Change.Free;
+  end;
+end;
+
+procedure TTestUtils.TestApplyTextEdit_DeleteAtEnd;
+var
+  Change: TTextDocumentContentChangeEvent;
+  Result: string;
+  Source: string;
+begin
+  Source := 'Hello World!';
+  Change := TTextDocumentContentChangeEvent.Create;
+  try
+    // Delete the "!" at the end
+    Change.Range := TRange.Create;
+    Change.Range.Start := TPosition.Create;
+    Change.Range.Start.Line := 0;
+    Change.Range.Start.Character := 11;
+    Change.Range.&End := TPosition.Create;
+    Change.Range.&End.Line := 0;
+    Change.Range.&End.Character := 12;
+    Change.Text := '';
+
+    Result := ApplyTextEdit(Source, Change);
+    CheckEquals('Hello World', Result);
+  finally
+    Change.Free;
+  end;
+end;
+
+procedure TTestUtils.TestApplyTextEdit_CRLFLineEndings;
+var
+  Change: TTextDocumentContentChangeEvent;
+  Result: string;
+  Source: string;
+begin
+  Source := 'Line 1'#13#10'Line 2'#13#10'Line 3';
+  Change := TTextDocumentContentChangeEvent.Create;
+  try
+    // Edit on line 1
+    Change.Range := TRange.Create;
+    Change.Range.Start := TPosition.Create;
+    Change.Range.Start.Line := 1;
+    Change.Range.Start.Character := 5;
+    Change.Range.&End := TPosition.Create;
+    Change.Range.&End.Line := 1;
+    Change.Range.&End.Character := 6;
+    Change.Text := 'X';
+
+    Result := ApplyTextEdit(Source, Change);
+    CheckEquals('Line 1'#13#10'Line X'#13#10'Line 3', Result);
+  finally
+    Change.Free;
+  end;
+end;
+
+procedure TTestUtils.TestApplyTextEdit_LFLineEndings;
+var
+  Change: TTextDocumentContentChangeEvent;
+  Result: string;
+  Source: string;
+begin
+  Source := 'Line 1'#10'Line 2'#10'Line 3';
+  Change := TTextDocumentContentChangeEvent.Create;
+  try
+    // Edit on line 1
+    Change.Range := TRange.Create;
+    Change.Range.Start := TPosition.Create;
+    Change.Range.Start.Line := 1;
+    Change.Range.Start.Character := 5;
+    Change.Range.&End := TPosition.Create;
+    Change.Range.&End.Line := 1;
+    Change.Range.&End.Character := 6;
+    Change.Text := 'X';
+
+    Result := ApplyTextEdit(Source, Change);
+    CheckEquals('Line 1'#10'Line X'#10'Line 3', Result);
+  finally
+    Change.Free;
+  end;
+end;
+
+procedure TTestUtils.TestApplyTextEdit_MixedLineEndings;
+var
+  Change: TTextDocumentContentChangeEvent;
+  Result: string;
+  Source: string;
+begin
+  Source := 'Line 1'#13#10'Line 2'#10'Line 3';
+  Change := TTextDocumentContentChangeEvent.Create;
+  try
+    // Edit on line 2 (after mixed line endings)
+    Change.Range := TRange.Create;
+    Change.Range.Start := TPosition.Create;
+    Change.Range.Start.Line := 2;
+    Change.Range.Start.Character := 0;
+    Change.Range.&End := TPosition.Create;
+    Change.Range.&End.Line := 2;
+    Change.Range.&End.Character := 4;
+    Change.Text := 'Test';
+
+    Result := ApplyTextEdit(Source, Change);
+    CheckEquals('Line 1'#13#10'Line 2'#10'Test 3', Result);
+  finally
+    Change.Free;
+  end;
+end;
+
+procedure TTestUtils.TestApplyTextEdit_EmptyDocument;
+var
+  Change: TTextDocumentContentChangeEvent;
+  Result: string;
+  Source: string;
+begin
+  Source := '';
+  Change := TTextDocumentContentChangeEvent.Create;
+  try
+    // Insert into empty document
+    Change.Range := TRange.Create;
+    Change.Range.Start := TPosition.Create;
+    Change.Range.Start.Line := 0;
+    Change.Range.Start.Character := 0;
+    Change.Range.&End := TPosition.Create;
+    Change.Range.&End.Line := 0;
+    Change.Range.&End.Character := 0;
+    Change.Text := 'New Content';
+
+    Result := ApplyTextEdit(Source, Change);
+    CheckEquals('New Content', Result);
+  finally
+    Change.Free;
+  end;
+end;
+
+procedure TTestUtils.TestApplyTextEdit_BeyondDocumentEnd;
+var
+  Change: TTextDocumentContentChangeEvent;
+  Result: string;
+  Source: string;
+begin
+  Source := 'Line 1';
+  Change := TTextDocumentContentChangeEvent.Create;
+  try
+    // Try to edit beyond document end (should append)
+    Change.Range := TRange.Create;
+    Change.Range.Start := TPosition.Create;
+    Change.Range.Start.Line := 10;  // Beyond end
+    Change.Range.Start.Character := 0;
+    Change.Range.&End := TPosition.Create;
+    Change.Range.&End.Line := 10;
+    Change.Range.&End.Character := 0;
+    Change.Text := 'Append';
+
+    Result := ApplyTextEdit(Source, Change);
+    CheckEquals('Line 1Append', Result);  // Should append at end
+  finally
+    Change.Free;
+  end;
+end;
+
+procedure TTestUtils.TestLSPPositionToOffset_SingleLine;
+var
+  Source: string;
+  Offset: Integer;
+begin
+  Source := 'Hello World';
+
+  // Position 0,0 should be offset 1 (start)
+  Offset := LSPPositionToOffset(Source, 0, 0);
+  CheckEquals(1, Offset);
+
+  // Position 0,6 should be offset 7 (start of "World")
+  Offset := LSPPositionToOffset(Source, 0, 6);
+  CheckEquals(7, Offset);
+
+  // Position 0,11 should be offset 12 (after last char)
+  Offset := LSPPositionToOffset(Source, 0, 11);
+  CheckEquals(12, Offset);
+end;
+
+procedure TTestUtils.TestLSPPositionToOffset_MultiLine;
+var
+  Source: string;
+  Offset: Integer;
+begin
+  Source := 'Line 1'#13#10'Line 2'#13#10'Line 3';
+
+  // Position 0,0 should be offset 1
+  Offset := LSPPositionToOffset(Source, 0, 0);
+  CheckEquals(1, Offset);
+
+  // Position 1,0 should be offset 9 (start of "Line 2")
+  Offset := LSPPositionToOffset(Source, 1, 0);
+  CheckEquals(9, Offset);
+
+  // Position 2,0 should be offset 17 (start of "Line 3")
+  Offset := LSPPositionToOffset(Source, 2, 0);
+  CheckEquals(17, Offset);
+
+  // Position 1,5 should be offset 14 (at '2' in "Line 2")
+  Offset := LSPPositionToOffset(Source, 1, 5);
+  CheckEquals(14, Offset);
+end;
+
+procedure TTestUtils.TestLSPPositionToOffset_CRLF;
+var
+  Source: string;
+  Offset: Integer;
+begin
+  Source := 'A'#13#10'B'#13#10'C';
+
+  // Position 0,0 = 'A' at offset 1
+  Offset := LSPPositionToOffset(Source, 0, 0);
+  CheckEquals(1, Offset);
+
+  // Position 1,0 = 'B' at offset 4 (after A + CRLF)
+  Offset := LSPPositionToOffset(Source, 1, 0);
+  CheckEquals(4, Offset);
+
+  // Position 2,0 = 'C' at offset 7
+  Offset := LSPPositionToOffset(Source, 2, 0);
+  CheckEquals(7, Offset);
+end;
+
+procedure TTestUtils.TestOffsetToLSPPosition_SingleLine;
+var
+  Source: string;
+  LSPLine, LSPChar: Integer;
+  Success: Boolean;
+begin
+  Source := 'Hello World';
+
+  // Offset 1 = position 0,0
+  Success := OffsetToLSPPosition(Source, 1, LSPLine, LSPChar);
+  CheckTrue(Success);
+  CheckEquals(0, LSPLine);
+  CheckEquals(0, LSPChar);
+
+  // Offset 7 = position 0,6 (start of "World")
+  Success := OffsetToLSPPosition(Source, 7, LSPLine, LSPChar);
+  CheckTrue(Success);
+  CheckEquals(0, LSPLine);
+  CheckEquals(6, LSPChar);
+
+  // Offset 12 = position 0,11 (after last char)
+  Success := OffsetToLSPPosition(Source, 12, LSPLine, LSPChar);
+  CheckTrue(Success);
+  CheckEquals(0, LSPLine);
+  CheckEquals(11, LSPChar);
+end;
+
+procedure TTestUtils.TestOffsetToLSPPosition_MultiLine;
+var
+  Source: string;
+  LSPLine, LSPChar: Integer;
+  Success: Boolean;
+begin
+  Source := 'Line 1'#13#10'Line 2'#13#10'Line 3';
+
+  // Offset 1 = position 0,0
+  Success := OffsetToLSPPosition(Source, 1, LSPLine, LSPChar);
+  CheckTrue(Success);
+  CheckEquals(0, LSPLine);
+  CheckEquals(0, LSPChar);
+
+  // Offset 9 = position 1,0 (start of "Line 2")
+  Success := OffsetToLSPPosition(Source, 9, LSPLine, LSPChar);
+  CheckTrue(Success);
+  CheckEquals(1, LSPLine);
+  CheckEquals(0, LSPChar);
+
+  // Offset 17 = position 2,0 (start of "Line 3")
+  Success := OffsetToLSPPosition(Source, 17, LSPLine, LSPChar);
+  CheckTrue(Success);
+  CheckEquals(2, LSPLine);
+  CheckEquals(0, LSPChar);
+end;
+
+procedure TTestUtils.TestOffsetToLSPPosition_CRLF;
+var
+  Source: string;
+  LSPLine, LSPChar: Integer;
+  Success: Boolean;
+begin
+  Source := 'A'#13#10'B'#13#10'C';
+
+  // Offset 1 = 'A' = position 0,0
+  Success := OffsetToLSPPosition(Source, 1, LSPLine, LSPChar);
+  CheckTrue(Success);
+  CheckEquals(0, LSPLine);
+  CheckEquals(0, LSPChar);
+
+  // Offset 4 = 'B' = position 1,0
+  Success := OffsetToLSPPosition(Source, 4, LSPLine, LSPChar);
+  CheckTrue(Success);
+  CheckEquals(1, LSPLine);
+  CheckEquals(0, LSPChar);
+
+  // Offset 7 = 'C' = position 2,0
+  Success := OffsetToLSPPosition(Source, 7, LSPLine, LSPChar);
+  CheckTrue(Success);
+  CheckEquals(2, LSPLine);
+  CheckEquals(0, LSPChar);
 end;
 
 

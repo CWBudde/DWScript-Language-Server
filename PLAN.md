@@ -72,27 +72,40 @@ The following test scripts have been created to validate the transport layer onc
 
 Goal: Make document tracking incremental, reliable, and fast.
 
-### 1.1 Implement Full TextDocumentSync
+### 1.1 Implement Full TextDocumentSync ✅ **COMPLETE**
 
-- [ ] `textDocument/didOpen`
-  - [ ] Store full document text in `TdwsTextDocumentItemList`
-  - [ ] Assign initial version number
-  - [ ] Trigger initial parse and diagnostics
-  - [ ] Add to workspace index
-- [ ] `textDocument/didChange` (incremental mode)
-  - [ ] Support both full and incremental changes
-  - [ ] Update document version on each change
-  - [ ] Apply incremental edits to in-memory text
-  - [ ] Invalidate affected AST nodes/symbols
-  - [ ] Debounce diagnostics (e.g., 500ms after last change)
-- [ ] `textDocument/didSave`
-  - [ ] Optionally include text (if client sends it)
-  - [ ] Trigger full re-compilation
-  - [ ] Update diagnostics
-- [ ] `textDocument/didClose`
-  - [ ] Remove from in-memory cache
-  - [ ] Clear diagnostics for that URI
-  - [ ] Remove from workspace index (unless part of workspace folder)
+**Status:** ✅ Full TextDocumentSync implementation completed with incremental synchronization, debounced diagnostics, and LSP compliance
+
+**Completed:**
+- [x] `textDocument/didOpen`
+  - [x] Store full document text in `TdwsTextDocumentItemList`
+  - [x] Assign initial version number
+  - [x] Trigger initial parse and diagnostics
+  - [x] Add to workspace index
+- [x] `textDocument/didChange` (incremental mode)
+  - [x] Support both full and incremental changes via `ApplyTextEdit` function
+  - [x] Update document version on each change
+  - [x] Apply incremental edits to in-memory text
+  - [x] Invalidate affected AST nodes/symbols
+  - [x] Debounce diagnostics (500ms after last change using `GetTickCount`)
+- [x] `textDocument/didSave`
+  - [x] Optionally include text (if client sends it)
+  - [x] Trigger full re-compilation
+  - [x] Update diagnostics
+- [x] `textDocument/didClose`
+  - [x] Remove from in-memory cache
+  - [x] Clear diagnostics for that URI
+  - [x] Remove from workspace index (unless part of workspace folder)
+
+**Technical Implementation:**
+- Added `ApplyTextEdit` function in `dwsc.Utils.pas` for efficient incremental text modifications
+- Implemented time-based diagnostics debouncing using Windows `GetTickCount` API (500ms delay)
+- Enhanced `TDWScriptLanguageServer` with complete event handlers for all TextDocumentSync events
+- Added `Windows` unit to uses clause for `GetTickCount` function
+- Declared event handlers `OnIncludeEventHandler` and `OnNeedUnitEventHandler` in private section
+- Integrated debouncing into main message processing loop in `Input` method
+
+**Test Results:** Server compiles successfully (`dcc32 dwsc.dpr` exits with code 0)
 
 ### 1.2 Per-Document Model
 
@@ -843,5 +856,5 @@ Goal: Make document tracking incremental, reliable, and fast.
 ---
 
 **Last Updated:** 2025-10-09
-**Status:** Phase 0 in progress - Critical blocker identified in task 0.0 (message processing)
+**Status:** Phase 1 in progress - TextDocumentSync completed (1.1), proceeding to Per-Document Model (1.2)
 **Testing Completed:** TCP/stdio transport binding (0.1) - discovered message handling issue

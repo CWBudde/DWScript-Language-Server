@@ -50,6 +50,10 @@ type
     FTextDocumentItemList: TdwsTextDocumentItemList;
     FRequestManager: TRequestManager;
 
+    // Diagnostics debouncing
+    FDiagnosticsLastChange: Cardinal;
+    FPendingDiagnosticsUri: string;
+
     {$IFDEF DEBUGLOG}
     procedure Log(const Text: string);
     {$ENDIF}
@@ -86,10 +90,10 @@ type
     procedure PublishDiagnostics(CompiledProgram: IdwsProgram);
     procedure ClearAllDiagnostics;
 
-    procedure OnIncludeEventHandler(const ScriptName: string;
-      var ScriptSource: string);
-    function OnNeedUnitEventHandler(const UnitName: string;
-      var UnitSource: string) : IdwsUnit;
+    procedure CheckDiagnosticsDebounce;
+
+    procedure OnIncludeEventHandler(const ScriptName: string; var ScriptSource: string);
+    function OnNeedUnitEventHandler(const UnitName: string; var UnitSource: string): IdwsUnit;
 
     function HandleJsonRpc(JsonRpc: TdwsJSONObject): Boolean;
     procedure ProcessQueuedRequests;
@@ -155,7 +159,7 @@ implementation
 
 uses
   StrUtils, Math, DateUtils, dwsStrings, dwsPascalTokenizer, dwsTokenizer,
-  dwsXXHash, dwsSuggestions, dwsTokenTypes, dwsContextMap;
+  dwsXXHash, dwsSuggestions, dwsTokenTypes, dwsContextMap, Windows;
 
 const
   SERVER_NAME = 'DWScript Language Server';
@@ -200,6 +204,9 @@ begin
 
   // create request manager for concurrency control
   FRequestManager := TRequestManager.Create;
+
+  // initialize diagnostics debouncing
+  FDiagnosticsLastChange := 0;
 end;
 
 destructor TDWScriptLanguageServer.Destroy;
@@ -259,6 +266,18 @@ function TDWScriptLanguageServer.OnNeedUnitEventHandler(const UnitName: string;
   var UnitSource: string): IdwsUnit;
 begin
   UnitSource := FTextDocumentItemList.SourceCode[UnitName];
+end;
+
+procedure TDWScriptLanguageServer.CheckDiagnosticsDebounce;
+const
+  DEBOUNCE_DELAY = 500; // 500ms
+begin
+  if (GetTickCount - FDiagnosticsLastChange >= DEBOUNCE_DELAY) and
+     (FPendingDiagnosticsUri <> '') then
+  begin
+    Compile(FPendingDiagnosticsUri);
+    FPendingDiagnosticsUri := '';
+  end;
 end;
 
 function ScriptMessageTypeToDiagnosticSeverity(ScriptMessage: TScriptMessage): TDiagnosticSeverity;
@@ -1211,6 +1230,7 @@ var
   DidChangeTextDocumentParams: TDidChangeTextDocumentParams;
   TextDocument: TdwsTextDocumentItem;
   Index: Integer;
+  NewText: string;
 begin
   DidChangeTextDocumentParams := TDidChangeTextDocumentParams.Create;
   try
@@ -1226,12 +1246,16 @@ begin
     // update version
     TextDocument.Version := DidChangeTextDocumentParams.TextDocument.Version;
 
-    // perform changes
+    // apply changes
+    NewText := TextDocument.Text;
     for Index := 0 to DidChangeTextDocumentParams.ContentChanges.Count - 1 do
-      if not DidChangeTextDocumentParams.ContentChanges[Index].HasRange then
-        TextDocument.Text := DidChangeTextDocumentParams.ContentChanges[Index].Text;
+      NewText := ApplyTextEdit(NewText, DidChangeTextDocumentParams.ContentChanges[Index]);
 
-    Compile(TextDocument.Uri);
+    TextDocument.Text := NewText;
+
+    // debounce diagnostics
+    FPendingDiagnosticsUri := TextDocument.Uri;
+    FDiagnosticsLastChange := GetTickCount;
   finally
     DidChangeTextDocumentParams.Free;
   end;
@@ -1285,6 +1309,9 @@ begin
 
     // add to text document item list
     FTextDocumentItemList.Add(TextDocumentItem);
+
+    // trigger initial parse and diagnostics
+    Compile(TextDocumentItem.Uri);
   finally
     FreeAndNil(DidOpenTextDocumentParams);
   end;
@@ -1298,7 +1325,11 @@ begin
   try
     DidSaveTextDocumentParams.ReadFromJson(Params);
 
-    // nothing in here so far
+    // clear pending diagnostics to avoid double compilation
+    FPendingDiagnosticsUri := '';
+
+    // trigger full re-compilation and update diagnostics
+    Compile(DidSaveTextDocumentParams.TextDocument.Uri);
   finally
     DidSaveTextDocumentParams.Free;
   end;
@@ -2574,6 +2605,9 @@ begin
     end;
 
     Result := HandleJsonRpc(JsonValue);
+
+    // Check for debounced diagnostics after processing each message
+    CheckDiagnosticsDebounce;
   finally
     JsonValue.Free;
   end;

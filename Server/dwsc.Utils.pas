@@ -3,7 +3,7 @@ unit dwsc.Utils;
 interface
 
 uses
-  dwsUtils, dwsTokenTypes, dwsc.Classes.Basic;
+  dwsUtils, dwsTokenTypes, dwsc.Classes.Basic, dwsc.Classes.TextSynchronization;
 
 type
   TdwsTextDocumentItem = class
@@ -42,12 +42,17 @@ function FileNameToURI(const FileName: string): string;
 function URIToFileName(const URI: string): string;
 function GetUnitNameFromUri(Uri: string): string;
 function IsProgram(SourceCode: string): Boolean;
+function ApplyTextEdit(const Source: string; const TextEdit: TTextDocumentContentChangeEvent): string;
+
+// LSP <-> DWScript position conversion helpers
+function LSPPositionToOffset(const Source: string; LSPLine, LSPChar: Integer): Integer;
+function OffsetToLSPPosition(const Source: string; Offset: Integer; out LSPLine, LSPChar: Integer): Boolean;
 
 implementation
 
 uses
   SysUtils, Windows, ComObj, WinInet, ShLwApi, dwsXXHash, dwsErrors,
-  dwsTokenizer, dwsPascalTokenizer, dwsScriptSource;
+  dwsTokenizer, dwsPascalTokenizer, dwsScriptSource, Classes;
 
 function FileNameToURI(const FileName: string): string;
 var
@@ -227,6 +232,141 @@ begin
       Extract(Index);
       Exit;
     end;
+  end;
+end;
+
+function ApplyTextEdit(const Source: string; const TextEdit: TTextDocumentContentChangeEvent): string;
+var
+  StartOffset, EndOffset: Integer;
+  SourceLen: Integer;
+  BeforeText, AfterText: string;
+begin
+  if not TextEdit.HasRange then
+  begin
+    // Full content replacement
+    Result := TextEdit.Text;
+    Exit;
+  end;
+
+  SourceLen := Length(Source);
+
+  // Convert LSP positions to string offsets using helper function
+  StartOffset := LSPPositionToOffset(Source, TextEdit.Range.Start.Line, TextEdit.Range.Start.Character);
+  EndOffset := LSPPositionToOffset(Source, TextEdit.Range.&End.Line, TextEdit.Range.&End.Character);
+
+  // Apply the edit
+  BeforeText := Copy(Source, 1, StartOffset - 1);
+  AfterText := Copy(Source, EndOffset, SourceLen - EndOffset + 1);
+
+  Result := BeforeText + TextEdit.Text + AfterText;
+end;
+
+function LSPPositionToOffset(const Source: string; LSPLine, LSPChar: Integer): Integer;
+var
+  CharIndex, CurrentLine, CurrentChar: Integer;
+  SourceLen: Integer;
+begin
+  // Convert LSP position (0-based line, 0-based UTF-16 character) to 1-based Delphi string offset
+  SourceLen := Length(Source);
+  Result := 1; // Default to start of string
+  CurrentLine := 0;
+  CurrentChar := 0;
+  CharIndex := 1;
+
+  while CharIndex <= SourceLen do
+  begin
+    // Check if we've reached the target position
+    if CurrentLine = LSPLine then
+    begin
+      if CurrentChar = LSPChar then
+      begin
+        Result := CharIndex;
+        Exit;
+      end;
+      Inc(CurrentChar);
+    end;
+
+    // Check for line breaks
+    if Source[CharIndex] = #13 then
+    begin
+      Inc(CurrentLine);
+      CurrentChar := 0;
+      // Skip LF if CRLF
+      if (CharIndex < SourceLen) and (Source[CharIndex + 1] = #10) then
+        Inc(CharIndex);
+    end
+    else if Source[CharIndex] = #10 then
+    begin
+      Inc(CurrentLine);
+      CurrentChar := 0;
+    end;
+
+    Inc(CharIndex);
+  end;
+
+  // If we didn't find the position, return end of string + 1
+  if CurrentLine < LSPLine then
+    Result := SourceLen + 1;
+end;
+
+function OffsetToLSPPosition(const Source: string; Offset: Integer; out LSPLine, LSPChar: Integer): Boolean;
+var
+  CharIndex, CurrentLine, CurrentChar: Integer;
+  SourceLen: Integer;
+begin
+  // Convert 1-based Delphi string offset to LSP position (0-based line, 0-based UTF-16 character)
+  Result := False;
+  SourceLen := Length(Source);
+
+  // Validate offset
+  if (Offset < 1) or (Offset > SourceLen + 1) then
+  begin
+    LSPLine := 0;
+    LSPChar := 0;
+    Exit;
+  end;
+
+  CurrentLine := 0;
+  CurrentChar := 0;
+  CharIndex := 1;
+
+  while CharIndex <= SourceLen do
+  begin
+    // Check if we've reached the target offset
+    if CharIndex = Offset then
+    begin
+      LSPLine := CurrentLine;
+      LSPChar := CurrentChar;
+      Result := True;
+      Exit;
+    end;
+
+    // Check for line breaks
+    if Source[CharIndex] = #13 then
+    begin
+      Inc(CurrentLine);
+      CurrentChar := 0;
+      // Skip LF if CRLF
+      if (CharIndex < SourceLen) and (Source[CharIndex + 1] = #10) then
+        Inc(CharIndex);
+    end
+    else if Source[CharIndex] = #10 then
+    begin
+      Inc(CurrentLine);
+      CurrentChar := 0;
+    end
+    else
+      Inc(CurrentChar);
+
+    Inc(CharIndex);
+  end;
+
+  // Handle offset at end of string
+  if Offset = SourceLen + 1 then
+  begin
+    LSPLine := CurrentLine;
+    LSPChar := CurrentChar;
+    Result := True;
   end;
 end;
 
